@@ -90,6 +90,7 @@ import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.presentation.screens.TabAnimation
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import com.theveloper.pixelplay.ui.theme.ShapeCache
 import kotlinx.coroutines.flow.map
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
@@ -350,11 +351,36 @@ fun SongPickerSelectionPane(
             FilterChip(
                 selected = favoritesOnly,
                 onClick = { favoritesOnly = !favoritesOnly },
-                label = { Text(stringResource(R.string.song_picker_filter_favorites)) },
-                shape = CircleShape,
+                label = {
+                    Text(
+                        text = stringResource(R.string.song_picker_filter_favorites),
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = if (favoritesOnly) FontWeight.Bold else FontWeight.Medium
+                    )
+                },
+                shape = if (favoritesOnly) ShapeCache.smooth12 else ShapeCache.smoothPill,
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = favoritesOnly,
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = Color.Transparent,
+                    borderWidth = 0.dp,
+                    selectedBorderWidth = 0.dp
+                ),
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
                 leadingIcon = {
                     Icon(
-                        painter = painterResource(R.drawable.round_favorite_24),
+                        painter = painterResource(
+                            if (favoritesOnly) R.drawable.round_favorite_24
+                            else R.drawable.round_favorite_border_24
+                        ),
                         contentDescription = null,
                         modifier = Modifier.size(FilterChipDefaults.IconSize)
                     )
