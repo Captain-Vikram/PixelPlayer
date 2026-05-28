@@ -261,33 +261,38 @@ class DualPlayerEngine @Inject constructor(
 
             // --- Pre-Resolve Next/Prev Tracks with Debounce to prevent flooding ---
             preResolutionJob?.cancel()
-            preResolutionJob = scope.launch {
-                delay(600) // Wait for user to stop skipping/navigating
-                try {
-                    val currentIndex = playerA.currentMediaItemIndex
-                    if (currentIndex != C.INDEX_UNSET) {
-                        val itemsToPreResolve = mutableListOf<Uri>()
-                        
-                        if (currentIndex + 1 < playerA.mediaItemCount) {
-                            playerA.getMediaItemAt(currentIndex + 1).localConfiguration?.uri?.let { 
-                                itemsToPreResolve.add(it) 
-                            }
-                        }
-                        if (currentIndex - 1 >= 0) {
-                            playerA.getMediaItemAt(currentIndex - 1).localConfiguration?.uri?.let { 
-                                itemsToPreResolve.add(it) 
-                            }
-                        }
+            // Battery: skip scheduling entirely for local-only neighbours.
+            // Pre-resolution only does meaningful work for cloud schemes (telegram,
+            // netease, qqmusic, navidrome, jellyfin, gdrive). For libraries with
+            // no cloud sources around the current index, the 600 ms delay + Main
+            // dispatch + scope.launch is pure overhead repeated on every track
+            // change. Snapshot the adjacent URIs synchronously so we can early-
+            // return before paying for the coroutine.
+            val currentIndex = playerA.currentMediaItemIndex
+            if (currentIndex != C.INDEX_UNSET) {
+                val adjacentCloudUris = mutableListOf<Uri>()
+                if (currentIndex + 1 < playerA.mediaItemCount) {
+                    playerA.getMediaItemAt(currentIndex + 1).localConfiguration?.uri?.let { uri ->
+                        if (uri.scheme in REMOTE_MEDIA_SCHEMES) adjacentCloudUris.add(uri)
+                    }
+                }
+                if (currentIndex - 1 >= 0) {
+                    playerA.getMediaItemAt(currentIndex - 1).localConfiguration?.uri?.let { uri ->
+                        if (uri.scheme in REMOTE_MEDIA_SCHEMES) adjacentCloudUris.add(uri)
+                    }
+                }
 
-                        for (uriToResolve in itemsToPreResolve) {
-                            val scheme = uriToResolve.scheme
-                            if (scheme == "telegram" || scheme == "netease" || scheme == "qqmusic" || scheme == "navidrome" || scheme == "jellyfin" || scheme == "gdrive") {
+                if (adjacentCloudUris.isNotEmpty()) {
+                    preResolutionJob = scope.launch {
+                        delay(600) // Wait for user to stop skipping/navigating
+                        try {
+                            for (uriToResolve in adjacentCloudUris) {
                                 resolveCloudUri(uriToResolve)
                             }
+                        } catch (e: Exception) {
+                            Timber.tag("DualPlayerEngine").w(e, "Error during pre-resolution in onMediaItemTransition")
                         }
                     }
-                } catch (e: Exception) {
-                    Timber.tag("DualPlayerEngine").w(e, "Error during pre-resolution in onMediaItemTransition")
                 }
             }
         }
