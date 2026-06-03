@@ -67,7 +67,8 @@ private const val SONG_DETAIL_PROJECTION = """
     songs.telegram_chat_id AS telegram_chat_id,
     songs.telegram_file_id AS telegram_file_id,
     songs.artists_json AS artists_json,
-    songs.source_type AS source_type
+    songs.source_type AS source_type,
+    songs.extension_id AS extension_id
 """
 
 // Projection for list queries: excludes lyrics to prevent CursorWindow overflow (2MB limit)
@@ -77,7 +78,7 @@ private const val SONG_LIST_PROJECTION = """
     content_uri_string, album_art_uri_string, duration, genre, file_path,
     parent_directory_path, is_favorite, NULL AS lyrics, track_number, disc_number,
     year, date_added, mime_type, bitrate, sample_rate, telegram_chat_id,
-    telegram_file_id, artists_json, source_type
+    telegram_file_id, artists_json, source_type, extension_id
 """
 
 data class DeviceCapabilitySongRow(
@@ -139,7 +140,7 @@ interface MusicDao {
     @Update
     suspend fun updateArtists(artists: List<ArtistEntity>)
 
-    @Query("SELECT * FROM artists WHERE id IN (:artistIds)")
+    @Query("SELECT *, extension_id AS extension_id FROM artists WHERE id IN (:artistIds)")
     suspend fun getArtistsByIds(artistIds: List<Long>): List<ArtistEntity>
 
     @Transaction
@@ -645,7 +646,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND source_type != 0
+                AND (:extensionId IS NULL AND source_type != 0 OR :extensionId IS NOT NULL AND extension_id = :extensionId)
             )
         )
         ORDER BY parent_directory_path ASC, title ASC
@@ -653,7 +654,8 @@ interface MusicDao {
     fun getFolderSongs(
         allowedParentDirs: List<String> = emptyList(),
         applyDirectoryFilter: Boolean = false,
-        filterMode: Int
+        filterMode: Int,
+        extensionId: String? = null
     ): Flow<List<FolderSongRow>>
 
     @Query("""
@@ -667,7 +669,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND source_type != 0
+                AND (:extensionId IS NULL AND source_type != 0 OR :extensionId IS NOT NULL AND extension_id = :extensionId)
             )
         )
         ORDER BY
@@ -689,7 +691,8 @@ interface MusicDao {
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         sortOrder: String,
-        filterMode: Int
+        filterMode: Int,
+        extensionId: String? = null
     ): List<Long>
 
     @Query("""
@@ -704,7 +707,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND songs.extension_id = :extensionId)
             )
         )
         ORDER BY
@@ -723,7 +726,8 @@ interface MusicDao {
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         sortOrder: String,
-        filterMode: Int
+        filterMode: Int,
+        extensionId: String? = null
     ): List<Long>
 
     // --- Paginated Queries for Large Libraries ---
@@ -742,7 +746,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND source_type != 0
+                AND (:extensionId IS NULL AND source_type != 0 OR :extensionId IS NOT NULL AND extension_id = :extensionId)
             )
         )
         ORDER BY
@@ -766,7 +770,8 @@ interface MusicDao {
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         sortOrder: String,
-        filterMode: Int
+        filterMode: Int,
+        extensionId: String? = null
     ): PagingSource<Int, SongEntity>
 
     @Query("""
@@ -781,7 +786,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND source_type != 0
+                AND (:extensionId IS NULL AND source_type != 0 OR :extensionId IS NOT NULL AND extension_id = :extensionId)
             )
         )
         ORDER BY
@@ -805,6 +810,7 @@ interface MusicDao {
         applyDirectoryFilter: Boolean,
         sortOrder: String,
         filterMode: Int,
+        extensionId: String? = null,
         limit: Int,
         offset: Int
     ): List<SongEntity>
@@ -826,7 +832,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND songs.extension_id = :extensionId)
             )
         )
         ORDER BY
@@ -845,7 +851,8 @@ interface MusicDao {
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         sortOrder: String,
-        filterMode: Int
+        filterMode: Int,
+        extensionId: String? = null
     ): PagingSource<Int, SongEntity>
 
     /**
@@ -863,7 +870,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND songs.extension_id = :extensionId)
             )
         )
         ORDER BY songs.title COLLATE NOCASE ASC
@@ -871,7 +878,8 @@ interface MusicDao {
     suspend fun getFavoriteSongsList(
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
-        filterMode: Int
+        filterMode: Int,
+        extensionId: String? = null
     ): List<SongEntity>
 
     @Query("""
@@ -887,7 +895,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND songs.extension_id = :extensionId)
             )
         )
         ORDER BY
@@ -908,6 +916,7 @@ interface MusicDao {
         applyDirectoryFilter: Boolean,
         sortOrder: String,
         filterMode: Int,
+        extensionId: String? = null,
         limit: Int,
         offset: Int
     ): List<SongEntity>
@@ -927,14 +936,15 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND songs.extension_id = :extensionId)
             )
         )
     """)
     fun getFavoriteSongCount(
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
-        filterMode: Int
+        filterMode: Int,
+        extensionId: String? = null
     ): Flow<Int>
 
     // --- Paginated Search Query ---
@@ -1079,7 +1089,8 @@ interface MusicDao {
             albums.album_art_uri_string AS album_art_uri_string,
             COUNT(songs.id) AS song_count,
             albums.date_added AS date_added,
-            albums.year AS year
+            albums.year AS year,
+            albums.extension_id AS extension_id
         FROM songs
         INNER JOIN albums ON albums.id = songs.album_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
@@ -1091,7 +1102,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND albums.extension_id = :extensionId)
             )
         )
         GROUP BY
@@ -1110,6 +1121,7 @@ interface MusicDao {
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         filterMode: Int,
+        extensionId: String? = null,
         minTracks: Int
     ): Flow<List<AlbumEntity>>
 
@@ -1123,7 +1135,8 @@ interface MusicDao {
             albums.album_art_uri_string AS album_art_uri_string,
             COUNT(songs.id) AS song_count,
             albums.date_added AS date_added,
-            albums.year AS year
+            albums.year AS year,
+            albums.extension_id AS extension_id
         FROM songs
         INNER JOIN albums ON albums.id = songs.album_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
@@ -1135,7 +1148,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND albums.extension_id = :extensionId)
             )
         )
         GROUP BY
@@ -1166,6 +1179,7 @@ interface MusicDao {
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         filterMode: Int,
+        extensionId: String? = null,
         sortOrder: String,
         minTracks: Int
     ): PagingSource<Int, AlbumEntity>
@@ -1180,7 +1194,8 @@ interface MusicDao {
             albums.album_art_uri_string AS album_art_uri_string,
             COUNT(songs.id) AS song_count,
             albums.date_added AS date_added,
-            albums.year AS year
+            albums.year AS year,
+            albums.extension_id AS extension_id
         FROM songs
         INNER JOIN albums ON albums.id = songs.album_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
@@ -1192,7 +1207,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND albums.extension_id = :extensionId)
             )
         )
         GROUP BY
@@ -1224,6 +1239,7 @@ interface MusicDao {
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         filterMode: Int,
+        extensionId: String? = null,
         sortOrder: String,
         minTracks: Int,
         limit: Int,
@@ -1244,7 +1260,8 @@ interface MusicDao {
                 WHERE songs.album_id = albums.id
             ) AS song_count,
             albums.date_added AS date_added,
-            albums.year AS year
+            albums.year AS year,
+            albums.extension_id AS extension_id
         FROM albums
         WHERE albums.id = :albumId
         LIMIT 1
@@ -1265,7 +1282,8 @@ interface MusicDao {
                 WHERE songs.album_id = albums.id
             ) AS song_count,
             albums.date_added AS date_added,
-            albums.year AS year
+            albums.year AS year,
+            albums.extension_id AS extension_id
         FROM albums
         WHERE albums.title LIKE '%' || :query || '%'
         AND song_count >= :minTracks
@@ -1287,7 +1305,8 @@ interface MusicDao {
             albums.album_art_uri_string AS album_art_uri_string,
             COUNT(songs.id) AS song_count,
             albums.date_added AS date_added,
-            albums.year AS year
+            albums.year AS year,
+            albums.extension_id AS extension_id
         FROM songs
         INNER JOIN albums ON albums.id = songs.album_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
@@ -1319,7 +1338,8 @@ interface MusicDao {
             albums.album_art_uri_string AS album_art_uri_string,
             COUNT(songs.id) AS song_count,
             albums.date_added AS date_added,
-            albums.year AS year
+            albums.year AS year,
+            albums.extension_id AS extension_id
         FROM albums
         LEFT JOIN songs ON albums.id = songs.album_id
         WHERE albums.artist_id = :artistId
@@ -1346,7 +1366,8 @@ interface MusicDao {
             albums.album_art_uri_string AS album_art_uri_string,
             COUNT(songs.id) AS song_count,
             albums.date_added AS date_added,
-            albums.year AS year
+            albums.year AS year,
+            albums.extension_id AS extension_id
         FROM songs
         INNER JOIN albums ON albums.id = songs.album_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
@@ -1372,7 +1393,7 @@ interface MusicDao {
 
     // --- Artist Queries ---
     @Query("""
-        SELECT DISTINCT artists.* FROM artists
+        SELECT DISTINCT artists.*, artists.extension_id AS extension_id FROM artists
         INNER JOIN songs ON artists.id = songs.artist_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
         ORDER BY artists.name ASC
@@ -1384,6 +1405,7 @@ interface MusicDao {
 
     @Query("""
         SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
+               artists.extension_id AS extension_id,
                COUNT(DISTINCT songs.id) AS track_count
         FROM songs
         INNER JOIN song_artist_cross_ref ON song_artist_cross_ref.song_id = songs.id
@@ -1397,7 +1419,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND artists.extension_id = :extensionId)
             )
         )
         GROUP BY artists.id
@@ -1413,11 +1435,13 @@ interface MusicDao {
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         filterMode: Int,
+        extensionId: String? = null,
         sortOrder: String
     ): PagingSource<Int, ArtistEntity>
 
     @Query("""
         SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
+               artists.extension_id AS extension_id,
                COUNT(DISTINCT songs.id) AS track_count
         FROM songs
         INNER JOIN song_artist_cross_ref ON song_artist_cross_ref.song_id = songs.id
@@ -1431,7 +1455,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND artists.extension_id = :extensionId)
             )
         )
         GROUP BY artists.id
@@ -1448,6 +1472,7 @@ interface MusicDao {
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
         filterMode: Int,
+        extensionId: String? = null,
         sortOrder: String,
         limit: Int,
         offset: Int
@@ -1456,13 +1481,13 @@ interface MusicDao {
     /**
      * Unfiltered list of all artists (including those only reachable via cross-refs).
      */
-    @Query("SELECT * FROM artists ORDER BY name ASC")
+    @Query("SELECT *, extension_id AS extension_id FROM artists ORDER BY name ASC")
     fun getAllArtistsRaw(): Flow<List<ArtistEntity>>
 
-    @Query("SELECT * FROM artists WHERE id = :artistId")
+    @Query("SELECT *, extension_id AS extension_id FROM artists WHERE id = :artistId")
     fun getArtistById(artistId: Long): Flow<ArtistEntity?>
 
-    @Query("SELECT * FROM artists WHERE name LIKE '%' || :query || '%' ORDER BY name ASC")
+    @Query("SELECT *, extension_id AS extension_id FROM artists WHERE name LIKE '%' || :query || '%' ORDER BY name ASC")
     fun searchArtists(query: String): Flow<List<ArtistEntity>>
 
     @Query("SELECT COUNT(*) FROM artists")
@@ -1470,7 +1495,7 @@ interface MusicDao {
 
     // Version of getArtists that returns a List for one-shot reads
     @Query("""
-        SELECT DISTINCT artists.* FROM artists
+        SELECT DISTINCT artists.*, artists.extension_id AS extension_id FROM artists
         INNER JOIN songs ON artists.id = songs.artist_id
         WHERE (:applyDirectoryFilter = 0 OR songs.id < 0 OR songs.parent_directory_path IN (:allowedParentDirs))
         ORDER BY artists.name ASC
@@ -1483,11 +1508,12 @@ interface MusicDao {
     /**
      * Unfiltered list of all artists (one-shot).
      */
-    @Query("SELECT * FROM artists ORDER BY name ASC")
+    @Query("SELECT *, extension_id AS extension_id FROM artists ORDER BY name ASC")
     suspend fun getAllArtistsListRaw(): List<ArtistEntity>
 
     @Query("""
         SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
+               artists.extension_id AS extension_id,
                COUNT(DISTINCT songs.id) AS track_count
         FROM songs
         INNER JOIN song_artist_cross_ref ON song_artist_cross_ref.song_id = songs.id
@@ -1729,7 +1755,7 @@ interface MusicDao {
      * Get all artists for a specific song using the junction table.
      */
     @Query("""
-        SELECT artists.* FROM artists
+        SELECT artists.*, artists.extension_id AS extension_id FROM artists
         INNER JOIN song_artist_cross_ref ON artists.id = song_artist_cross_ref.artist_id
         WHERE song_artist_cross_ref.song_id = :songId
         ORDER BY song_artist_cross_ref.is_primary DESC, artists.name ASC
@@ -1740,7 +1766,7 @@ interface MusicDao {
      * Get all artists for a specific song (one-shot).
      */
     @Query("""
-        SELECT artists.* FROM artists
+        SELECT artists.*, artists.extension_id AS extension_id FROM artists
         INNER JOIN song_artist_cross_ref ON artists.id = song_artist_cross_ref.artist_id
         WHERE song_artist_cross_ref.song_id = :songId
         ORDER BY song_artist_cross_ref.is_primary DESC, artists.name ASC
@@ -1797,6 +1823,7 @@ interface MusicDao {
      */
     @Query("""
         SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
+               artists.extension_id AS extension_id,
                COUNT(DISTINCT song_artist_cross_ref.song_id) AS track_count
         FROM artists
         LEFT JOIN song_artist_cross_ref ON artists.id = song_artist_cross_ref.artist_id
@@ -1810,6 +1837,7 @@ interface MusicDao {
      */
     @Query("""
         SELECT artists.id, artists.name, artists.image_url, artists.custom_image_uri,
+               artists.extension_id AS extension_id,
                COUNT(DISTINCT songs.id) AS track_count
         FROM songs
         INNER JOIN song_artist_cross_ref ON song_artist_cross_ref.song_id = songs.id
@@ -1823,7 +1851,7 @@ interface MusicDao {
             )
             OR (
                 :filterMode = 2
-                AND songs.source_type != 0
+                AND (:extensionId IS NULL AND songs.source_type != 0 OR :extensionId IS NOT NULL AND artists.extension_id = :extensionId)
             )
         )
         GROUP BY artists.id
@@ -1832,7 +1860,8 @@ interface MusicDao {
     fun getArtistsWithSongCountsFiltered(
         allowedParentDirs: List<String>,
         applyDirectoryFilter: Boolean,
-        filterMode: Int
+        filterMode: Int,
+        extensionId: String? = null
     ): Flow<List<ArtistEntity>>
 
     /**
