@@ -180,6 +180,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import com.theveloper.pixelplay.presentation.components.scoped.QueueItemDismissGestureHandler
 import androidx.compose.ui.unit.IntOffset
@@ -248,6 +249,7 @@ fun QueueBottomSheet(
     onQueueRelease: (Float, Float) -> Unit,
     predictiveBackProgress: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
     predictiveBackSwipeEdge: androidx.compose.runtime.State<Int?>,
+    queueSheetOffset: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
     modifier: Modifier = Modifier,
     tonalElevation: Dp = 10.dp,
     shape: RoundedCornerShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
@@ -712,13 +714,15 @@ fun QueueBottomSheet(
         modifier = modifier
             .graphicsLayer {
                 val p = predictiveBackProgress.value
+                val offsetVal = queueSheetOffset.value
+                val y = offsetVal.roundToInt()
+                
                 if (p > 0f) {
                     val scale = 1f - (p * 0.1f)
                     scaleX = scale
                     scaleY = scale
                     translationY = p * 80.dp.toPx()
                     
-                    val swipeEdge = predictiveBackSwipeEdge.value
                     transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
                         pivotFractionX = 0.5f,
                         pivotFractionY = 1.0f
@@ -727,6 +731,21 @@ fun QueueBottomSheet(
                     val cornerRadius = androidx.compose.ui.unit.lerp(28.dp, 48.dp, p)
                     clip = true
                     this.shape = RoundedCornerShape(topStart = cornerRadius, topEnd = cornerRadius)
+                } else if (y < 0) {
+                    val h = size.height
+                    if (h > 0f) {
+                        scaleY = (h - y) / h
+                        scaleX = 1f
+                        translationY = 0f
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
+                            pivotFractionX = 0.5f,
+                            pivotFractionY = 1.0f
+                        )
+                    }
+                } else {
+                    scaleX = 1f
+                    scaleY = 1f
+                    translationY = 0f
                 }
             },
         shape = shape,

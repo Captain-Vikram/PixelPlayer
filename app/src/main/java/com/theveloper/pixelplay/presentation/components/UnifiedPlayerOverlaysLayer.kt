@@ -21,7 +21,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
@@ -117,7 +121,10 @@ internal fun UnifiedPlayerQueueLayer(
                 QueueBottomSheet(
                     modifier = Modifier
                         .fillMaxSize()
-                        .offset { IntOffset(0, queueSheetOffset.value.roundToInt()) }
+                        .offset {
+                            val offsetVal = queueSheetOffset.value.roundToInt()
+                            IntOffset(0, if (offsetVal < 0) 0 else offsetVal)
+                        }
                         .graphicsLayer {
                             alpha = if (showQueueSheet || isQueueCollapsing) 1f else 0f
                         }
@@ -158,7 +165,8 @@ internal fun UnifiedPlayerQueueLayer(
                     onQueueDrag = onQueueDrag,
                     onQueueRelease = onQueueRelease,
                     predictiveBackProgress = queuePredictiveBackProgress,
-                    predictiveBackSwipeEdge = queuePredictiveBackSwipeEdge
+                    predictiveBackSwipeEdge = queuePredictiveBackSwipeEdge,
+                    queueSheetOffset = queueSheetOffset
                 )
             }
         }
@@ -496,3 +504,5 @@ internal fun UnifiedPlayerCastLayer(
         }
     }
 }
+
+
