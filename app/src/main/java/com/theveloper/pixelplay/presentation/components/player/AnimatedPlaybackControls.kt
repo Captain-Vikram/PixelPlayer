@@ -32,6 +32,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +61,7 @@ fun AnimatedPlaybackControls(
     baseWeight: Float = 1f,
     expansionWeight: Float = 1.1f,
     compressionWeight: Float = 0.65f,
+    pressAnimationSpec: AnimationSpec<Float>,
     releaseDelay: Long = 220L,
     playPauseCornerPlaying: Dp = 60.dp,
     playPauseCornerPaused: Dp = 26.dp,
@@ -75,6 +78,7 @@ fun AnimatedPlaybackControls(
 ) {
     val isPlaying = isPlayingProvider()
     var lastClicked by remember { mutableStateOf<PlaybackButtonType?>(null) }
+    var clickTrigger by remember { mutableStateOf(0) }
     val latestIsPlayingProvider by rememberUpdatedState(newValue = isPlayingProvider)
     val latestLastClicked by rememberUpdatedState(newValue = lastClicked)
     val isPlayPauseLocked =
@@ -82,14 +86,18 @@ fun AnimatedPlaybackControls(
     var playPauseVisualState by remember { mutableStateOf(isPlaying) }
     var pendingPlayPauseState by remember { mutableStateOf<Boolean?>(null) }
     val hapticFeedback = LocalHapticFeedback.current
+    val coroutineScope = rememberCoroutineScope()
 
     val motionScheme = remember { MotionScheme.expressive() }
-    val fastSpatialSpec = remember { motionScheme.fastSpatialSpec<Float>() }
     val defaultSpatialDpSpec = remember { motionScheme.defaultSpatialSpec<Dp>() }
 
-    LaunchedEffect(lastClicked) {
+    LaunchedEffect(lastClicked, clickTrigger) {
         if (lastClicked != null) {
-            delay(releaseDelay)
+            val delayTime = when (lastClicked) {
+                PlaybackButtonType.NEXT, PlaybackButtonType.PREVIOUS -> 600L
+                else -> releaseDelay
+            }
+            delay(delayTime)
             lastClicked = null
         }
     }
@@ -136,7 +144,7 @@ fun AnimatedPlaybackControls(
 
             val prevWeight by animateFloatAsState(
                 targetValue = weightFor(PlaybackButtonType.PREVIOUS),
-                animationSpec = fastSpatialSpec,
+                animationSpec = pressAnimationSpec,
                 label = "prevWeight"
             )
             Box(
@@ -147,7 +155,11 @@ fun AnimatedPlaybackControls(
                     .background(colorPreviousButton)
                     .clickable {
                         lastClicked = PlaybackButtonType.PREVIOUS
-                        onPrevious()
+                        clickTrigger++
+                        coroutineScope.launch {
+                            delay(180)
+                            onPrevious()
+                        }
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -161,7 +173,7 @@ fun AnimatedPlaybackControls(
 
             val playWeight by animateFloatAsState(
                 targetValue = weightFor(PlaybackButtonType.PLAY_PAUSE),
-                animationSpec = fastSpatialSpec,
+                animationSpec = pressAnimationSpec,
                 label = "playWeight"
             )
             val playCorner by animateDpAsState(
@@ -189,6 +201,7 @@ fun AnimatedPlaybackControls(
                     .background(colorPlayPause)
                     .clickable {
                         lastClicked = PlaybackButtonType.PLAY_PAUSE
+                        clickTrigger++
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onPlayPause()
                     },
@@ -204,7 +217,7 @@ fun AnimatedPlaybackControls(
 
             val nextWeight by animateFloatAsState(
                 targetValue = weightFor(PlaybackButtonType.NEXT),
-                animationSpec = fastSpatialSpec,
+                animationSpec = pressAnimationSpec,
                 label = "nextWeight"
             )
             Box(
@@ -215,7 +228,11 @@ fun AnimatedPlaybackControls(
                     .background(colorNextButton)
                     .clickable {
                         lastClicked = PlaybackButtonType.NEXT
-                        onNext()
+                        clickTrigger++
+                        coroutineScope.launch {
+                            delay(180)
+                            onNext()
+                        }
                     },
                 contentAlignment = Alignment.Center
             ) {

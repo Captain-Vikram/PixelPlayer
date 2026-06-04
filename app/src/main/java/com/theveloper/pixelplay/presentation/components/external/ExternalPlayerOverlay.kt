@@ -34,6 +34,8 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,7 +63,7 @@ import com.theveloper.pixelplay.utils.formatDuration
 import kotlin.math.roundToLong
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
-@OptIn(UnstableApi::class)
+@OptIn(UnstableApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ExternalPlayerOverlay(
     playerViewModel: PlayerViewModel,
@@ -78,6 +80,8 @@ fun ExternalPlayerOverlay(
 
     var sheetVisible by remember { mutableStateOf(true) }
     var awaitingSong by remember { mutableStateOf(true) }
+    val motionScheme = remember { MotionScheme.expressive() }
+    val controlSpatialSpec = remember { motionScheme.fastSpatialSpec<Float>() }
 
     val sheetShape = remember(navBarCornerRadius) {
         val radiusDp = navBarCornerRadius.dp
@@ -299,6 +303,7 @@ fun ExternalPlayerOverlay(
                             onPlayPause = playerViewModel::playPause,
                             onNext = playerViewModel::nextSong,
                             height = 76.dp,
+                            pressAnimationSpec = controlSpatialSpec,
                             colorOtherButtons = skipContainer,
                             colorPlayPause = playPauseContainer,
                             tintPlayPauseIcon = playPauseContent,
