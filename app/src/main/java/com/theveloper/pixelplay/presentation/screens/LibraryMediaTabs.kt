@@ -353,6 +353,11 @@ fun LibraryAlbumsTab(
                                         val rememberedOnSelectionToggle = remember(album.id, onAlbumSelectionToggle) {
                                             { onAlbumSelectionToggle(album) }
                                         }
+                                        val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
+                                        val sourceLabel = remember(album.extensionId, allExtensions) {
+                                            if (album.extensionId == null) null
+                                            else allExtensions.find { it.metadata.id == album.extensionId }?.metadata?.name ?: "Cloud"
+                                        }
                                         AlbumListItem(
                                             album = album,
                                             albumColorSchemePairFlow = albumSpecificColorSchemeFlow,
@@ -362,7 +367,8 @@ fun LibraryAlbumsTab(
                                             isSelected = selectedAlbumIds.contains(album.id),
                                             selectionIndex = getSelectionIndex(album.id),
                                             onLongPress = rememberedOnLongPress,
-                                            onSelectionToggle = rememberedOnSelectionToggle
+                                            onSelectionToggle = rememberedOnSelectionToggle,
+                                            sourceLabel = sourceLabel
                                         )
                                     } else {
                                         AlbumListItem(
@@ -626,7 +632,16 @@ fun LibraryArtistsTab(
                                     val rememberedOnClick = remember(artist.id, onArtistClick) {
                                         { onArtistClick(artist.id) }
                                     }
-                                    ArtistListItem(artist = artist, onClick = rememberedOnClick)
+                                    val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
+                                    val sourceLabel = remember(artist.extensionId, allExtensions) {
+                                        if (artist.extensionId == null) null
+                                        else allExtensions.find { it.metadata.id == artist.extensionId }?.metadata?.name ?: "Cloud"
+                                    }
+                                    ArtistListItem(
+                                        artist = artist,
+                                        sourceLabel = sourceLabel,
+                                        onClick = rememberedOnClick
+                                    )
                                 } else {
                                     ArtistListItem(
                                         artist = Artist.empty(),

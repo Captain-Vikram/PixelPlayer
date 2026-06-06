@@ -17,24 +17,24 @@ sealed class Screen(val route: String) {
     object Experimental : Screen("experimental_settings")
     object NavBarCrRad : Screen("nav_bar_corner_radius")
     object PlaylistDetail : Screen("playlist_detail/{playlistId}") {
-        fun createRoute(playlistId: String) = "playlist_detail/$playlistId"
+        fun createRoute(playlistId: Any) = "playlist_detail/${playlistId.toString()}"
     }
 
     object  DailyMixScreen : Screen("daily_mix")
     object RecentlyPlayed : Screen("recently_played")
     object Stats : Screen("stats")
     object GenreDetail : Screen("genre_detail/{genreId}") { // New screen
-        fun createRoute(genreId: String) = "genre_detail/$genreId"
+        fun createRoute(genreId: Any) = "genre_detail/${genreId.toString()}"
     }
     object DJSpace : Screen("dj_space")
     // La ruta base es "album_detail". La ruta completa con el argumento se define en AppNavigation.
     object AlbumDetail : Screen("album_detail/{albumId}") {
         // Función de ayuda para construir la ruta de navegación con el ID del álbum.
-        fun createRoute(albumId: Long) = "album_detail/$albumId"
+        fun createRoute(albumId: Any) = "album_detail/${albumId.toString()}"
     }
 
     object ArtistDetail : Screen("artist_detail/{artistId}") {
-        fun createRoute(artistId: Long) = "artist_detail/$artistId"
+        fun createRoute(artistId: Any) = "artist_detail/${artistId.toString()}"
     }
 
     object EditTransition : Screen("edit_transition?playlistId={playlistId}") {

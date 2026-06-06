@@ -131,11 +131,16 @@ object MediaItemBuilder {
         }
     }
 
-    fun playbackUri(song: Song): Uri = playbackUri(
-        contentUriString = song.contentUriString,
-        filePath = song.path,
-        mimeType = song.mimeType
-    )
+    fun playbackUri(song: Song): Uri {
+        if (song.id.startsWith("extension:")) {
+            return Uri.parse(song.id)
+        }
+        return playbackUri(
+            contentUriString = song.contentUriString,
+            filePath = song.path,
+            mimeType = song.mimeType
+        )
+    }
 
     internal fun playbackMimeType(song: Song): String? = playbackMimeType(
         contentUriString = song.contentUriString,

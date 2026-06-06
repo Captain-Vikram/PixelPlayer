@@ -18,19 +18,29 @@ suspend fun <T : Any> Feed<T>.loadAll(): List<T> {
 }
 
 fun Track.toSong(extensionId: String, streamUrl: String? = null): Song {
+    val albumSyntheticId = album?.let { "extension:$extensionId:album:${it.id}" }
+    val artistSyntheticId = artists.firstOrNull()?.let { "extension:$extensionId:artist:${it.id}" }
+    val mediaId = "extension:$extensionId:track:$id"
+    
     return Song(
-        id = "extension:$extensionId:$id",
+        id = mediaId,
         title = title,
         artist = artists.joinToString(", ") { it.name },
-        artistId = -2L, // Magic ID for extension artists
-        artists = artists.map { ArtistRef(id = -2L, name = it.name, isPrimary = true) },
+        artistId = artistSyntheticId?.hashCode()?.toLong() ?: -2L, 
+        artists = artists.map { 
+            ArtistRef(
+                id = "extension:$extensionId:artist:${it.id}".hashCode().toLong(), 
+                name = it.name, 
+                isPrimary = true
+            ) 
+        },
         album = album?.title ?: "Unknown Album",
-        albumId = -2L, // Magic ID for extension albums
-        path = streamUrl ?: "",
-        contentUriString = streamUrl ?: "",
+        albumId = albumSyntheticId?.hashCode()?.toLong() ?: -2L,
+        path = streamUrl ?: mediaId,
+        contentUriString = streamUrl ?: mediaId,
         albumArtUriString = (cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url,
         duration = duration ?: 0L,
-        mimeType = "audio/mpeg", // Default, might need to be dynamic
+        mimeType = "audio/mpeg", 
         bitrate = 0,
         sampleRate = 0,
         extensionId = extensionId
@@ -38,21 +48,36 @@ fun Track.toSong(extensionId: String, streamUrl: String? = null): Song {
 }
 
 fun Album.toAppAlbum(extensionId: String): AppAlbum {
+    val syntheticId = "extension:$extensionId:album:$id"
     return AppAlbum(
-        id = -2L, // Magic ID for extension albums
+        id = syntheticId.hashCode().toLong(),
         title = title,
         artist = artists.joinToString(", ") { it.name },
         albumArtUriString = (cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url,
         year = 0,
         dateAdded = System.currentTimeMillis(),
         songCount = trackCount?.toInt() ?: 0,
-        extensionId = extensionId
+        extensionId = extensionId,
+        mediaId = syntheticId
+    )
+}
+
+fun dev.brahmkshatriya.echo.common.models.Artist.toAppArtist(extensionId: String): com.theveloper.pixelplay.data.model.Artist {
+    val syntheticId = "extension:$extensionId:artist:$id"
+    return com.theveloper.pixelplay.data.model.Artist(
+        id = syntheticId.hashCode().toLong(),
+        name = name,
+        songCount = 0,
+        imageUrl = (cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url,
+        extensionId = extensionId,
+        mediaId = syntheticId
     )
 }
 
 fun Playlist.toAppPlaylist(extensionId: String): AppPlaylist {
+    val syntheticId = "extension:$extensionId:playlist:$id"
     return AppPlaylist(
-        id = "extension:$extensionId:$id",
+        id = syntheticId,
         name = title,
         songIds = emptyList(),
         source = "EXTENSION",

@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.CollapsibleCommonTopBar
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.viewmodel.ExtensionsViewModel
@@ -55,8 +56,17 @@ fun ExtensionsScreen(
     val isLoadingStore by viewModel.isLoadingStore.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
 
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Installed", "Available")
+
     val snackbarHostState = remember { SnackbarHostState() }
     
+    // Filter out already installed extensions from store items
+    val filteredStoreItems = remember(storeItems, extensions) {
+        val installedIds = extensions.map { it.metadata.id }.toSet()
+        storeItems.filter { it.remote.id !in installedIds }
+    }
+
     LaunchedEffect(viewModel.errors) {
         viewModel.errors.collect { error ->
             snackbarHostState.showSnackbar(
@@ -129,21 +139,41 @@ fun ExtensionsScreen(
 
     Scaffold(
         snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = MiniPlayerHeight + 8.dp)
+            )
         },
         topBar = {
             val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
-            CollapsibleCommonTopBar(
-                title = "Extensions",
-                collapseFraction = collapseFraction,
-                headerHeight = currentTopBarHeightDp,
-                onBackClick = onBack,
-                actions = {
-                    IconButton(onClick = { viewModel.refresh() }) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "Refresh")
+            Column {
+                CollapsibleCommonTopBar(
+                    title = "Extensions",
+                    collapseFraction = collapseFraction,
+                    headerHeight = currentTopBarHeightDp,
+                    onBackClick = onBack,
+                    actions = {
+                        IconButton(onClick = { viewModel.refresh() }) {
+                            Icon(Icons.Rounded.Refresh, contentDescription = "Refresh")
+                        }
+                    }
+                )
+                
+                PrimaryTabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    divider = {}
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = { Text(title, fontWeight = FontWeight.Bold) }
+                        )
                     }
                 }
-            )
+            }
         }
     ) { innerPadding ->
         Box(
@@ -162,86 +192,98 @@ fun ExtensionsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                item {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.updateSearchQuery(it) },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                        label = { Text("Search extensions or enter registry code") },
-                        placeholder = { Text("e.g. user/repo or https://...") },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                                    Icon(Icons.Rounded.Close, null)
+                if (selectedTabIndex == 1) { // Store Tab
+                    item {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { viewModel.updateSearchQuery(it) },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            label = { Text("Search or enter registry code") },
+                            placeholder = { Text("e.g. user/repo or https://...") },
+                            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                        Icon(Icons.Rounded.Close, null)
+                                    }
                                 }
-                            }
-                        },
-                        shape = RoundedCornerShape(16.dp),
-                        singleLine = true
-                    )
-                }
-
-                item {
-                    Text(
-                        text = "Installed",
-
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
-
-                itemsIndexed(extensions) { index, extension ->
-                    val caps = caps[extension.metadata.id] ?: ExtensionCapabilities()
-                    ExpressiveExtensionItem(
-                        title = extension.metadata.name,
-                        subtitle = "v${extension.metadata.version}",
-                        icon = Icons.Rounded.Extension,
-                        isSelected = extension == currentExtension,
-                        isLoginNeeded = caps.isLoginNeeded,
-                        onClick = { 
-                            if (extension is MusicExtension) viewModel.selectMusicExtension(extension) 
-                        },
-                        onActionClick = {
-                            if (extension is MusicExtension && caps.isLoginNeeded) {
-                                viewModel.login(extension)
-                            }
-                        },
-                        onSettingsClick = {
-                            onOpenExtensionSettings(extension.metadata.id)
-                        },
-                        shape = getGroupShape(index, extensions.size)
-                    )
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "Available in Store",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            singleLine = true
                         )
-                        if (isLoadingStore) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
+                    }
+
+                    if (isLoadingStore) {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
                         }
                     }
-                }
 
-                itemsIndexed(storeItems) { index, item ->
-                    ExpressiveStoreItem(
-                        item = item,
-                        onClick = { viewModel.installExtension(item) },
-                        shape = getGroupShape(index, storeItems.size)
-                    )
+                    itemsIndexed(filteredStoreItems) { index, item ->
+                        ExpressiveStoreItem(
+                            item = item,
+                            onClick = {
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Attempting to install: ${item.remote.name}")
+                                }
+                                viewModel.installExtension(item)
+                            },
+                            shape = getGroupShape(index, filteredStoreItems.size)
+                        )
+                    }
+                    
+                    if (!isLoadingStore && filteredStoreItems.isEmpty()) {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                                Text("No extensions found in store", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                } else { // Installed Tab
+                    if (extensions.isEmpty()) {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().padding(top = 100.dp), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Rounded.ExtensionOff, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f))
+                                    Spacer(Modifier.height(16.dp))
+                                    Text("No extensions installed", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    TextButton(onClick = { selectedTabIndex = 1 }) {
+                                        Text("Visit Extension Store")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    itemsIndexed(extensions) { index, extension ->
+                        val caps = caps[extension.metadata.id] ?: ExtensionCapabilities()
+                        val iconModel = when (val icon = extension.metadata.icon) {
+                            is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
+                            is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
+                            else -> null
+                        }
+                        ExpressiveExtensionItem(
+                            title = extension.metadata.name,
+                            subtitle = extension.metadata.description.takeIf { it.isNotBlank() } ?: "v${extension.metadata.version}",
+                            iconModel = iconModel,
+                            isSelected = extension == currentExtension,
+                            isLoginNeeded = caps.isLoginNeeded,
+                            onClick = { 
+                                if (extension is MusicExtension) viewModel.selectMusicExtension(extension) 
+                            },
+                            onActionClick = {
+                                if (extension is MusicExtension && caps.isLoginNeeded) {
+                                    viewModel.login(extension)
+                                }
+                            },
+                            onSettingsClick = {
+                                onOpenExtensionSettings(extension.metadata.id)
+                            },
+                            shape = getGroupShape(index, extensions.size)
+                        )
+                    }
                 }
                 
                 item {
@@ -256,7 +298,7 @@ fun ExtensionsScreen(
 fun ExpressiveExtensionItem(
     title: String,
     subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconModel: Any?,
     isSelected: Boolean,
     isLoginNeeded: Boolean,
     onClick: () -> Unit,
@@ -281,12 +323,21 @@ fun ExpressiveExtensionItem(
                     .clip(CircleShape)
                     .background(if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(0.1f) else MaterialTheme.colorScheme.secondaryContainer)
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.size(24.dp)
-                )
+                if (iconModel != null) {
+                    coil.compose.AsyncImage(
+                        model = iconModel,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp).clip(CircleShape),
+                        error = coil.compose.rememberAsyncImagePainter(model = R.drawable.ic_music_placeholder)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.Extension,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -355,12 +406,21 @@ fun ExpressiveStoreItem(
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.secondaryContainer)
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.CloudDownload,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.size(24.dp)
-                )
+                if (item.remote.iconUrl != null) {
+                    coil.compose.AsyncImage(
+                        model = item.remote.iconUrl,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp).clip(CircleShape),
+                        error = coil.compose.rememberAsyncImagePainter(model = R.drawable.ic_music_placeholder)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.CloudDownload,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -382,11 +442,29 @@ fun ExpressiveStoreItem(
                 )
             }
 
-            Icon(
-                imageVector = Icons.Rounded.Add,
-                contentDescription = "Install",
-                tint = MaterialTheme.colorScheme.primary
-            )
+            when (item.status) {
+                com.theveloper.pixelplay.extensions.core.ExtensionStatus.DOWNLOADING -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                com.theveloper.pixelplay.extensions.core.ExtensionStatus.INSTALLED -> {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = "Installed",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                else -> {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = "Install",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
     }
 }

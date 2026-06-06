@@ -21,7 +21,6 @@ import javax.inject.Inject
 data class DeckState(
     val song: Song? = null,
     val isPlaying: Boolean = false,
-    val progress: Float = 0f,
     val volume: Float = 1f,
     val speed: Float = 1f,
     val stemWaveforms: Map<String, List<Int>> = emptyMap()
@@ -44,6 +43,12 @@ class MashupViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(MashupUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _deck1Progress = MutableStateFlow(0f)
+    val deck1Progress = _deck1Progress.asStateFlow()
+
+    private val _deck2Progress = MutableStateFlow(0f)
+    val deck2Progress = _deck2Progress.asStateFlow()
 
     private lateinit var deck1Controller: DeckController
     private lateinit var deck2Controller: DeckController
@@ -132,8 +137,8 @@ class MashupViewModel @Inject constructor(
         progressJob?.cancel()
         progressJob = viewModelScope.launch {
             while (isActive) {
-                updateDeckState(1) { it.copy(progress = deck1Controller.getProgress()) }
-                updateDeckState(2) { it.copy(progress = deck2Controller.getProgress()) }
+                _deck1Progress.value = deck1Controller.getProgress()
+                _deck2Progress.value = deck2Controller.getProgress()
                 delay(100)
             }
         }

@@ -36,7 +36,6 @@ android {
 
 dependencies {
     implementation(project(":common"))
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation(libs.androidx.core.ktx)
     implementation(libs.bundles.kotlinx)
     implementation(libs.androidx.room.runtime)

@@ -38,7 +38,7 @@ class ExtensionsViewModel @Inject constructor(
 
     fun fetchStoreExtensions() = repository.fetchStoreExtensions()
     fun installExtension(item: com.theveloper.pixelplay.extensions.core.ExtensionStoreItem) = repository.installExtension(item)
-    fun selectMusicExtension(extension: MusicExtension) = repository.selectMusicExtension(extension)
+    fun selectMusicExtension(extension: MusicExtension?) = repository.selectMusicExtension(extension)
     fun loadHomeFeed() = repository.loadHomeFeed()
     fun loadLibraryFeed() = repository.loadLibraryFeed()
     
@@ -54,4 +54,6 @@ class ExtensionsViewModel @Inject constructor(
     fun login(extension: MusicExtension) { /* TODO */ }
     fun logout(extension: MusicExtension) { /* TODO */ }
     fun refresh() = repository.fetchStoreExtensions()
+    fun refreshFeeds() = repository.refreshFeeds()
+    fun loadMoreHomeFeed() = repository.loadMoreHomeFeed()
 }

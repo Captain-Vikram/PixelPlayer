@@ -200,10 +200,11 @@ fun SettingsScreen(
                 ExpressiveSettingsGroup {
                     val mainCategories = SettingsCategory.entries.filter {
                         it != SettingsCategory.ABOUT &&
-                        it != SettingsCategory.DEVICE_CAPABILITIES
+                        it != SettingsCategory.DEVICE_CAPABILITIES &&
+                        it != SettingsCategory.MASHUP
                     }
 
-                    val totalItems = mainCategories.size + 4 // Device + Accounts + About + Downloads
+                    val totalItems = mainCategories.size + 5 // Device + Accounts + About + Downloads + Mashup
                     fun shapeFor(index: Int) =
                         when {
                             totalItems == 1 -> RoundedCornerShape(24.dp)
@@ -241,6 +242,17 @@ fun SettingsScreen(
                         icon = Icons.Rounded.Download,
                         colors = getDownloadsColors(isDark),
                         onClick = { navController.navigateSafely(Screen.Downloads.route) },
+                        shape = shapeFor(itemIndex)
+                    )
+                    if (itemIndex < totalItems - 1) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+                    itemIndex++
+
+                    ExpressiveCategoryItem(
+                        category = SettingsCategory.MASHUP,
+                        customColors = getCategoryColors(SettingsCategory.MASHUP, isDark),
+                        onClick = { navController.navigateSafely(Screen.DJSpace.route) },
                         shape = shapeFor(itemIndex)
                     )
                     if (itemIndex < totalItems - 1) {
@@ -469,6 +481,7 @@ private fun getCategoryColors(category: SettingsCategory, isDark: Boolean): Pair
             SettingsCategory.DEVELOPER -> Color(0xFF324F34) to Color(0xFFCBEFD0)
             SettingsCategory.EQUALIZER -> Color(0xFF6E4E13) to Color(0xFFFFDEAC)
             SettingsCategory.DEVICE_CAPABILITIES -> Color(0xFF004D61) to Color(0xFFACEFEE)
+            SettingsCategory.MASHUP -> Color(0xFF6750A4) to Color(0xFFEADDFF)
             SettingsCategory.ABOUT -> Color(0xFF3F474D) to Color(0xFFDEE3EB)
         }
     } else {
@@ -482,6 +495,7 @@ private fun getCategoryColors(category: SettingsCategory, isDark: Boolean): Pair
             SettingsCategory.DEVELOPER -> Color(0xFFCBEFD0) to Color(0xFF042106)
             SettingsCategory.EQUALIZER -> Color(0xFFFFDEAC) to Color(0xFF281900)
             SettingsCategory.DEVICE_CAPABILITIES -> Color(0xFFACEFEE) to Color(0xFF002022)
+            SettingsCategory.MASHUP -> Color(0xFFEADDFF) to Color(0xFF21005D)
             SettingsCategory.ABOUT -> Color(0xFFEFF1F7) to Color(0xFF44474F)
         }
     }

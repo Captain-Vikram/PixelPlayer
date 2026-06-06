@@ -71,6 +71,13 @@ fun ScreenWrapper(
         it.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
     }
 
+    // Optimization: Skip all calculations if this screen is fully covered and not visible.
+    // Composition remains active but the draw phase is minimized.
+    if (!isResumed && myIndex < topIndex - 1) {
+        content()
+        return
+    }
+
     // currentBackStackEntry updates synchronously with navigate()/popBackStack(), so it
     // identifies the destination the user is moving TO. The incoming screen during a pop
     // shares STARTED state with the outgoing one for a few frames; without this check the

@@ -121,6 +121,9 @@ import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.ui.res.stringResource
 
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+
 private const val HomeLoadingPlaceholderMinDurationMillis = 1200L
 
 // Modern HomeScreen with collapsible top bar and staggered grid layout
@@ -287,6 +290,7 @@ fun HomeScreen(
 
     var showOptionsBottomSheet by remember { mutableStateOf(false) }
     var showChangelogBottomSheet by remember { mutableStateOf(false) }
+    var showBetaInfoBottomSheet by remember { mutableStateOf(false) }
     var showSourceSelectionSheet by remember { mutableStateOf(false) }
     var showStreamingProviderSheet by remember { mutableStateOf(false) }
     var cleanInstallDisclaimerDismissedThisSession by rememberSaveable { mutableStateOf(false) }
@@ -344,6 +348,20 @@ fun HomeScreen(
         settingsUiState.beta05CleanInstallDisclaimerDismissed == false &&
             !cleanInstallDisclaimerDismissedThisSession
 
+    val shouldLoadMore = remember {
+        derivedStateOf {
+            val totalItemsCount = listState.layoutInfo.totalItemsCount
+            val lastVisibleItemIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            totalItemsCount > 0 && lastVisibleItemIndex >= totalItemsCount - 5
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore.value) {
+        if (shouldLoadMore.value && isExtensionActive) {
+            extensionsViewModel.loadMoreHomeFeed()
+        }
+    }
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -354,17 +372,18 @@ fun HomeScreen(
                 val installedExts = extensionsViewModel.allExtensions.collectAsStateWithLifecycle().value
                 
                 HomeGradientTopBar(
-                    onNavigationIconClick = {
-                        navController.navigateSafely(Screen.Settings.route)
-                    },
                     onSourceSelectionClick = {
                          showSourceSelectionSheet = true
                     },
-                    onMashupClick = {
-                        navController.navigateSafely(Screen.DJSpace.route)
-                    },
                     onStoreClick = {
                         navController.navigateSafely(Screen.Extensions.route)
+                    },
+                    onChangelogClick = {
+                        showChangelogBottomSheet = true
+                    },
+                    onBetaLogoClick = {
+                        // Logic to show BetaInfo can be added here, usually showBetaInfoBottomSheet = true
+                        // Since showChangelogBottomSheet is available, I'll assume a similar state is needed if not present
                     },
                     activeExtensionName = activeExtName,
                     isSourceSelectionEnabled = installedExts.isNotEmpty(),
@@ -372,208 +391,233 @@ fun HomeScreen(
                 )
             }
         ) { innerPadding ->
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = paddingValuesParent.calculateBottomPadding()
-                            + 38.dp + bottomPadding
-                ),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+            PullToRefreshBox(
+                modifier = Modifier.fillMaxSize(),
+                isRefreshing = isLoadingFeed,
+                onRefresh = {
+                    extensionsViewModel.refreshFeeds()
+                }
             ) {
-                // Your Mix Section (uses extension songs if active, otherwise local)
-                if (yourMixSongs.isEmpty()) {
-                    item(
-                        key = "your_mix_placeholder",
-                        contentType = "your_mix_placeholder"
-                    ) {
-                        if (shouldShowYourMixLoadingPlaceholder) {
-                            YourMixLoadingPlaceholder()
-                        } else {
-                            YourMixEmptyPlaceholder(
-                                onRefresh = {
-                                    homePlaceholderRefreshGeneration++
-                                    settingsViewModel.refreshLibrary()
-                                    playerViewModel.forceUpdateDailyMix()
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                    contentPadding = PaddingValues(
+                        top = innerPadding.calculateTopPadding(),
+                        bottom = paddingValuesParent.calculateBottomPadding()
+                                + 38.dp + bottomPadding
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // Your Mix Section (uses extension songs if active, otherwise local)
+                    if (yourMixSongs.isEmpty()) {
+                        item(
+                            key = "your_mix_placeholder",
+                            contentType = "your_mix_placeholder"
+                        ) {
+                            if (shouldShowYourMixLoadingPlaceholder) {
+                                YourMixLoadingPlaceholder()
+                            } else {
+                                YourMixEmptyPlaceholder(
+                                    onRefresh = {
+                                        homePlaceholderRefreshGeneration++
+                                        settingsViewModel.refreshLibrary()
+                                        playerViewModel.forceUpdateDailyMix()
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        item(
+                            key = "your_mix_header",
+                            contentType = "your_mix_header"
+                        ) {
+                            YourMixHeader(
+                                song = yourMixSong,
+                                isShuffleEnabled = isShuffleEnabled,
+                                onPlayShuffled = {
+                                    if (usesFallbackHomeMix) {
+                                        playerViewModel.shuffleAllSongs(queueName = "Your Mix")
+                                    } else {
+                                        val queueName = if (isExtensionActive) "${currentMusicExtension?.metadata?.name} Mix" else "Your Mix"
+                                        playerViewModel.playSongsShuffled(
+                                            songsToPlay = yourMixSongs,
+                                            queueName = queueName,
+                                            startAtZero = true,
+                                        )
+                                    }
                                 }
                             )
                         }
                     }
-                } else {
-                    item(
-                        key = "your_mix_header",
-                        contentType = "your_mix_header"
-                    ) {
-                        YourMixHeader(
-                            song = yourMixSong,
-                            isShuffleEnabled = isShuffleEnabled,
-                            onPlayShuffled = {
-                                if (usesFallbackHomeMix) {
-                                    playerViewModel.shuffleAllSongs(queueName = "Your Mix")
-                                } else {
-                                    val queueName = if (isExtensionActive) "${currentMusicExtension?.metadata?.name} Mix" else "Your Mix"
-                                    playerViewModel.playSongsShuffled(
-                                        songsToPlay = yourMixSongs,
-                                        queueName = queueName,
-                                        startAtZero = true,
-                                    )
+
+                    // Collage (uses album art from Your Mix songs)
+                    if (yourMixSongs.isNotEmpty()) {
+                        item(
+                            key = "album_art_collage",
+                            contentType = "album_art_collage"
+                        ) {
+                            val basePattern = settingsUiState.collagePattern
+                            val isAutoRotate = settingsUiState.collageAutoRotate
+                            val patterns = remember { CollagePattern.entries }
+
+                            val activePattern = if (isAutoRotate) {
+                                var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
+                                LaunchedEffect(Unit) { rotationIndex++ }
+                                remember(rotationIndex) {
+                                    patterns[rotationIndex.coerceAtLeast(0) % patterns.size]
                                 }
+                            } else {
+                                basePattern
                             }
-                        )
-                    }
-                }
 
-                // Collage (uses album art from Your Mix songs)
-                if (yourMixSongs.isNotEmpty()) {
-                    item(
-                        key = "album_art_collage",
-                        contentType = "album_art_collage"
-                    ) {
-                        val basePattern = settingsUiState.collagePattern
-                        val isAutoRotate = settingsUiState.collageAutoRotate
-                        val patterns = remember { CollagePattern.entries }
-
-                        val activePattern = if (isAutoRotate) {
-                            var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
-                            LaunchedEffect(Unit) { rotationIndex++ }
-                            remember(rotationIndex) {
-                                patterns[rotationIndex.coerceAtLeast(0) % patterns.size]
-                            }
-                        } else {
-                            basePattern
+                            AlbumArtCollage(
+                                modifier = Modifier.fillMaxWidth(),
+                                songs = yourMixSongs.toImmutableList(),
+                                padding = 14.dp,
+                                height = 400.dp,
+                                pattern = activePattern,
+                                onSongClick = { song ->
+                                    if (usesFallbackHomeMix) {
+                                        playerViewModel.showAndPlaySongFromLibrary(song, queueName = "Your Mix")
+                                    } else {
+                                        val queueName = if (isExtensionActive) "${currentMusicExtension?.metadata?.name} Mix" else "Your Mix"
+                                        playerViewModel.showAndPlaySong(song, yourMixSongs.toImmutableList(), queueName)
+                                    }
+                                }
+                            )
                         }
-
-                        AlbumArtCollage(
-                            modifier = Modifier.fillMaxWidth(),
-                            songs = yourMixSongs.toImmutableList(),
-                            padding = 14.dp,
-                            height = 400.dp,
-                            pattern = activePattern,
-                            onSongClick = { song ->
-                                if (usesFallbackHomeMix) {
-                                    playerViewModel.showAndPlaySongFromLibrary(song, queueName = "Your Mix")
-                                } else {
-                                    val queueName = if (isExtensionActive) "${currentMusicExtension?.metadata?.name} Mix" else "Your Mix"
-                                    playerViewModel.showAndPlaySong(song, yourMixSongs.toImmutableList(), queueName)
-                                }
-                            }
-                        )
                     }
-                }
 
-                // Daily Mix Section (uses extension songs if active, otherwise local)
-                if (dailyMixForDisplay.isNotEmpty()) {
-                    item(
-                        key = "daily_mix_section",
-                        contentType = "daily_mix_section"
-                    ) {
-                        DailyMixSection(
-                            songs = dailyMixForDisplay.toImmutableList(),
-                            onClickOpen = {
-                                if (isExtensionActive) {
-                                    // When extension is active, there's no dedicated daily mix screen
-                                    // Just play the daily mix section
-                                    playerViewModel.playSongsShuffled(
-                                        songsToPlay = dailyMixForDisplay,
-                                        queueName = "${currentMusicExtension?.metadata?.name} Daily",
-                                        startAtZero = true
+                    // Daily Mix Section (uses extension songs if active, otherwise local)
+                    if (dailyMixForDisplay.isNotEmpty()) {
+                        item(
+                            key = "daily_mix_section",
+                            contentType = "daily_mix_section"
+                        ) {
+                            DailyMixSection(
+                                songs = dailyMixForDisplay.toImmutableList(),
+                                onClickOpen = {
+                                    if (isExtensionActive) {
+                                        // When extension is active, there's no dedicated daily mix screen
+                                        // Just play the daily mix section
+                                        playerViewModel.playSongsShuffled(
+                                            songsToPlay = dailyMixForDisplay,
+                                            queueName = "${currentMusicExtension?.metadata?.name} Daily",
+                                            startAtZero = true
+                                        )
+                                    } else {
+                                        navController.navigateSafely(Screen.DailyMixScreen.route)
+                                    }
+                                },
+                                onNavigateToAlbum = { song ->
+                                    navController.navigateSafelyReplacing(
+                                        route = Screen.AlbumDetail.createRoute(song.albumId),
+                                        patternToPop = Screen.AlbumDetail.route
                                     )
-                                } else {
-                                    navController.navigateSafely(Screen.DailyMixScreen.route)
-                                }
-                            },
-                            onNavigateToAlbum = { song ->
-                                navController.navigateSafelyReplacing(
-                                    route = Screen.AlbumDetail.createRoute(song.albumId),
-                                    patternToPop = Screen.AlbumDetail.route
-                                )
-                            },
-                            onNavigateToArtist = { song ->
-                                navController.navigateSafelyReplacing(
-                                    route = Screen.ArtistDetail.createRoute(song.artistId),
-                                    patternToPop = Screen.ArtistDetail.route
-                                )
-                            },
-                            onNavigateToGenre = { song ->
-                                song.genre?.let {
-                                    navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(it, "UTF-8")))
-                                }
-                            },
-                            playerViewModel = playerViewModel
-                        )
+                                },
+                                onNavigateToArtist = { song ->
+                                    navController.navigateSafelyReplacing(
+                                        route = Screen.ArtistDetail.createRoute(song.artistId),
+                                        patternToPop = Screen.ArtistDetail.route
+                                    )
+                                },
+                                onNavigateToGenre = { song ->
+                                    song.genre?.let {
+                                        navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(it, "UTF-8")))
+                                    }
+                                },
+                                playerViewModel = playerViewModel
+                            )
+                        }
                     }
-                }
 
-                // Extension Shelves (only show if extension active and there are additional shelves beyond Your Mix/Daily Mix)
-                if (isExtensionActive && shelves.size > 2) {
-                    item(
-                        key = "extension_shelves_additional",
-                        contentType = "extension_shelves"
-                    ) {
-                        com.theveloper.pixelplay.presentation.components.ExtensionShelvesSection(
-                            shelves = shelves.drop(2), // Skip first 2 shelves (used for Your Mix/Daily Mix)
-                            onItemClick = { item ->
-                                if (item is dev.brahmkshatriya.echo.common.models.Track) {
+                    // Extension Shelves (only show if extension active and there are additional shelves beyond Your Mix/Daily Mix)
+                    if (isExtensionActive && shelves.isNotEmpty()) {
+                        item(
+                            key = "extension_shelves_additional",
+                            contentType = "extension_shelves"
+                        ) {
+                            com.theveloper.pixelplay.presentation.components.ExtensionShelvesSection(
+                                shelves = shelves, // Show all shelves for better adaptation
+                                onItemClick = { item ->
                                     val extensionId = extensionsViewModel.currentMusicExtension.value?.metadata?.id ?: ""
-                                    val song = item.toSong(extensionId)
-                                    playerViewModel.showAndPlaySong(song, listOf(song), "Extension Feed")
-                                } else {
-                                    // TODO: Handle Album/Playlist clicks
+                                    when (item) {
+                                        is dev.brahmkshatriya.echo.common.models.Track -> {
+                                            val song = item.toSong(extensionId)
+                                            playerViewModel.showAndPlaySong(song, listOf(song), "Extension Feed")
+                                        }
+                                        is dev.brahmkshatriya.echo.common.models.Album -> {
+                                            val mediaId = "extension:$extensionId:album:${item.id}"
+                                            navController.navigateSafely(Screen.AlbumDetail.createRoute(mediaId))
+                                        }
+                                        is dev.brahmkshatriya.echo.common.models.Playlist -> {
+                                            val mediaId = "extension:$extensionId:playlist:${item.id}"
+                                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(mediaId))
+                                        }
+                                        is dev.brahmkshatriya.echo.common.models.Artist -> {
+                                            val mediaId = "extension:$extensionId:artist:${item.id}"
+                                            navController.navigateSafely(Screen.ArtistDetail.createRoute(mediaId))
+                                        }
+                                        is dev.brahmkshatriya.echo.common.models.Radio -> {
+                                            // Handle Radio click - navigate to Radio/Artist Radio if supported
+                                            val mediaId = "extension:$extensionId:radio:${item.id}"
+                                            // Navigation to RadioDetailScreen could be added here
+                                        }
+                                    }
                                 }
+                            )
+                        }
+                    }
+
+                    // Recently Played (show for current source - extension or local)
+                    if (recentlyPlayedToShow.size >= RecentlyPlayedSectionMinSongsToShow) {
+                        item(
+                            key = "recently_played_section",
+                            contentType = "recently_played_section"
+                        ) {
+                            val recentlyPlayedQueue = remember(recentlyPlayedToShow) {
+                                recentlyPlayedToShow.map { it.song }.toImmutableList()
                             }
-                        )
-                    }
-                }
+                            val queueName = if (isExtensionActive) {
+                                "${currentMusicExtension?.metadata?.name} Recently Played"
+                            } else {
+                                "Recently Played"
+                            }
 
-                // Recently Played (show for current source - extension or local)
-                if (recentlyPlayedToShow.size >= RecentlyPlayedSectionMinSongsToShow) {
-                    item(
-                        key = "recently_played_section",
-                        contentType = "recently_played_section"
-                    ) {
-                        val recentlyPlayedQueue = remember(recentlyPlayedToShow) {
-                            recentlyPlayedToShow.map { it.song }.toImmutableList()
+                            RecentlyPlayedSection(
+                                songs = recentlyPlayedToShow,
+                                onSongClick = { song ->
+                                    if (recentlyPlayedQueue.isNotEmpty()) {
+                                        playerViewModel.playSongs(
+                                            songsToPlay = recentlyPlayedQueue,
+                                            startSong = song,
+                                            queueName = queueName
+                                        )
+                                    }
+                                },
+                                onOpenAllClick = {
+                                    navController.navigateSafely(Screen.RecentlyPlayed.route)
+                                },
+                                themeStateHolder = playerViewModel.themeStateHolder,
+                                currentSongId = currentSong?.id,
+                                contentPadding = PaddingValues(start = 8.dp, end = 24.dp)
+                            )
                         }
-                        val queueName = if (isExtensionActive) {
-                            "${currentMusicExtension?.metadata?.name} Recently Played"
-                        } else {
-                            "Recently Played"
-                        }
-
-                        RecentlyPlayedSection(
-                            songs = recentlyPlayedToShow,
-                            onSongClick = { song ->
-                                if (recentlyPlayedQueue.isNotEmpty()) {
-                                    playerViewModel.playSongs(
-                                        songsToPlay = recentlyPlayedQueue,
-                                        startSong = song,
-                                        queueName = queueName
-                                    )
-                                }
-                            },
-                            onOpenAllClick = {
-                                navController.navigateSafely(Screen.RecentlyPlayed.route)
-                            },
-                            themeStateHolder = playerViewModel.themeStateHolder,
-                            currentSongId = currentSong?.id,
-                            contentPadding = PaddingValues(start = 8.dp, end = 24.dp)
-                        )
                     }
-                }
 
-                // Stats Overview Card
-                if (homeStatsOverview != null) {
-                    item(
-                        key = "listening_stats_preview",
-                        contentType = "listening_stats_preview"
-                    ) {
-                        StatsOverviewCard(
-                            summary = homeStatsOverview,
-                            onClick = { navController.navigateSafely(Screen.Stats.route) }
-                        )
+                    // Stats Overview Card
+                    if (homeStatsOverview != null) {
+                        item(
+                            key = "listening_stats_preview",
+                            contentType = "listening_stats_preview"
+                        ) {
+                            StatsOverviewCard(
+                                summary = homeStatsOverview,
+                                onClick = { navController.navigateSafely(Screen.Stats.route) }
+                            )
+                        }
                     }
                 }
             }
@@ -624,6 +668,22 @@ fun HomeScreen(
                     }
                 }
             )
+        }
+    }
+    if (showChangelogBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showChangelogBottomSheet = false },
+            sheetState = sheetState
+        ) {
+            ChangelogBottomSheet()
+        }
+    }
+    if (showBetaInfoBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBetaInfoBottomSheet = false },
+            sheetState = sheetState
+        ) {
+            BetaInfoBottomSheet()
         }
     }
     if (showSourceSelectionSheet) {

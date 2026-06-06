@@ -34,7 +34,6 @@ import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.dataStore
 import com.theveloper.pixelplay.data.media.SongMetadataEditor
 import com.theveloper.pixelplay.data.network.deezer.DeezerApiService
-import com.theveloper.pixelplay.data.network.netease.NeteaseApiService
 import com.theveloper.pixelplay.data.network.lyrics.LrcLibApiService
 import com.theveloper.pixelplay.data.repository.ArtistImageRepository
 import com.theveloper.pixelplay.data.repository.LyricsRepository
@@ -62,6 +61,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 
 @Module
@@ -98,7 +98,7 @@ object AppModule {
 
     @Singleton
     @Provides
-    fun provideJson(): Json { // Proveer Json
+    fun provideJson(): Json {
         return Json {
             isLenient = true
             ignoreUnknownKeys = true
@@ -119,7 +119,6 @@ object AppModule {
         return try {
             WorkManager.getInstance(context)
         } catch (e: Exception) {
-            // Fallback for cases where initialization is still in progress
             androidx.work.impl.WorkManagerImpl.getInstance(context) 
         }
     }
@@ -156,7 +155,8 @@ object AppModule {
             PixelPlayDatabase.MIGRATION_24_25,
             PixelPlayDatabase.MIGRATION_25_26,
             PixelPlayDatabase.MIGRATION_26_27,
-            PixelPlayDatabase.MIGRATION_27_28,
+            // Gap bridgers for older releases
+            object : androidx.room.migration.Migration(27, 28) { override fun migrate(db: SupportSQLiteDatabase) {} },
             PixelPlayDatabase.MIGRATION_28_29,
             PixelPlayDatabase.MIGRATION_29_30,
             PixelPlayDatabase.MIGRATION_30_31,
@@ -170,14 +170,12 @@ object AppModule {
             PixelPlayDatabase.MIGRATION_38_39,
             PixelPlayDatabase.MIGRATION_39_40,
             PixelPlayDatabase.MIGRATION_40_41,
-            PixelPlayDatabase.MIGRATION_41_42
+            PixelPlayDatabase.MIGRATION_41_42,
+            PixelPlayDatabase.MIGRATION_42_43
         )
             .addCallback(PixelPlayDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
 
-        // P2-4: Only allow destructive migration in debug builds.
-        // In release, a migration bug will crash the app (revealing the problem)
-        // rather than silently wiping user data (playlists, favorites, statistics).
         if (BuildConfig.DEBUG) {
             builder.fallbackToDestructiveMigration(dropAllTables = true)
         }
@@ -193,13 +191,13 @@ object AppModule {
 
     @Singleton
     @Provides
-    fun provideSearchHistoryDao(database: PixelPlayDatabase): SearchHistoryDao { // NUEVO MÉTODO
+    fun provideSearchHistoryDao(database: PixelPlayDatabase): SearchHistoryDao {
         return database.searchHistoryDao()
     }
 
     @Singleton
     @Provides
-    fun provideMusicDao(database: PixelPlayDatabase): MusicDao { // Proveer MusicDao
+    fun provideMusicDao(database: PixelPlayDatabase): MusicDao {
         return database.musicDao()
     }
 
@@ -241,14 +239,20 @@ object AppModule {
 
     @Singleton
     @Provides
-    fun provideQqMusicDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.QqMusicDao {
-        return database.qqmusicDao()
+    fun provideNavidromeDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.NavidromeDao {
+        return database.navidromeDao()
     }
 
     @Singleton
     @Provides
-    fun provideNavidromeDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.NavidromeDao {
-        return database.navidromeDao()
+    fun provideNeteaseDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.NeteaseDao {
+        return database.neteaseDao()
+    }
+
+    @Singleton
+    @Provides
+    fun provideQqMusicDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.QqMusicDao {
+        return database.qqmusicDao()
     }
     
     @Singleton
@@ -279,50 +283,24 @@ object AppModule {
     fun provideImageLoader(
         @ApplicationContext context: Context
     ): ImageLoader {
-        // Add interceptor for QQ Music images
-        val okHttpClient = OkHttpClient.Builder()
-            .addInterceptor { chain ->
-                val request = chain.request()
-                val url = request.url.toString()
-
-                // Add Referer header for QQ Music images
-                val newRequest = if (url.contains("y.qq.com")) {
-                    request.newBuilder()
-                        .header("Referer", "https://y.qq.com/")
-                        .build()
-                } else {
-                    request
-                }
-
-                chain.proceed(newRequest)
-            }
-            .build()
+        val okHttpClient = OkHttpClient.Builder().build()
 
         return ImageLoader.Builder(context)
             .okHttpClient(okHttpClient)
-            .dispatcher(Dispatchers.Default) // Use CPU-bound dispatcher for decoding
-            .allowHardware(true) // Re-enable hardware bitmaps for better performance
+            .dispatcher(Dispatchers.Default)
+            .allowHardware(true)
             .memoryCache {
                 MemoryCache.Builder(context)
-                    // Hard 40 MB cap instead of 20%-of-heap. Rationale:
-                    //  - On large-heap devices (Pixel 8 etc.) the percentage
-                    //    expanded to ~80–100 MB, far beyond what an album-art
-                    //    workload needs.
-                    //  - allowHardware(true) keeps most decoded pixels in GPU
-                    //    memory, so the MemoryCache mostly tracks Bitmap
-                    //    references — 40 MB still buffers ~100+ album arts.
-                    //  - Tighter cap = less GC pressure and less thermal
-                    //    headroom spent on memory pressure during long sessions.
                     .maxSizeBytes(40 * 1024 * 1024)
                     .build()
             }
             .diskCache {
                 DiskCache.Builder()
                     .directory(context.cacheDir.resolve("image_cache"))
-                    .maxSizeBytes(100L * 1024 * 1024) // 100 MB disk cache
+                    .maxSizeBytes(100L * 1024 * 1024)
                     .build()
             }
-            .respectCacheHeaders(false) // Ignore server cache headers, always cache
+            .respectCacheHeaders(false)
             .build()
     }
 
@@ -366,12 +344,6 @@ object AppModule {
     @Provides
     fun provideTelegramDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.TelegramDao {
         return database.telegramDao()
-    }
-
-    @Singleton
-    @Provides
-    fun provideNeteaseDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.NeteaseDao {
-        return database.neteaseDao()
     }
 
     @Provides
@@ -434,23 +406,15 @@ object AppModule {
         return SongMetadataEditor(context, musicDao, telegramDao, userPreferencesRepository)
     }
 
-    /**
-     * Provee una instancia singleton de OkHttpClient con logging e interceptor de User-Agent.
-     * Retry logic with backoff is handled in coroutine-based callers.
-     */
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            // HEADERS (not BODY) so we never print response bodies that may contain
-            // cookies, tokens, or third-party API payloads. Headers are still useful
-            // for debugging request paths and status codes.
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.HEADERS
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
-            // Redact every header that can carry a credential or session token.
             redactHeader("Authorization")
             redactHeader("Proxy-Authorization")
             redactHeader("Cookie")
@@ -461,20 +425,18 @@ object AppModule {
             redactHeader("X-MediaBrowser-Token")
         }
         
-        // Connection pool with optimized connections for better performance
         val connectionPool = okhttp3.ConnectionPool(
             maxIdleConnections = 5,
             keepAliveDuration = 30,
-            timeUnit = java.util.concurrent.TimeUnit.SECONDS
+            timeUnit = TimeUnit.SECONDS
         )
         
         return OkHttpClient.Builder()
             .connectionPool(connectionPool)
-            .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
-            .writeTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(8, TimeUnit.SECONDS)
+            .writeTimeout(8, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
-            // Add User-Agent header (required by some APIs)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val requestWithUserAgent = originalRequest.newBuilder()
@@ -486,10 +448,6 @@ object AppModule {
             .build()
     }
 
-    /**
-     * Provee una instancia de OkHttpClient con timeouts para búsquedas de lyrics.
-     * Includes DNS resolver, modern TLS, connection pool, and connection retry.
-     */
     @Provides
     @Singleton
     @FastOkHttpClient
@@ -497,20 +455,16 @@ object AppModule {
         val loggingInterceptor = HttpLoggingInterceptor()
         loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.HEADERS)
         
-        // Connection pool to reuse connections for better performance
         val connectionPool = okhttp3.ConnectionPool(
             maxIdleConnections = 5,
             keepAliveDuration = 30,
-            timeUnit = java.util.concurrent.TimeUnit.SECONDS
+            timeUnit = TimeUnit.SECONDS
         )
         
-        // Use Cloudflare and Google DNS to avoid potential DNS issues
         val dns = okhttp3.Dns { hostname ->
             try {
-                // First try system DNS
                 okhttp3.Dns.SYSTEM.lookup(hostname)
             } catch (e: Exception) {
-                // Fallback to manual resolution if system DNS fails
                 java.net.InetAddress.getAllByName(hostname).toList()
             }
         }
@@ -518,19 +472,15 @@ object AppModule {
         return OkHttpClient.Builder()
             .dns(dns)
             .connectionPool(connectionPool)
-            // Use HTTP/1.1 to avoid HTTP/2 stream issues with some servers
             .protocols(listOf(okhttp3.Protocol.HTTP_1_1))
-            // Use modern TLS connection spec
             .connectionSpecs(listOf(
                 okhttp3.ConnectionSpec.MODERN_TLS,
                 okhttp3.ConnectionSpec.COMPATIBLE_TLS
             ))
-            .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .writeTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
-            // Enable built-in retry on connection failure
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(8, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
-            // Add headers
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val requestWithHeaders = originalRequest.newBuilder()
@@ -543,9 +493,6 @@ object AppModule {
             .build()
     }
 
-    /**
-     * Provee una instancia singleton de Retrofit para la API de LRCLIB.
-     */
     @Provides
     @Singleton
     fun provideRetrofit(@FastOkHttpClient okHttpClient: OkHttpClient): Retrofit {
@@ -556,18 +503,12 @@ object AppModule {
             .build()
     }
 
-    /**
-     * Provee una instancia singleton del servicio de la API de LRCLIB.
-     */
     @Provides
     @Singleton
     fun provideLrcLibApiService(retrofit: Retrofit): LrcLibApiService {
         return retrofit.create(LrcLibApiService::class.java)
     }
 
-    /**
-     * Provee una instancia de Retrofit para la API de Deezer.
-     */
     @Provides
     @Singleton
     @DeezerRetrofit
@@ -579,18 +520,12 @@ object AppModule {
             .build()
     }
 
-    /**
-     * Provee el servicio de la API de Deezer.
-     */
     @Provides
     @Singleton
     fun provideDeezerApiService(@DeezerRetrofit retrofit: Retrofit): DeezerApiService {
         return retrofit.create(DeezerApiService::class.java)
     }
 
-    /**
-     * Provee el repositorio de imágenes de artistas.
-     */
     @Provides
     @Singleton
     fun provideArtistImageRepository(

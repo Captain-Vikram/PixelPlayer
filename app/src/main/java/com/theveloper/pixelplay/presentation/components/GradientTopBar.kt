@@ -104,10 +104,10 @@ fun GenreGradientTopBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeGradientTopBar(
-    onNavigationIconClick: () -> Unit,
     onSourceSelectionClick: () -> Unit,
-    onMashupClick: () -> Unit,
     onStoreClick: () -> Unit,
+    onChangelogClick: () -> Unit,
+    onBetaLogoClick: () -> Unit,
     activeExtensionName: String?,
     isSourceSelectionEnabled: Boolean,
     isScrolled: Boolean = false,
@@ -126,32 +126,47 @@ fun HomeGradientTopBar(
         modifier = Modifier.background(surfaceContainerHigh.copy(alpha = animatedAlpha)),
         title = { /* Empty */ },
         navigationIcon = {
-            InputChip(
-                selected = false,
-                onClick = onSourceSelectionClick,
-                enabled = isSourceSelectionEnabled,
-                label = { Text(activeExtensionName ?: "Local Mode") },
-                leadingIcon = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                // Beta Logo
+                IconButton(onClick = onBetaLogoClick) {
                     Icon(
-                        imageVector = if (activeExtensionName != null) Icons.Rounded.MusicNote else Icons.Rounded.Storage,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = "Beta Info",
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
-                },
-                trailingIcon = {
-                    if (isSourceSelectionEnabled) {
-                        Icon(Icons.Rounded.KeyboardArrowDown, null, modifier = Modifier.size(18.dp))
-                    }
-                },
-                modifier = Modifier.padding(start = 16.dp),
-                shape = CircleShape,
-                colors = InputChipDefaults.inputChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    labelColor = MaterialTheme.colorScheme.onSurface,
-                    leadingIconColor = MaterialTheme.colorScheme.primary
-                ),
-                border = null
-            )
+                }
+
+                // Source Selection Chip
+                InputChip(
+                    selected = false,
+                    onClick = onSourceSelectionClick,
+                    enabled = isSourceSelectionEnabled,
+                    label = { Text(activeExtensionName ?: "Local Mode") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (activeExtensionName != null) Icons.Rounded.MusicNote else Icons.Rounded.Storage,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (isSourceSelectionEnabled) {
+                            Icon(Icons.Rounded.KeyboardArrowDown, null, modifier = Modifier.size(18.dp))
+                        }
+                    },
+                    shape = CircleShape,
+                    colors = InputChipDefaults.inputChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        labelColor = MaterialTheme.colorScheme.onSurface,
+                        leadingIconColor = MaterialTheme.colorScheme.primary
+                    ),
+                    border = null
+                )
+            }
         },
         actions = {
             Row(
@@ -159,18 +174,11 @@ fun HomeGradientTopBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(end = 8.dp)
             ) {
-                // DJ Mashup Button
-                FilledIconButton(
-                    shape = CircleShape,
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onMashupClick
-                ) {
+                // Changelog Button
+                IconButton(onClick = onChangelogClick) {
                     Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
-                        contentDescription = "DJ Mashup"
+                        painter = painterResource(R.drawable.round_newspaper_24),
+                        contentDescription = "Changelog"
                     )
                 }
 
@@ -186,20 +194,6 @@ fun HomeGradientTopBar(
                     Icon(
                         imageVector = Icons.Rounded.Cloud,
                         contentDescription = "Extension Store"
-                    )
-                }
-
-                // Settings Button
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onNavigationIconClick
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.rounded_settings_24),
-                        contentDescription = stringResource(R.string.settings_top_bar_title)
                     )
                 }
             }

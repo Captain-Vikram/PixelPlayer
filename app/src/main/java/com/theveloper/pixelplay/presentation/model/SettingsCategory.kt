@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.presentation.model
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.DeveloperBoard
 import androidx.compose.material.icons.rounded.DeveloperMode
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -72,6 +73,12 @@ enum class SettingsCategory(
         titleRes = R.string.settings_category_device_capabilities_title,
         subtitleRes = R.string.settings_category_device_capabilities_subtitle,
         icon = Icons.Rounded.DeveloperBoard // Placeholder, maybe Memory or SettingsInputComponent
+    ),
+    MASHUP(
+        id = "mashup",
+        titleRes = R.string.settings_mashup_title,
+        subtitleRes = R.string.settings_mashup_subtitle,
+        icon = Icons.Rounded.AutoAwesome
     ),
     ABOUT(
         id = "about",

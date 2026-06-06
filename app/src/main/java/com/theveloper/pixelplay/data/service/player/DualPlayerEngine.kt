@@ -62,9 +62,16 @@ import com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy
 import com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy
 import androidx.core.net.toUri
 
+import kotlinx.coroutines.runBlocking
+
 data class ActiveDecoderInfo(
     val name: String,
     val isHardware: Boolean
+)
+
+data class ResolvedMedia(
+    val uri: Uri,
+    val headers: Map<String, String> = emptyMap()
 )
 
 internal fun shouldResumeAfterTransientAudioFocusLoss(
@@ -214,7 +221,8 @@ class DualPlayerEngine @Inject constructor(
     private val gdriveStreamProxy: com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy,
     private val telegramCacheManager: com.theveloper.pixelplay.data.telegram.TelegramCacheManager,
     private val connectivityStateHolder: com.theveloper.pixelplay.presentation.viewmodel.ConnectivityStateHolder,
-    private val extensionHost: com.theveloper.pixelplay.extensions.PixelPlayExtensionHost
+    private val extensionHost: com.theveloper.pixelplay.extensions.PixelPlayExtensionHost,
+    private val extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
 ) {
     private companion object {
         private const val AUDIO_OFFLOAD_STALL_FALLBACK_MS = 4_000L
@@ -227,7 +235,7 @@ class DualPlayerEngine @Inject constructor(
         private const val POST_TRANSITION_OFFLOAD_GUARD_MS = 2_000L
         private const val MAX_AUXILIARY_TIMELINE_ITEMS = 200
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
-        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive")
+        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive", "extension")
     }
 
     data class TransitionTarget(
@@ -660,7 +668,7 @@ class DualPlayerEngine @Inject constructor(
     fun getAudioSessionId(): Int = if (::playerA.isInitialized) playerA.audioSessionId else 0
 
     private var isReleased = false
-    private val resolvedUriCache = LruCache<String, Uri>(100)
+    private val resolvedUriCache = LruCache<String, ResolvedMedia>(100)
 
     // Whether the OS classifies this as a low-RAM device. Used to cap the player's max
     // prefetch depth so hi-res/lossless buffering (and the second player during a crossfade)
@@ -943,12 +951,34 @@ class DualPlayerEngine @Inject constructor(
                 val scheme = uri.scheme
                 if (scheme in REMOTE_MEDIA_SCHEMES) {
                     val originalUri = uri.toString()
-                    val resolved = resolvedUriCache.get(originalUri)
+                    val cached = resolvedUriCache.get(originalUri)
+                    
+                    val resolved = if (cached != null) {
+                        cached
+                    } else {
+                        // JIT Resolution fallback with timeout
+                        Timber.tag("DualPlayerEngine").d("resolveDataSpec: Cache MISS for %s - attempting JIT resolution", originalUri)
+                        runBlocking {
+                            withContext(Dispatchers.IO) {
+                                kotlinx.coroutines.withTimeoutOrNull(10_000) {
+                                    resolveCloudUri(uri)
+                                }
+                            }
+                        }
+                    }
+
                     if (resolved != null) {
-                        return dataSpec.buildUpon().setUri(resolved).build()
+                        val builder = dataSpec.buildUpon()
+                            .setUri(resolved.uri)
+                        
+                        if (resolved.headers.isNotEmpty()) {
+                            builder.setHttpRequestHeaders(resolved.headers)
+                        }
+                        
+                        return builder.build()
                     }
                     
-                    Timber.tag("DualPlayerEngine").d("resolveDataSpec: Cache MISS for %s - attempting to use original URI", scheme)
+                    Timber.tag("DualPlayerEngine").w("resolveDataSpec: Failed to resolve URI: %s", originalUri)
                 }
                 return dataSpec
             }
@@ -1052,17 +1082,18 @@ class DualPlayerEngine @Inject constructor(
         rebuildPlayersPreservingMasterState("Hi-Fi mode set to $enabled")
     }
 
-    suspend fun resolveCloudUri(uri: Uri): Uri = withContext(Dispatchers.IO) {
+    suspend fun resolveCloudUri(uri: Uri): ResolvedMedia = withContext(Dispatchers.IO) {
         val uriString = uri.toString()
         resolvedUriCache.get(uriString)?.let { return@withContext it }
 
-        val resolved: Uri? = when (uri.scheme) {
-            "telegram" -> resolveTelegramUriAsync(uri, uriString)
-            "netease" -> resolveNeteaseUriAsync(uriString)
-            "qqmusic" -> resolveQqMusicUriAsync(uriString)
-            "navidrome" -> resolveNavidromeUriAsync(uriString)
-            "jellyfin" -> resolveJellyfinUriAsync(uriString)
-            "gdrive" -> resolveGDriveUriAsync(uriString)
+        val resolved: ResolvedMedia? = when (uri.scheme) {
+            "telegram" -> resolveTelegramUriAsync(uri, uriString)?.let { ResolvedMedia(it) }
+            "netease" -> resolveNeteaseUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "qqmusic" -> resolveQqMusicUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "navidrome" -> resolveNavidromeUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "jellyfin" -> resolveJellyfinUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "gdrive" -> resolveGDriveUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "extension" -> resolveExtensionUriAsync(uri, uriString)
             else -> null
         }
 
@@ -1070,7 +1101,40 @@ class DualPlayerEngine @Inject constructor(
             resolvedUriCache.put(uriString, resolved)
             return@withContext resolved
         }
-        uri
+        ResolvedMedia(uri)
+    }
+
+    private suspend fun resolveExtensionUriAsync(uri: Uri, uriString: String): ResolvedMedia? = withContext(Dispatchers.IO) {
+        val parts = uriString.split(":")
+        if (parts.size < 4 || parts[0] != "extension") return@withContext null
+        val extensionId = parts[1]
+        val itemId = parts.drop(3).joinToString(":")
+
+        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return@withContext null
+        
+        return@withContext try {
+            val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.TrackClient ?: return@withContext null
+            val echoTrack = dev.brahmkshatriya.echo.common.models.Track(itemId, "")
+            val loadedTrack = client.loadTrack(echoTrack, false)
+            
+            // Try all servers if the first one fails
+            for (streamable in loadedTrack.servers) {
+                val media = client.loadStreamableMedia(streamable, false)
+                if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
+                    val source = media.sources.firstOrNull()
+                    if (source is dev.brahmkshatriya.echo.common.models.Streamable.Source.Http) {
+                        return@withContext ResolvedMedia(
+                            uri = Uri.parse(source.id),
+                            headers = source.request.headers
+                        )
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Timber.tag("DualPlayerEngine").e(e, "Failed to resolve extension track: $uriString")
+            null
+        }
     }
 
     private suspend fun resolveTelegramUriAsync(uri: Uri, uriString: String): Uri? = withContext(Dispatchers.IO) {
@@ -1132,8 +1196,11 @@ class DualPlayerEngine @Inject constructor(
         val uri = mediaItem.localConfiguration?.uri ?: return mediaItem
         val scheme = uri.scheme
         if (scheme !in REMOTE_MEDIA_SCHEMES) return mediaItem
-        val resolvedUri = resolveCloudUri(uri)
-        return if (resolvedUri == uri) mediaItem else mediaItem.buildUpon().setUri(resolvedUri).build()
+        
+        // Warm up cache but return original MediaItem
+        // The ResolvingDataSource will handle the actual replacement
+        resolveCloudUri(uri)
+        return mediaItem
     }
 
     suspend fun prepareNext(target: TransitionTarget, startPositionMs: Long = 0L) {

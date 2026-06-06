@@ -187,6 +187,14 @@
 # Glance Widget
 -keep class * extends androidx.glance.appwidget.action.ActionCallback { <init>(); }
 
+# Protobuf (Required by Echo Extensions like Spotify)
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+
+# Echo Extension Loader & Common
+-keep class dev.brahmkshatriya.echo.** { *; }
+-dontwarn dev.brahmkshatriya.echo.**
+
 # =============================================================================
 # TIMBER LOGGING OPTIMIZATION FOR RELEASE BUILDS
 # =============================================================================

@@ -3,7 +3,7 @@ package com.theveloper.pixelplay.presentation.viewmodel
 import com.theveloper.pixelplay.data.model.Album
 import com.theveloper.pixelplay.data.model.Artist
 import com.theveloper.pixelplay.data.model.Song
-import com.theveloper.pixelplay.data.model.StorageFilter
+import com.theveloper.pixelplay.data.model.SourceScope
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.utils.QueueUtils
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +27,7 @@ import javax.inject.Singleton
  */
 class ShufflePlaybackCallbacks(
     val scope: CoroutineScope,
-    val currentStorageFilter: () -> StorageFilter,
+    val currentSourceScope: () -> SourceScope,
     val albums: () -> List<Album>,
     val artists: () -> List<Artist>,
     val playShuffled: (songs: List<Song>, queueName: String) -> Unit,
@@ -199,7 +199,7 @@ class QueueStateHolder @Inject constructor(
      */
     fun shuffleFavorites(callbacks: ShufflePlaybackCallbacks) {
         callbacks.scope.launch {
-            val favSongs = musicRepository.getFavoriteSongsOnce(callbacks.currentStorageFilter())
+            val favSongs = musicRepository.getFavoriteSongsOnce(callbacks.currentSourceScope())
             if (favSongs.isNotEmpty()) {
                 callbacks.playShuffled(favSongs, FAVORITES_SHUFFLED_QUEUE)
             }

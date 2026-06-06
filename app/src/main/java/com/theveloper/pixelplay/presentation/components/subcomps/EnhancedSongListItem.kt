@@ -97,6 +97,7 @@ fun EnhancedSongListItem(
     selectionIndex: Int? = null,
     isSelectionMode: Boolean = false,
     showMoreOptionsButton: Boolean = true,
+    sourceLabel: String? = null,
     onLongPress: () -> Unit = {},
     onMoreOptionsClick: (Song) -> Unit,
     onClick: () -> Unit
@@ -349,13 +350,24 @@ fun EnhancedSongListItem(
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = song.displayArtist,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = contentColor.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = song.displayArtist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = contentColor.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (sourceLabel != null) {
+                            Text(
+                                text = " • $sourceLabel",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
                 
                 val showPlayingIndicator = isCurrentSong && !isSelectionMode

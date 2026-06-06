@@ -93,7 +93,7 @@ class ExtensionStoreRepository @Inject constructor(
     }
 
     suspend fun downloadAndInstall(item: ExtensionStoreItem) = withContext(Dispatchers.IO) {
-        val downloadUrl = item.remote.downloadUrl ?: getDownloadUrlFromGitHub(item.remote.updateUrl) ?: return@withContext
+        val downloadUrl = item.remote.downloadUrl ?: getDownloadUrlFromGitHub(item.remote.updateUrl) ?: throw Exception("Failed to find APK download URL for ${item.remote.name}. Check connection or GitHub limits.")
         
         // Update status to Downloading
         updateItemStatus(item.remote.id, ExtensionStatus.DOWNLOADING, 0.1f)
@@ -102,20 +102,42 @@ class ExtensionStoreRepository @Inject constructor(
             val request = Request.Builder().url(downloadUrl).build()
             val response = client.newCall(request).execute()
             if (response.isSuccessful) {
-                val file = File(context.filesDir, "extensions/${item.remote.id}.apk")
-                if (!file.parentFile.exists()) file.parentFile.mkdirs()
+                val extension = if (downloadUrl.endsWith(".eapk")) ".eapk" else ".apk"
+                val dir = File(context.filesDir, "extensions")
+                dir.mkdirs()
+                dir.setWritable(true)
                 
-                response.body?.byteStream()?.use { input ->
+                val file = File(dir, "${item.remote.id}$extension")
+                
+                // Remove any existing extension files with the same ID
+                listOf(".apk", ".eapk").forEach { ext ->
+                    val oldFile = File(dir, "${item.remote.id}$ext")
+                    if (oldFile.exists()) {
+                        oldFile.setWritable(true)
+                        oldFile.delete()
+                    }
+                }
+                
+                val body = response.body ?: throw Exception("Failed to download extension: Empty response body")
+                body.byteStream().use { input ->
                     FileOutputStream(file).use { output ->
                         input.copyTo(output)
                     }
                 }
                 
+                file.setWritable(false)
+                dir.setReadOnly()
+                
+                android.util.Log.d("ExtensionStore", "Successfully downloaded ${item.remote.id} to ${file.absolutePath}")
+                
                 updateItemStatus(item.remote.id, ExtensionStatus.INSTALLED, 1f)
-                // extensionEngine.refreshAndInit() is no longer needed; repository uses File flow.
+                extensionEngine.fileIgnoreFlow.emit(null)
+            } else {
+                android.util.Log.e("ExtensionStore", "Failed to download ${item.remote.id}: ${response.code} ${response.message}")
+                updateItemStatus(item.remote.id, ExtensionStatus.AVAILABLE, 0f)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("ExtensionStore", "Exception downloading ${item.remote.id}", e)
             updateItemStatus(item.remote.id, ExtensionStatus.AVAILABLE, 0f)
         }
     }
@@ -138,7 +160,8 @@ class ExtensionStoreRepository @Inject constructor(
                     val latest = releases[0].jsonObject
                     val assets = latest["assets"]?.jsonArray ?: return null
                     val apkAsset = assets.find { 
-                        it.jsonObject["name"]?.jsonPrimitive?.content?.endsWith(".apk") == true 
+                        val name = it.jsonObject["name"]?.jsonPrimitive?.content ?: ""
+                        name.endsWith(".apk") || name.endsWith(".eapk")
                     }
                     return apkAsset?.jsonObject["browser_download_url"]?.jsonPrimitive?.content
                 }

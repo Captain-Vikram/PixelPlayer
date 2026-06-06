@@ -386,6 +386,8 @@ fun SongInfoBottomSheet(
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 })
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
+    val isExtension = remember(song.extensionId) { song.extensionId != null }
+
     ModalBottomSheet(
         onDismissRequest = {
             if (!showEditSheet) {
@@ -437,21 +439,23 @@ fun SongInfoBottomSheet(
                                     text = song.title
                                 )
                             }
-                            FilledTonalIconButton(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .padding(vertical = 6.dp),
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceBright,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                ),
-                                onClick = { showEditSheet = true },
-                            ) {
-                                Icon(
-                                    modifier = Modifier.padding(horizontal = 8.dp),
-                                    imageVector = Icons.Rounded.Edit,
-                                    contentDescription = stringResource(R.string.cd_edit_song_metadata)
-                                )
+                            if (!isExtension) {
+                                FilledTonalIconButton(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .padding(vertical = 6.dp),
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceBright,
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    onClick = { showEditSheet = true },
+                                ) {
+                                    Icon(
+                                        modifier = Modifier.padding(horizontal = 8.dp),
+                                        imageVector = Icons.Rounded.Edit,
+                                        contentDescription = stringResource(R.string.cd_edit_song_metadata)
+                                    )
+                                }
                             }
                         }
                     }
@@ -492,6 +496,7 @@ fun SongInfoBottomSheet(
                                             ) {
                                                 FilledTonalButton(
                                                     modifier = Modifier
+<<<<<<< HEAD
                                                         .weight(0.5f)
                                                         .heightIn(min = 80.dp),
                                                     colors = ButtonDefaults.filledTonalButtonColors(
@@ -499,6 +504,12 @@ fun SongInfoBottomSheet(
                                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                                     ),
                                                     contentPadding = PaddingValues(horizontal = 10.dp),
+=======
+                                                        .weight(if (isExtension) 0.75f else 0.5f)
+                                                        .fillMaxHeight(),
+                                                    onClick = onPlaySong,
+                                                    elevation = FloatingActionButtonDefaults.elevation(0.dp),
+>>>>>>> 4c53b634 (Implement advanced extension feed handling, modular search overhaul, and playback reliability fixes)
                                                     shape = playButtonShape,
                                                     onClick = onPlaySong
                                                 ) {
@@ -537,38 +548,40 @@ fun SongInfoBottomSheet(
                                                     )
                                                 }
 
-                                                FilledTonalIconButton(
-                                                    modifier = Modifier
-                                                        .weight(0.25f)
-                                                        .fillMaxHeight(),
-                                                    onClick = {
-                                                        try {
-                                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                                type = "audio/*"
-                                                                putExtra(Intent.EXTRA_STREAM, song.contentUriString.toUri())
-                                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                            }
-                                                            context.startActivity(
-                                                                Intent.createChooser(
-                                                                    shareIntent,
-                                                                    context.getString(R.string.song_info_share_chooser_title)
+                                                if (!isExtension) {
+                                                    FilledTonalIconButton(
+                                                        modifier = Modifier
+                                                            .weight(0.25f)
+                                                            .fillMaxHeight(),
+                                                        onClick = {
+                                                            try {
+                                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                                    type = "audio/*"
+                                                                    putExtra(Intent.EXTRA_STREAM, song.contentUriString.toUri())
+                                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                                }
+                                                                context.startActivity(
+                                                                    Intent.createChooser(
+                                                                        shareIntent,
+                                                                        context.getString(R.string.song_info_share_chooser_title)
+                                                                    )
                                                                 )
-                                                            )
-                                                        } catch (e: Exception) {
-                                                            Toast.makeText(
-                                                            context,
-                                                            context.getString(R.string.error_share_song_format, e.localizedMessage ?: ""),
-                                                            Toast.LENGTH_LONG
-                                                        ).show()
-                                                        }
-                                                    },
-                                                    shape = CircleShape
-                                                ) {
-                                                    Icon(
-                                                        modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
-                                                        imageVector = Icons.Rounded.Share,
-                                                        contentDescription = stringResource(R.string.cd_share_song_file)
-                                                    )
+                                                            } catch (e: Exception) {
+                                                                Toast.makeText(
+                                                                context,
+                                                                context.getString(R.string.error_share_song_format, e.localizedMessage ?: ""),
+                                                                Toast.LENGTH_LONG
+                                                            ).show()
+                                                            }
+                                                        },
+                                                        shape = CircleShape
+                                                    ) {
+                                                        Icon(
+                                                            modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
+                                                            imageVector = Icons.Rounded.Share,
+                                                            contentDescription = stringResource(R.string.cd_share_song_file)
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -644,7 +657,7 @@ fun SongInfoBottomSheet(
                                             ) {
                                                 FilledTonalButton(
                                                     modifier = Modifier
-                                                        .weight(0.5f)
+                                                        .weight(if (isExtension) 1f else 0.5f)
                                                         .heightIn(min = 66.dp),
                                                     colors = ButtonDefaults.filledTonalButtonColors(
                                                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -668,6 +681,7 @@ fun SongInfoBottomSheet(
                                                     )
                                                 }
 
+<<<<<<< HEAD
                                                 FilledTonalButton(
                                                     modifier = Modifier
                                                         .weight(0.5f)
@@ -684,10 +698,37 @@ fun SongInfoBottomSheet(
                                                                 if (result) {
                                                                     removeFromListTrigger()
                                                                     onDismiss()
+=======
+                                                if (!isExtension) {
+                                                    FilledTonalButton(
+                                                        modifier = Modifier
+                                                            .weight(0.5f)
+                                                            .heightIn(min = 66.dp),
+                                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                                                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                                        ),
+                                                        shape = CircleShape,
+                                                        onClick = {
+                                                            (context as? Activity)?.let { activity ->
+                                                                onDeleteFromDevice(activity, song) { result ->
+                                                                    if (result) {
+                                                                        removeFromListTrigger()
+                                                                        onDismiss()
+                                                                    }
+>>>>>>> 4c53b634 (Implement advanced extension feed handling, modular search overhaul, and playback reliability fixes)
                                                                 }
                                                             }
                                                         }
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.DeleteForever,
+                                                            contentDescription = stringResource(R.string.delete_action)
+                                                        )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text(stringResource(R.string.delete_action))
                                                     }
+<<<<<<< HEAD
                                                 ) {
                                                     Icon(
                                                         Icons.Default.DeleteForever,
@@ -701,110 +742,114 @@ fun SongInfoBottomSheet(
                                                         maxLines = 2,
                                                         lineHeight = 20.sp
                                                     )
+=======
+>>>>>>> 4c53b634 (Implement advanced extension feed handling, modular search overhaul, and playback reliability fixes)
                                                 }
                                             }
                                         }
 
-                                        val shouldRenderWatchTransferRow =
-                                            currentSongTransfer != null ||
-                                                    shouldOfferWatchTransfer ||
-                                                    shouldShowWatchTransferLoading
-                                        item {
-                                            if (shouldRenderWatchTransferRow) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .height(IntrinsicSize.Min),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                                ) {
-                                                    RingtoneActionButton(
+                                        if (!isExtension) {
+                                            val shouldRenderWatchTransferRow =
+                                                currentSongTransfer != null ||
+                                                        shouldOfferWatchTransfer ||
+                                                        shouldShowWatchTransferLoading
+                                            item {
+                                                if (shouldRenderWatchTransferRow) {
+                                                    Row(
                                                         modifier = Modifier
-                                                            .weight(0.38f)
-                                                            .fillMaxHeight(),
-                                                        showText = true,
-                                                        compactText = true,
-                                                        onClick = { showTonePickerDialog = true },
-                                                    )
+                                                            .fillMaxWidth()
+                                                            .height(IntrinsicSize.Min),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                    ) {
+                                                        RingtoneActionButton(
+                                                            modifier = Modifier
+                                                                .weight(0.38f)
+                                                                .fillMaxHeight(),
+                                                            showText = true,
+                                                            compactText = true,
+                                                            onClick = { showTonePickerDialog = true },
+                                                        )
 
-                                                    FilledTonalButton(
-                                                        modifier = Modifier
-                                                            .weight(0.62f)
-                                                            .fillMaxHeight(),
-                                                        colors = ButtonDefaults.filledTonalButtonColors(
-                                                            containerColor = if (isPixelPlayWatchAvailable) {
-                                                                sendToWatchContainerColor
+                                                        FilledTonalButton(
+                                                            modifier = Modifier
+                                                                .weight(0.62f)
+                                                                .fillMaxHeight(),
+                                                            colors = ButtonDefaults.filledTonalButtonColors(
+                                                                containerColor = if (isPixelPlayWatchAvailable) {
+                                                                    sendToWatchContainerColor
+                                                                } else {
+                                                                    MaterialTheme.colorScheme.surfaceContainerHigh
+                                                                },
+                                                                contentColor = if (isPixelPlayWatchAvailable) {
+                                                                    sendToWatchContentColor
+                                                                } else {
+                                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                                },
+                                                                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            ),
+                                                            shape = CircleShape,
+                                                            enabled = shouldOfferWatchTransfer && !isSendingToWatch,
+                                                            onClick = {
+                                                                songInfoViewModel.sendSongToWatch(song) { message ->
+                                                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            }
+                                                        ) {
+                                                            if (shouldShowWatchTransferLoading) {
+                                                                LoadingIndicator(modifier = Modifier.size(18.dp))
+                                                                Spacer(Modifier.width(10.dp))
+                                                                Text(stringResource(R.string.song_info_checking_watch))
+                                                            } else if (isSendingToWatch) {
+                                                                LoadingIndicator(modifier = Modifier.size(18.dp))
+                                                                Spacer(Modifier.width(10.dp))
+                                                                Text(
+                                                                    when {
+                                                                        currentSongTransfer != null && currentSongTransfer.totalBytes > 0L ->
+                                                                            stringResource(
+                                                                                R.string.song_info_transferring_percent,
+                                                                                currentSongTransferPercent
+                                                                            )
+                                                                        currentSongTransfer != null ->
+                                                                            stringResource(R.string.song_info_transferring_to_watch)
+                                                                        else ->
+                                                                            stringResource(R.string.song_info_transfer_in_progress)
+                                                                    }
+                                                                )
                                                             } else {
-                                                                MaterialTheme.colorScheme.surfaceContainerHigh
-                                                            },
-                                                            contentColor = if (isPixelPlayWatchAvailable) {
-                                                                sendToWatchContentColor
-                                                            } else {
-                                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                                            },
-                                                            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                                        ),
-                                                        shape = CircleShape,
-                                                        enabled = shouldOfferWatchTransfer && !isSendingToWatch,
-                                                        onClick = {
-                                                            songInfoViewModel.sendSongToWatch(song) { message ->
-                                                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                                                Icon(
+                                                                    painter = painterResource(R.drawable.rounded_watch_arrow_down_24),
+                                                                    contentDescription = stringResource(
+                                                                        if (isPixelPlayWatchAvailable) {
+                                                                            R.string.cd_send_song_to_watch
+                                                                        } else {
+                                                                            R.string.cd_watch_unavailable
+                                                                        }
+                                                                    )
+                                                                )
+                                                                Spacer(Modifier.width(8.dp))
+                                                                Text(
+                                                                    stringResource(
+                                                                        if (isPixelPlayWatchAvailable) {
+                                                                            R.string.song_info_send_to_watch
+                                                                        } else {
+                                                                            R.string.song_info_watch_unavailable
+                                                                        }
+                                                                    )
+                                                                )
                                                             }
                                                         }
-                                                    ) {
-                                                        if (shouldShowWatchTransferLoading) {
-                                                            LoadingIndicator(modifier = Modifier.size(18.dp))
-                                                            Spacer(Modifier.width(10.dp))
-                                                            Text(stringResource(R.string.song_info_checking_watch))
-                                                        } else if (isSendingToWatch) {
-                                                            LoadingIndicator(modifier = Modifier.size(18.dp))
-                                                            Spacer(Modifier.width(10.dp))
-                                                            Text(
-                                                                when {
-                                                                    currentSongTransfer != null && currentSongTransfer.totalBytes > 0L ->
-                                                                        stringResource(
-                                                                            R.string.song_info_transferring_percent,
-                                                                            currentSongTransferPercent
-                                                                        )
-                                                                    currentSongTransfer != null ->
-                                                                        stringResource(R.string.song_info_transferring_to_watch)
-                                                                    else ->
-                                                                        stringResource(R.string.song_info_transfer_in_progress)
-                                                                }
-                                                            )
-                                                        } else {
-                                                            Icon(
-                                                                painter = painterResource(R.drawable.rounded_watch_arrow_down_24),
-                                                                contentDescription = stringResource(
-                                                                    if (isPixelPlayWatchAvailable) {
-                                                                        R.string.cd_send_song_to_watch
-                                                                    } else {
-                                                                        R.string.cd_watch_unavailable
-                                                                    }
-                                                                )
-                                                            )
-                                                            Spacer(Modifier.width(8.dp))
-                                                            Text(
-                                                                stringResource(
-                                                                    if (isPixelPlayWatchAvailable) {
-                                                                        R.string.song_info_send_to_watch
-                                                                    } else {
-                                                                        R.string.song_info_watch_unavailable
-                                                                    }
-                                                                )
-                                                            )
-                                                        }
                                                     }
+                                                } else {
+                                                    RingtoneActionButton(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .heightIn(min = 66.dp),
+                                                        showText = true,
+                                                        onClick = { showTonePickerDialog = true },
+                                                    )
                                                 }
-                                            } else {
-                                                RingtoneActionButton(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .heightIn(min = 66.dp),
-                                                    showText = true,
-                                                    onClick = { showTonePickerDialog = true },
-                                                )
                                             }
                                         }
 

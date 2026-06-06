@@ -531,22 +531,13 @@ class MainActivity : ComponentActivity() {
             // Only process if we have a new playlist ID that hasn't been processed yet
             if (playlistId != null && playlistId != processedPlaylistId && isMediaControllerReady) {
                 processedPlaylistId = playlistId
-                // Wait for navigation graph to be ready (retry with delay)
-                var success = false
-                var attempts = 0
-                while (!success && attempts < 50) { // 5 seconds max
-                    try {
-                        success = navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
-                        if (success) {
-                            _pendingPlaylistNavigation.value = null
-                        } else {
-                            delay(100)
-                            attempts++
-                        }
-                    } catch (e: IllegalArgumentException) {
-                        delay(100)
-                        attempts++
+                try {
+                    val success = navController.navigateSafely(Screen.PlaylistDetail.createRoute(playlistId))
+                    if (success) {
+                        _pendingPlaylistNavigation.value = null
                     }
+                } catch (e: Exception) {
+                    LogUtils.w("MainActivity", "Failed to navigate to playlist: $playlistId")
                 }
             } else if (playlistId == null) {
                 // Reset so the same playlist can be opened again
@@ -592,7 +583,7 @@ class MainActivity : ComponentActivity() {
 
             // Muestra el LoadingOverlay solo si las condiciones se cumplen Y el delay ha pasado
             if (canShowLoadingIndicator) {
-                LoadingOverlay(syncProgress)
+                LoadingOverlay(mainViewModel.syncProgress)
             }
         }
         Trace.endSection() // End MainActivity.MainAppContent
@@ -915,7 +906,7 @@ class MainActivity : ComponentActivity() {
                                 .map { it.currentSong?.id != null }
                                 .distinctUntilChanged()
                         }.collectAsStateWithLifecycle(initialValue = false)
-                        val routesWithHiddenMiniPlayer = remember { setOf(Screen.NavBarCrRad.route) }
+                        val routesWithHiddenMiniPlayer = remember { setOf(Screen.NavBarCrRad.route, Screen.DJSpace.route) }
                         val shouldHideMiniPlayer by remember(currentRoute) {
                             derivedStateOf { currentRoute in routesWithHiddenMiniPlayer }
                         }
@@ -937,21 +928,10 @@ class MainActivity : ComponentActivity() {
                         val expansionFractionProvider = remember(playerViewModel.playerContentExpansionFraction) {
                             { playerViewModel.playerContentExpansionFraction.value }
                         }
-                        val blurEffectCache = remember { BlurEffectCache() }
 
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .graphicsLayer {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                        val fraction = expansionFractionProvider()
-                                        // Quantize to 4px steps: rebuild the RenderEffect only
-                                        // when the blur crosses a step, reuse the cached object
-                                        // every other frame.
-                                        val quantizedBlurPx = (fraction * 100f / 4f).roundToInt() * 4f
-                                        renderEffect = blurEffectCache.get(quantizedBlurPx)
-                                    }
-                                }
                         ) {
                             AppNavigation(
                                 playerViewModel = playerViewModel,
@@ -1057,7 +1037,8 @@ class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     @Composable
-    private fun LoadingOverlay(syncProgress: SyncProgress) {
+    private fun LoadingOverlay(syncProgressFlow: kotlinx.coroutines.flow.StateFlow<SyncProgress>) {
+        val syncProgress by syncProgressFlow.collectAsStateWithLifecycle()
         // Animate progress smoothly instead of jumping in steps
         val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
             targetValue = syncProgress.progress,
@@ -1134,31 +1115,6 @@ class MainActivity : ComponentActivity() {
     }
 
 
-}
-
-/**
- * Caches the (expensive) RenderEffect Java object so we don't allocate a new
- * blur every animation frame. The radius is quantized at the call site, so this
- * only rebuilds ~25 times across the whole expand animation instead of 60+/sec.
- */
-private class BlurEffectCache {
-    private var lastRadiusPx: Float = Float.NaN
-    private var cached: androidx.compose.ui.graphics.RenderEffect? = null
-
-    fun get(radiusPx: Float): androidx.compose.ui.graphics.RenderEffect? {
-        if (radiusPx <= 0f) {
-            lastRadiusPx = 0f
-            cached = null
-            return null
-        }
-        if (radiusPx != lastRadiusPx) {
-            lastRadiusPx = radiusPx
-            cached = AndroidRenderEffect
-                .createBlurEffect(radiusPx, radiusPx, AndroidShader.TileMode.CLAMP)
-                .asComposeRenderEffect()
-        }
-        return cached
-    }
 }
 
 /**

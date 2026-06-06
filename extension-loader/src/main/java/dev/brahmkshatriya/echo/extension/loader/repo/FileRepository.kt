@@ -36,7 +36,7 @@ class FileRepository(
     private fun loadAllApks() = folder.run {
         setReadOnly()
         listFiles()!!.filter {
-            it != toIgnoreFile && it.extension == "apk"
+            it != toIgnoreFile && (it.extension == "apk" || it.extension == "eapk")
         }.onEach { it.setWritable(false) }
     }
 

@@ -1792,7 +1792,7 @@ private fun SetupRestoreDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(bottom = 12.dp)
                     ) {
-                        items(availableModules) { section ->
+                        items(availableModules, key = { it.ordinal }) { section ->
                             val detail = plan.moduleDetails[section]
                             val selected = section in plan.selectedModules
                             SetupRestoreSectionRow(

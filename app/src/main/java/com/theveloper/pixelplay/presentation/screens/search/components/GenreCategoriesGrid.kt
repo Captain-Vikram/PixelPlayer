@@ -54,7 +54,10 @@ import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
-@OptIn(UnstableApi::class)
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxHeight
+
+@OptIn(UnstableApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun GenreCategoriesGrid(
     genres: List<Genre>,
@@ -64,7 +67,7 @@ fun GenreCategoriesGrid(
 ) {
     if (genres.isEmpty()) {
         Box(
-            modifier = modifier.fillMaxSize().padding(16.dp),
+            modifier = modifier.fillMaxWidth().padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(stringResource(R.string.no_genres_available), style = MaterialTheme.typography.bodyLarge)
@@ -72,7 +75,6 @@ fun GenreCategoriesGrid(
         return
     }
 
-    val systemNavBarHeight = getNavigationBarHeight()
     val customGenreIcons = playerViewModel.customGenreIcons.collectAsStateWithLifecycle(
         initialValue = emptyMap(),
         context = kotlin.coroutines.EmptyCoroutineContext
@@ -80,12 +82,10 @@ fun GenreCategoriesGrid(
 
     // Persistence: Collect from ViewModel
     val isGridView by playerViewModel.isGenreGridView.collectAsStateWithLifecycle()
-    val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
 
-    LazyVerticalGrid(
-        columns = if (isGridView) GridCells.Fixed(2) else GridCells.Fixed(1),
+    Column(
         modifier = modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .padding(horizontal = 18.dp)
             .clip(AbsoluteSmoothCornerShape(
                 cornerRadiusTR = 24.dp,
@@ -96,57 +96,61 @@ fun GenreCategoriesGrid(
                 smoothnessAsPercentBR = 70,
                 cornerRadiusBL = 0.dp,
                 smoothnessAsPercentBL = 70
-            )),
-        contentPadding = PaddingValues(
-            top = 8.dp,
-            bottom = 28.dp + resolveNavBarOccupiedHeight(systemNavBarHeight, navBarCompactMode) + MiniPlayerHeight
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f))
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 6.dp, top = 6.dp, bottom = 6.dp, end = 0.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 6.dp, top = 6.dp, bottom = 6.dp, end = 0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(R.string.browse_by_genre),
+                style = MaterialTheme.typography.titleLarge
+            )
+            
+            val shape = androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (!isGridView) 12f else 50f, 
+                label = "shapeAnimation"
+            )
+            
+            androidx.compose.material3.FilledIconButton(
+                onClick = { playerViewModel.toggleGenreViewMode() },
+                colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ),
+                shape = RoundedCornerShape(shape.value.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.browse_by_genre),
-                    style = MaterialTheme.typography.titleLarge
-                )
-                
-                // Toggle Button with persistence and styling
-                // "Round to Square (12dp) when selected" logic:
-                // Assuming List View is the "Selected" / "Alternative" state.
-                val shape = androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = if (!isGridView) 12f else 50f, // 12dp for List, 50% (Circle) for Grid
-                    label = "shapeAnimation"
-                )
-                
-                androidx.compose.material3.FilledIconButton(
-                    onClick = { playerViewModel.toggleGenreViewMode() },
-                    colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ),
-                    shape = RoundedCornerShape(shape.value.dp)
-                ) {
                 androidx.compose.material3.Icon(
-                        imageVector = if (isGridView) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView,
-                        contentDescription = "Toggle Grid/List View"
+                    imageVector = if (isGridView) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView,
+                    contentDescription = "Toggle Grid/List View"
+                )
+            }
+        }
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            maxItemsInEachRow = if (isGridView) 2 else 1
+        ) {
+            genres.forEach { genre ->
+                Box(
+                    modifier = Modifier.weight(1f, fill = true)
+                ) {
+                    GenreCard(
+                        genre = genre,
+                        customIcons = customGenreIcons,
+                        onClick = { onGenreClick(genre) },
+                        isGridView = isGridView
                     )
                 }
             }
-        }
-        items(genres, key = { it.id }) { genre ->
-            GenreCard(
-                genre = genre,
-                customIcons = customGenreIcons,
-                onClick = { onGenreClick(genre) },
-                isGridView = isGridView
-            )
         }
     }
 }

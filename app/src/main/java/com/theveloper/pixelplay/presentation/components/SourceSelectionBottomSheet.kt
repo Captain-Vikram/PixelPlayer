@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.theveloper.pixelplay.R
+import androidx.compose.material.icons.rounded.Storage
 import com.theveloper.pixelplay.presentation.netease.auth.NeteaseLoginActivity
 import com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity
 import com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity
@@ -39,7 +40,7 @@ import dev.brahmkshatriya.echo.common.Extension
 fun SourceSelectionBottomSheet(
     musicExtensions: List<MusicExtension>,
     currentMusicExtension: MusicExtension?,
-    onMusicExtensionSelected: (MusicExtension) -> Unit,
+    onMusicExtensionSelected: (MusicExtension?) -> Unit,
     lyricsExtensions: List<Extension<*>>,
     onNavigateToStore: () -> Unit,
     isNeteaseLoggedIn: Boolean = false,
@@ -91,6 +92,29 @@ fun SourceSelectionBottomSheet(
                     .clip(containerShape),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                // Local Mode Option
+                val isLocalSelected = currentMusicExtension == null
+                SourceRow(
+                    title = "Local Files",
+                    subtitle = "Internal Device Storage",
+                    iconVector = Icons.Rounded.Storage,
+                    iconTint = MaterialTheme.colorScheme.secondary,
+                    isSelected = isLocalSelected,
+                    onClick = { onMusicExtensionSelected(null) },
+                    shape = itemShape
+                )
+
+                // Divider if there are extensions
+                if (musicExtensions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
                 // Extensions
                 musicExtensions.forEach { extension ->
                     val isSelected = extension == currentMusicExtension

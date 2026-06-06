@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.theveloper.pixelplay.data.model.Album
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.repository.MusicRepository // Importar MusicRepository
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
 import com.theveloper.pixelplay.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +31,7 @@ data class AlbumDetailUiState(
 class AlbumDetailViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
+    private val extensionRepository: ExtensionRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -37,16 +39,43 @@ class AlbumDetailViewModel @Inject constructor(
     val uiState: StateFlow<AlbumDetailUiState> = _uiState.asStateFlow()
 
     init {
-        val albumIdString: String? = savedStateHandle.get("albumId")
-        if (albumIdString != null) {
-            val albumId = albumIdString.toLongOrNull()
-            if (albumId != null) {
-                loadAlbumData(albumId)
+        val albumId: String? = savedStateHandle["albumId"]
+        if (albumId != null) {
+            if (albumId.startsWith("extension:")) {
+                loadExtensionAlbum(albumId)
             } else {
-                _uiState.update { it.copy(error = context.getString(R.string.invalid_album_id), isLoading = false) }
+                val localId = albumId.toLongOrNull()
+                if (localId != null) {
+                    loadAlbumData(localId)
+                } else {
+                    _uiState.update { it.copy(error = context.getString(R.string.invalid_album_id), isLoading = false) }
+                }
             }
         } else {
             _uiState.update { it.copy(error = context.getString(R.string.album_id_not_found), isLoading = false) }
+        }
+    }
+
+    private fun loadExtensionAlbum(id: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val result = extensionRepository.loadAlbumDetails(id)
+            if (result != null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        album = result.first,
+                        songs = result.second
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Failed to load album from extension"
+                    )
+                }
+            }
         }
     }
 

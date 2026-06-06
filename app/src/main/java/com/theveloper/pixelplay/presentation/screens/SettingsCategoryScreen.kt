@@ -1225,6 +1225,9 @@ fun SettingsCategoryScreen(
                         SettingsCategory.DEVICE_CAPABILITIES -> {
                              // Device Capabilities has its own screen
                         }
+                        SettingsCategory.MASHUP -> {
+                            // Mashup has its own screen
+                        }
 
                     }
                }

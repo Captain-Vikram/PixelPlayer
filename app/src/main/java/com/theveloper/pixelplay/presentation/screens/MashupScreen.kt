@@ -6,8 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -34,12 +35,14 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.presentation.components.SmartImage
+import com.theveloper.pixelplay.presentation.viewmodel.DeckState
 import com.theveloper.pixelplay.presentation.viewmodel.MashupViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
-import com.theveloper.pixelplay.presentation.viewmodel.SearchStateHolder
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +52,16 @@ fun MashupScreen(
     playerViewModel: PlayerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val deck1Progress by viewModel.deck1Progress.collectAsStateWithLifecycle()
+    val deck2Progress by viewModel.deck2Progress.collectAsStateWithLifecycle()
     val allSongs by viewModel.uiState.map { it.allSongs }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+
+    // Smartly pause global music when entering the DJ Mashup page to avoid audio overlapping
+    LaunchedEffect(Unit) {
+        playerViewModel.pause()
+    }
 
     Scaffold(
         topBar = {
@@ -72,124 +84,339 @@ fun MashupScreen(
                 }
             )
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            Text(
-                stringResource(R.string.presentation_batch_d_mashup_subtitle),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            // Deck Selection
-            DeckSlot(
-                title = "Deck 1",
-                song = uiState.deck1.song,
-                onClick = { viewModel.openSongPicker(1) }
-            )
-
-            DeckSlot(
-                title = "Deck 2",
-                song = uiState.deck2.song,
-                onClick = { viewModel.openSongPicker(2) }
-            )
-
-            Spacer(Modifier.weight(1f))
-
-            Button(
-                onClick = { /* Start Mashup */ },
-                enabled = uiState.deck1.song != null && uiState.deck2.song != null,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp)
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(stringResource(R.string.presentation_batch_d_mashup_start))
-            }
-        }
-
-        if (uiState.showSongPickerForDeck != null) {
-            ModalBottomSheet(
-                onDismissRequest = { viewModel.closeSongPicker() }
-            ) {
-                SongPickerSheet(
-                    songs = allSongs,
-                    onSongSelected = { song ->
-                        viewModel.loadSong(uiState.showSongPickerForDeck!!, song)
-                    },
-                    playerViewModel = playerViewModel
+                Spacer(Modifier.height(8.dp))
+                
+                Text(
+                    stringResource(R.string.presentation_batch_d_mashup_subtitle),
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    val isLoading1 = uiState.deck1.song == null && uiState.showSongPickerForDeck == 1
+                    val isLoading2 = uiState.deck2.song == null && uiState.showSongPickerForDeck == 2
+
+                    DeckUi(
+                        deckNumber = 1,
+                        deckState = uiState.deck1,
+                        progressProvider = { deck1Progress },
+                        isLoading = isLoading1,
+                        loadingMessage = stringResource(R.string.presentation_batch_d_loading),
+                        onPlayPause = { viewModel.playPause(1) },
+                        onVolumeChange = { viewModel.setVolume(1, it) },
+                        onSelectSong = { viewModel.openSongPicker(1) },
+                        onSeek = { progress -> viewModel.seek(1, progress) },
+                        onSpeedChange = { speed -> viewModel.setSpeed(1, speed) },
+                        onNudge = { amount -> viewModel.nudge(1, amount) }
+                    )
+                    
+                    DeckUi(
+                        deckNumber = 2,
+                        deckState = uiState.deck2,
+                        progressProvider = { deck2Progress },
+                        isLoading = isLoading2,
+                        loadingMessage = stringResource(R.string.presentation_batch_d_loading),
+                        onPlayPause = { viewModel.playPause(2) },
+                        onVolumeChange = { viewModel.setVolume(2, it) },
+                        onSelectSong = { viewModel.openSongPicker(2) },
+                        onSeek = { progress -> viewModel.seek(2, progress) },
+                        onSpeedChange = { speed -> viewModel.setSpeed(2, speed) },
+                        onNudge = { amount -> viewModel.nudge(2, amount) }
+                    )
+                }
+
+                Crossfader(
+                    value = uiState.crossfaderValue,
+                    onValueChange = { viewModel.onCrossfaderChange(it) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(Modifier.height(32.dp))
+            }
+
+            if (uiState.showSongPickerForDeck != null) {
+                ModalBottomSheet(
+                    onDismissRequest = { viewModel.closeSongPicker() },
+                    sheetState = sheetState
+                ) {
+                    SongPickerSheet(
+                        songs = allSongs,
+                        onSongSelected = { song ->
+                            scope.launch {
+                                val deck = uiState.showSongPickerForDeck ?: return@launch
+                                viewModel.loadSong(deck, song)
+                            }
+                        },
+                        playerViewModel = playerViewModel
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DeckSlot(
-    title: String,
-    song: Song?,
-    onClick: () -> Unit
+private fun DeckUi(
+    deckNumber: Int,
+    deckState: DeckState,
+    progressProvider: () -> Float,
+    isLoading: Boolean,
+    loadingMessage: String,
+    onPlayPause: () -> Unit,
+    onVolumeChange: (Float) -> Unit,
+    onSelectSong: () -> Unit,
+    onSeek: (Float) -> Unit,
+    onSpeedChange: (Float) -> Unit,
+    onNudge: (Long) -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(100.dp)
-            .clickable { onClick() },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (song != null) MaterialTheme.colorScheme.primaryContainer 
+            containerColor = if (deckState.song != null) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                              else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                if (song != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(song.albumArtUriString)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+        Box(contentAlignment = Alignment.Center) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.presentation_batch_d_mashup_deck_n, deckNumber),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable(enabled = !isLoading) { onSelectSong() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (deckState.song != null) {
+                            SmartImage(
+                                model = deckState.song.albumArtUriString,
+                                contentDescription = stringResource(R.string.cd_song_cover),
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(painterResource(id = R.drawable.rounded_playlist_add_24), stringResource(R.string.presentation_batch_d_mashup_load_song_cd), modifier = Modifier.size(40.dp))
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            deckState.song?.title ?: stringResource(R.string.presentation_batch_d_mashup_no_song_loaded), 
+                            style = MaterialTheme.typography.titleMedium, 
+                            fontWeight = FontWeight.Bold, 
+                            maxLines = 1, 
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            deckState.song?.artist ?: stringResource(R.string.presentation_batch_d_mashup_artist_placeholder), 
+                            style = MaterialTheme.typography.bodyMedium, 
+                            maxLines = 1, 
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Slider(
+                            value = progressProvider(),
+                            onValueChange = onSeek,
+                            valueRange = 0f..1f,
+                            enabled = deckState.song != null,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                AnimatedVisibility(deckState.song != null && !isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            stringResource(R.string.presentation_batch_d_mashup_stem_separation_unavailable), 
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedButton(
+                        onClick = { onNudge(-100) }, 
+                        enabled = deckState.song != null,
+                        shape = RoundedCornerShape(12.dp)
+                    ) { 
+                        Text("<<", maxLines = 1, overflow = TextOverflow.Ellipsis) 
+                    }
+                    
+                    FilledIconButton(
+                        onClick = onPlayPause, 
+                        enabled = deckState.song != null, 
+                        modifier = Modifier.size(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(if (deckState.isPlaying) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24), 
+                            contentDescription = stringResource(R.string.mashup_cd_play_pause), 
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    
+                    OutlinedButton(
+                        onClick = { onNudge(100) }, 
+                        enabled = deckState.song != null,
+                        shape = RoundedCornerShape(12.dp)
+                    ) { 
+                        Text(">>", maxLines = 1, overflow = TextOverflow.Ellipsis) 
+                    }
+                }
+
+                Column(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SliderControl(
+                        label = stringResource(R.string.presentation_batch_d_mashup_volume), 
+                        value = deckState.volume, 
+                        onValueChange = onVolumeChange, 
+                        valueRange = 0f..1f, 
+                        enabled = deckState.song != null
                     )
-                } else {
-                    Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SliderControl(
+                        label = stringResource(R.string.presentation_batch_d_mashup_speed), 
+                        value = deckState.speed, 
+                        onValueChange = onSpeedChange, 
+                        valueRange = 0.5f..2f, 
+                        steps = 14, 
+                        enabled = deckState.song != null
+                    ) {
+                        Text(
+                            text = stringResource(R.string.presentation_batch_h_mashup_speed_multiplier, deckState.speed), 
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                Text(
-                    song?.title ?: stringResource(R.string.presentation_batch_d_mashup_select_song),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Bold
-                )
-                if (song != null) {
-                    Text(
-                        song.artist,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+            if (isLoading) {
+                Column(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Text(loadingMessage, style = MaterialTheme.typography.bodyMedium)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SliderControl(
+    label: String, value: Float, onValueChange: (Float) -> Unit, valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int = 0, enabled: Boolean, endContent: @Composable (() -> Unit)? = null
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            label, 
+            style = MaterialTheme.typography.labelMedium, 
+            modifier = Modifier.width(64.dp), 
+            color = if(enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        )
+        Slider(
+            value = value, 
+            onValueChange = onValueChange, 
+            valueRange = valueRange, 
+            steps = steps, 
+            modifier = Modifier.weight(1f), 
+            enabled = enabled
+        )
+        if (endContent != null) {
+            Box(modifier = Modifier.width(48.dp), contentAlignment = Alignment.CenterEnd) { endContent() }
+        }
+    }
+}
+
+@Composable
+private fun Crossfader(value: Float, onValueChange: (Float) -> Unit, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                stringResource(R.string.presentation_batch_d_mashup_crossfader), 
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(), 
+                verticalAlignment = Alignment.CenterVertically, 
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    stringResource(R.string.presentation_batch_d_mashup_deck_1), 
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Slider(
+                    value = value, 
+                    onValueChange = onValueChange, 
+                    valueRange = -1f..1f, 
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp)
+                )
+                Text(
+                    stringResource(R.string.presentation_batch_d_mashup_deck_2), 
+                    style = MaterialTheme.typography.labelMedium
+                )
             }
         }
     }
@@ -212,12 +439,13 @@ private fun SongPickerSheet(
         }
     }
 
-    Column(modifier = Modifier.navigationBarsPadding().fillMaxHeight(0.8f)) {
+    Column(modifier = Modifier.navigationBarsPadding().fillMaxHeight(0.85f)) {
         Text(
             text = stringResource(R.string.presentation_batch_d_mashup_select_song_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.fillMaxWidth().padding(16.dp),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
         )
 
         OutlinedTextField(
@@ -251,7 +479,7 @@ private fun SongPickerSheet(
         ) {
             items(filteredSongs, key = { it.id }) { song ->
                 SongPickerItem(song = song, onClick = { onSongSelected(song) })
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
     }
@@ -268,11 +496,35 @@ private fun SongPickerItem(song: Song, onClick: () -> Unit) {
                     .crossfade(true)
                     .build(),
                 contentDescription = null,
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Crop
             )
         },
-        headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold) },
-        supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium) }
+        headlineContent = { 
+            Text(
+                song.title, 
+                maxLines = 1, 
+                overflow = TextOverflow.Ellipsis, 
+                fontWeight = FontWeight.Bold
+            ) 
+        },
+        supportingContent = { 
+            Text(
+                song.artist, 
+                maxLines = 1, 
+                overflow = TextOverflow.Ellipsis, 
+                style = MaterialTheme.typography.bodyMedium
+            ) 
+        },
+        trailingContent = if (song.extensionId != null) {
+            {
+                Icon(
+                    Icons.Rounded.AutoAwesome, 
+                    contentDescription = null, 
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        } else null
     )
 }

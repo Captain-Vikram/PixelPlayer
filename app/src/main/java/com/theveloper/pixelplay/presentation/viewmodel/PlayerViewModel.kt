@@ -50,6 +50,8 @@ import com.theveloper.pixelplay.data.model.Genre
 import com.theveloper.pixelplay.data.model.Lyrics
 import com.theveloper.pixelplay.data.model.LyricsSourcePreference
 import com.theveloper.pixelplay.data.model.SearchFilterType
+import com.theveloper.pixelplay.data.model.SearchResultItem
+import com.theveloper.pixelplay.data.model.SearchHistoryItem
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.SourceScope
 import com.theveloper.pixelplay.data.model.SortOption
@@ -66,6 +68,9 @@ import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.AlbumArtQuality
 import com.theveloper.pixelplay.data.preferences.ThemePreference
 import com.theveloper.pixelplay.data.repository.LyricsSearchResult
+import dev.brahmkshatriya.echo.common.MusicExtension
+import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.getIf
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.service.MusicNotificationProvider
 import com.theveloper.pixelplay.data.service.MusicService
@@ -95,30 +100,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.util.Locale
@@ -259,6 +247,7 @@ class PlayerViewModel @Inject constructor(
     val multiSelectionStateHolder: MultiSelectionStateHolder,
     val playlistSelectionStateHolder: PlaylistSelectionStateHolder,
     private val extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader,
+    private val extensionRepository: ExtensionRepository,
     private val downloadManager: com.theveloper.pixelplay.data.download.DownloadManager,
     private val sessionToken: SessionToken,
     private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory
@@ -266,6 +255,13 @@ class PlayerViewModel @Inject constructor(
 
     private val _playerUiState = MutableStateFlow(PlayerUiState())
     val playerUiState: StateFlow<PlayerUiState> = _playerUiState.asStateFlow()
+
+    val allExtensions: StateFlow<List<dev.brahmkshatriya.echo.common.Extension<*>>> = extensionRepository.allExtensions
+    val currentMusicExtension: StateFlow<dev.brahmkshatriya.echo.common.MusicExtension?> = extensionRepository.currentMusicExtension
+
+    val favoriteSongIds: StateFlow<Set<String>> = musicRepository
+        .getFavoriteSongIdsFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     // Dedicated queue flow so the player sheet's MiniPlayer branch does not
     // recompose whenever the queue changes. Consumers that actually need the
@@ -1007,6 +1003,31 @@ class PlayerViewModel @Inject constructor(
         )
         themeStateHolder.initialize(viewModelScope)
 
+        viewModelScope.launch {
+            // Defer synchronization until properties are ready
+            yield() 
+            
+            extensionRepository.currentMusicExtension.collect {
+                forceUpdateDailyMix()
+            }
+        }
+
+        viewModelScope.launch {
+            yield()
+            playbackStateHolder.stablePlayerState.collect { state ->
+                val song = state.currentSong
+                if (song != null && song.extensionId != null) {
+                    val currentExtId = extensionRepository.currentMusicExtension.value?.metadata?.id
+                    if (song.extensionId != currentExtId) {
+                        val ext = extensionRepository.allExtensions.value.find { it.metadata.id == song.extensionId }
+                        if (ext is MusicExtension) {
+                            extensionRepository.selectMusicExtension(ext)
+                        }
+                    }
+                }
+            }
+        }
+
         // On cold start, the MediaController connects asynchronously, leaving stablePlayerState.currentSong
         // null until that happens. Pre-load the palette from the persisted snapshot so the mini player
         // has the correct colors immediately on first render, before the controller is ready.
@@ -1166,7 +1187,7 @@ class PlayerViewModel @Inject constructor(
      */
     private fun shufflePlaybackCallbacks() = ShufflePlaybackCallbacks(
         scope = viewModelScope,
-        currentStorageFilter = { playerUiState.value.currentStorageFilter },
+        currentSourceScope = { playerUiState.value.currentSourceScope },
         albums = { libraryStateHolder.albums.value },
         artists = { libraryStateHolder.artists.value },
         playShuffled = { songs, queueName -> playSongsShuffled(songs, queueName, startAtZero = true) },
@@ -1343,10 +1364,6 @@ class PlayerViewModel @Inject constructor(
 
     private val _playbackAudioMetadata = MutableStateFlow(PlaybackAudioMetadata())
     val playbackAudioMetadata: StateFlow<PlaybackAudioMetadata> = _playbackAudioMetadata.asStateFlow()
-
-    val favoriteSongIds: StateFlow<Set<String>> = musicRepository
-        .getFavoriteSongIdsFlow()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     val isCurrentSongFavorite: StateFlow<Boolean> = combine(
         stablePlayerState
@@ -1761,17 +1778,6 @@ class PlayerViewModel @Inject constructor(
     }
 
     init {
-        Log.i("PlayerViewModel", "init started.")
-
-        // Cast initialization if already connected
-        val currentSession = sessionManager?.currentCastSession
-        if (currentSession != null) {
-            castStateHolder.setCastPlayer(CastPlayer(currentSession, context.contentResolver))
-            castStateHolder.setRemotePlaybackActive(true)
-        }
-
-
-
         viewModelScope.launch {
             userPreferencesRepository.migrateTabOrder()
         }
@@ -2001,23 +2007,35 @@ class PlayerViewModel @Inject constructor(
         searchStateHolder.initialize(viewModelScope)
 
         // Collect SearchStateHolder flows
-        viewModelScope.launch {
-            combine(
-                searchStateHolder.searchResults,
-                searchStateHolder.selectedSearchFilter,
-                searchStateHolder.searchHistory,
-            ) { results, filter, history ->
-                Triple(results, filter, history)
-            }.collect { (results, filter, history) ->
-                _playerUiState.update {
-                    it.copy(
-                        searchResults = results,
-                        selectedSearchFilter = filter,
-                        searchHistory = history,
-                    )
-                }
+        combine(
+            searchStateHolder.searchResultsShelves,
+            searchStateHolder.selectedSearchFilter,
+            searchStateHolder.currentSourceScope,
+            searchStateHolder.searchHistory,
+            searchStateHolder.searchFeedShelves,
+            searchStateHolder.isLoadingSearchFeed,
+            searchStateHolder.isLoadingSearch
+        ) { args ->
+            val results = args[0] as List<dev.brahmkshatriya.echo.common.models.Shelf>
+            val filter = args[1] as SearchFilterType
+            val scope = args[2] as com.theveloper.pixelplay.data.model.SourceScope
+            val history = args[3] as ImmutableList<SearchHistoryItem>
+            val shelves = args[4] as List<dev.brahmkshatriya.echo.common.models.Shelf>
+            val loadingFeed = args[5] as Boolean
+            val loadingSearch = args[6] as Boolean
+            
+            _playerUiState.update {
+                it.copy(
+                    searchResultsShelves = results.toImmutableList(),
+                    selectedSearchFilter = filter,
+                    currentSourceScope = scope,
+                    searchHistory = history,
+                    searchFeedShelves = shelves.toImmutableList(),
+                    isLoadingSearchFeed = loadingFeed,
+                    isLoadingSearch = loadingSearch
+                )
             }
-        }
+        }.launchIn(viewModelScope)
 
         // Initialize AiStateHolder
         aiStateHolder.initialize(
@@ -3620,7 +3638,8 @@ class PlayerViewModel @Inject constructor(
             scheme != "qqmusic" &&
             scheme != "navidrome" &&
             scheme != "jellyfin" &&
-            scheme != "gdrive"
+            scheme != "gdrive" &&
+            scheme != "extension"
         ) {
             return mediaItem
         }
@@ -3629,11 +3648,11 @@ class PlayerViewModel @Inject constructor(
             ensureTelegramPlaybackObserversStarted()
         }
 
-        val resolvedUri = dualPlayerEngine.resolveCloudUri(originalUri)
-        return if (resolvedUri == originalUri) {
+        val resolvedMedia = dualPlayerEngine.resolveCloudUri(originalUri)
+        return if (resolvedMedia.uri == originalUri) {
             mediaItem
         } else {
-            mediaItem.buildUpon().setUri(resolvedUri).build()
+            mediaItem.buildUpon().setUri(resolvedMedia.uri).build()
         }
     }
 
@@ -4286,6 +4305,15 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun pause() {
+        val castSession = castStateHolder.castSession.value
+        if (castSession != null && castSession.remoteMediaClient != null) {
+            castStateHolder.castPlayer?.pause()
+        } else {
+            mediaController?.pause()
+        }
+    }
+
     fun seekTo(position: Long) {
         playbackStateHolder.seekTo(position)
     }
@@ -4397,6 +4425,14 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun selectMusicExtension(extension: dev.brahmkshatriya.echo.common.MusicExtension?) {
+        extensionRepository.selectMusicExtension(extension)
+    }
+
+    fun updateSearchSourceScope(scope: com.theveloper.pixelplay.data.model.SourceScope) {
+        searchStateHolder.updateSourceScope(scope)
+    }
+
     fun updateSearchFilter(filterType: SearchFilterType) {
         searchStateHolder.updateSearchFilter(filterType)
     }
@@ -4411,6 +4447,10 @@ class PlayerViewModel @Inject constructor(
 
     fun performSearch(query: String) {
         searchStateHolder.performSearch(query)
+    }
+
+    fun loadSearchFeed() {
+        searchStateHolder.loadSearchFeed()
     }
 
     fun deleteSearchHistoryItem(query: String) {

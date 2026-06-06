@@ -185,6 +185,7 @@ fun PlaylistDetailScreen(
     val toastPlayingNext = stringResource(R.string.toast_playing_next)
     val currentPlaylist = uiState.currentPlaylistDetails
     val isFolderPlaylist = currentPlaylist?.id?.startsWith(FOLDER_PLAYLIST_PREFIX) == true
+    val isExtensionPlaylist = remember(playlistId) { playlistId.startsWith("extension:") }
     val songsInPlaylist = uiState.currentPlaylistSongs
 
     LaunchedEffect(playlistId) {
@@ -312,7 +313,7 @@ fun PlaylistDetailScreen(
                             contentDescription = sortSongsLabel
                         )
                     }
-                    if (!isFolderPlaylist) {
+                    if (!isFolderPlaylist && !isExtensionPlaylist) {
                         FilledTonalIconButton(
                             modifier = Modifier.padding(end = 10.dp),
                             colors = IconButtonDefaults.filledIconButtonColors(
@@ -352,7 +353,7 @@ fun PlaylistDetailScreen(
                     .padding(top = innerPadding.calculateTopPadding())
             ) {
                 val actionButtonsHeight = 42.dp
-                val playbackControlBottomPadding = if (isFolderPlaylist) 8.dp else 6.dp
+                val playbackControlBottomPadding = if (isFolderPlaylist || isExtensionPlaylist) 8.dp else 6.dp
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -445,7 +446,7 @@ fun PlaylistDetailScreen(
                     }
                 }
 
-                if (!isFolderPlaylist) {
+                if (!isFolderPlaylist && !isExtensionPlaylist) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

@@ -11,6 +11,7 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Artist
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.repository.ArtistImageRepository
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -43,7 +44,7 @@ data class ArtistDetailUiState(
 
 @Immutable
 data class ArtistAlbumSection(
-    val albumId: Long,
+    val albumId: String,
     val title: String,
     val year: Int?,
     val albumArtUriString: String?,
@@ -54,6 +55,7 @@ data class ArtistAlbumSection(
 class ArtistDetailViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
+    private val extensionRepository: ExtensionRepository,
     private val artistImageRepository: ArtistImageRepository,
     val themeStateHolder: ThemeStateHolder,
     savedStateHandle: SavedStateHandle
@@ -78,11 +80,15 @@ class ArtistDetailViewModel @Inject constructor(
         savedStateHandle.getStateFlow<String?>("artistId", null)
             .onEach { idString ->
                 if (idString != null) {
-                    val artistId = idString.toLongOrNull()
-                    if (artistId != null) {
-                        loadArtistData(artistId)
+                    if (idString.startsWith("extension:")) {
+                        loadExtensionArtist(idString)
                     } else {
-                        _uiState.update { it.copy(error = context.getString(R.string.invalid_artist_id), isLoading = false) }
+                        val localId = idString.toLongOrNull()
+                        if (localId != null) {
+                            loadArtistData(localId)
+                        } else {
+                            _uiState.update { it.copy(error = context.getString(R.string.invalid_artist_id), isLoading = false) }
+                        }
                     }
                 } else {
                     _uiState.update { it.copy(error = context.getString(R.string.artist_id_not_found), isLoading = false) }
@@ -92,6 +98,46 @@ class ArtistDetailViewModel @Inject constructor(
     }
 
     private var currentLoadJob: Job? = null
+
+    private fun loadExtensionArtist(id: String) {
+        currentLoadJob?.cancel()
+        currentLoadJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val result = extensionRepository.loadArtistDetails(id)
+            if (result != null) {
+                val artist = result.first
+                val songs = result.second
+
+                val albumSections = buildAlbumSections(songs)
+                val orderedSongs = albumSections.flatMap { it.songs }
+
+                val effectiveUrl = artist.effectiveImageUrl
+                val newScheme = if (!effectiveUrl.isNullOrBlank()) {
+                    try {
+                        themeStateHolder.getOrGenerateColorScheme(effectiveUrl)
+                    } catch (e: Exception) {
+                        null
+                    }
+                } else null
+
+                _artistColorScheme.value = newScheme
+                _uiState.value = ArtistDetailUiState(
+                    artist = artist,
+                    songs = orderedSongs,
+                    albumSections = albumSections,
+                    effectiveImageUrl = effectiveUrl,
+                    isLoading = false
+                )
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Failed to load artist from extension"
+                    )
+                }
+            }
+        }
+    }
 
     private fun loadArtistData(id: Long) {
         currentLoadJob?.cancel()
@@ -285,7 +331,7 @@ private fun buildAlbumSections(songs: List<Song>): List<ArtistAlbumSection> {
             val albumYear = albumSongs.mapNotNull { song -> song.year.takeIf { it > 0 } }.maxOrNull()
             val albumArtUri = albumSongs.firstNotNullOfOrNull { it.albumArtUriString }
             ArtistAlbumSection(
-                albumId = key.first,
+                albumId = key.first.toString(),
                 title = (key.second.takeIf { it.isNotBlank() } ?: "Unknown Album"),
                 year = albumYear,
                 albumArtUriString = albumArtUri,

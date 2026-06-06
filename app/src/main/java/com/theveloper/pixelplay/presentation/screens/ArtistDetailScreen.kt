@@ -145,6 +145,8 @@ fun ArtistDetailScreen(
             ?: baseColorScheme
     }
 
+    val isExtensionArtist = remember(artistId) { artistId.startsWith("extension:") }
+
     // --- Image picker for custom artist image ---
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -421,8 +423,8 @@ fun ArtistDetailScreen(
                                     )
                                 }
                             },
-                            onChangeImage = { imagePickerLauncher.launch("image/*") },
-                            onClearCustomImage = { viewModel.clearCustomImage() }
+                            onChangeImage = if (!isExtensionArtist) { { imagePickerLauncher.launch("image/*") } } else { {} },
+                            onClearCustomImage = if (!isExtensionArtist) { { viewModel.clearCustomImage() } } else { {} }
                         )
                     } else {
                         CustomCollapsingTopBar(
@@ -443,8 +445,8 @@ fun ArtistDetailScreen(
                                     )
                                 }
                             },
-                            onChangeImage = { imagePickerLauncher.launch("image/*") },
-                            onClearCustomImage = { viewModel.clearCustomImage() }
+                            onChangeImage = if (!isExtensionArtist) { { imagePickerLauncher.launch("image/*") } } else { {} },
+                            onClearCustomImage = if (!isExtensionArtist) { { viewModel.clearCustomImage() } } else { {} }
                         )
                     }
                 }

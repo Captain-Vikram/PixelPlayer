@@ -1,11 +1,13 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Dataset
 import androidx.compose.material.icons.rounded.PhoneAndroid
@@ -16,8 +18,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.theveloper.pixelplay.R
@@ -54,8 +58,9 @@ fun SourceSelectionSheet(
             ) {
                 item {
                     SourceItem(
-                        label = stringResource(R.string.library_storage_filter_all_songs),
-                        icon = { Icon(Icons.Rounded.Dataset, null) },
+                        label = "All Sources",
+                        subtitle = "Local library + all active extensions",
+                        icon = { Icon(Icons.Rounded.Dataset, null, tint = MaterialTheme.colorScheme.primary) },
                         selected = currentScope == SourceScope.All,
                         onClick = {
                             onScopeSelected(SourceScope.All)
@@ -66,8 +71,9 @@ fun SourceSelectionSheet(
 
                 item {
                     SourceItem(
-                        label = stringResource(R.string.library_storage_filter_offline),
-                        icon = { Icon(Icons.Rounded.PhoneAndroid, null) },
+                        label = "Local Library",
+                        subtitle = "Only songs stored on this device",
+                        icon = { Icon(Icons.Rounded.PhoneAndroid, null, tint = MaterialTheme.colorScheme.secondary) },
                         selected = currentScope == SourceScope.Local,
                         onClick = {
                             onScopeSelected(SourceScope.Local)
@@ -79,14 +85,14 @@ fun SourceSelectionSheet(
                 if (installedExtensions.isNotEmpty()) {
                     item {
                         Text(
-                            text = stringResource(R.string.presentation_batch_d_extensions_title),
+                            text = "Music Extensions",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                            modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 8.dp)
                         )
                     }
 
-                    items(installedExtensions) { extension ->
+                    items(installedExtensions, key = { it.metadata.id }) { extension ->
                         val iconModel = when (val icon = extension.metadata.icon) {
                             is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
                             is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
@@ -94,6 +100,7 @@ fun SourceSelectionSheet(
                         }
                         SourceItem(
                             label = extension.metadata.name,
+                            subtitle = extension.metadata.description.takeIf { it.isNotBlank() } ?: "v${extension.metadata.version}",
                             icon = {
                                 AsyncImage(
                                     model = iconModel,
@@ -121,35 +128,51 @@ fun SourceSelectionSheet(
 @Composable
 private fun SourceItem(
     label: String,
+    subtitle: String,
     icon: @Composable () -> Unit,
     selected: Boolean,
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                contentAlignment = Alignment.Center
+            ) {
                 icon()
             }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             if (selected) {
                 Icon(
-                    painter = painterResource(id = R.drawable.rounded_check_circle_24),
+                    imageVector = Icons.Rounded.CheckCircle,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }

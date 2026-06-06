@@ -49,7 +49,7 @@ class ExtensionParser(
 
     fun parseManifest(file: File, importType: ImportType): Metadata {
         if (!SignatureUtils.isTrusted(context, file.absolutePath)) {
-            error("Untrusted extension: ${file.name}. APK signature verification failed.")
+            android.util.Log.w("ExtensionParser", "Untrusted extension: ${file.name}. APK signature verification failed.")
         }
 
         val packageInfo =

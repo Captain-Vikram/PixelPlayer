@@ -236,6 +236,7 @@ import com.theveloper.pixelplay.presentation.components.PlaylistBottomSheet
 import com.theveloper.pixelplay.presentation.components.PlaylistContainer
 import com.theveloper.pixelplay.presentation.components.subcomps.PlayingEqIcon
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import com.theveloper.pixelplay.presentation.screens.LibraryFeedContent
 import java.util.Locale
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
@@ -3469,7 +3470,7 @@ fun AlbumGridItemRedesigned(
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun ArtistListItem(artist: Artist, onClick: () -> Unit, isLoading: Boolean = false) {
+fun ArtistListItem(artist: Artist, onClick: () -> Unit, isLoading: Boolean = false, sourceLabel: String? = null) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -3531,7 +3532,21 @@ fun ArtistListItem(artist: Artist, onClick: () -> Unit, isLoading: Boolean = fal
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(artist.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(formatSongCount(artist.songCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = formatSongCount(artist.songCount),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (sourceLabel != null) {
+                            Text(
+                                text = " • $sourceLabel",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -3549,7 +3564,8 @@ fun AlbumListItem(
     isSelected: Boolean = false,
     selectionIndex: Int? = null,
     onLongPress: () -> Unit = {},
-    onSelectionToggle: () -> Unit = {}
+    onSelectionToggle: () -> Unit = {},
+    sourceLabel: String? = null
 ) {
     val albumColorSchemePair by albumColorSchemePairFlow.collectAsStateWithLifecycle()
     val systemIsDark = LocalPixelPlayDarkTheme.current
@@ -3716,8 +3732,17 @@ fun AlbumListItem(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = onGradientColor.copy(alpha = 0.85f),
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
+                            if (sourceLabel != null) {
+                                Text(
+                                    text = " • $sourceLabel",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = onGradientColor.copy(alpha = 0.8f),
+                                    maxLines = 1
+                                )
+                            }
                             Text(
                                 formatSongCount(album.songCount),
                                 style = MaterialTheme.typography.bodySmall,

@@ -256,6 +256,9 @@
     <string name="settings_downloads_title">Downloads</string>
     <string name="settings_downloads_subtitle">Manage your offline tracks and queue</string>
 
+    <string name="settings_mashup_title">DJ Mashup</string>
+    <string name="settings_mashup_subtitle">Blend your favorite tracks into a unique session</string>
+
     <string name="player_locate_switching_to_all">Switching to \"All Songs\" to locate track</string>
     <string name="player_locate_switching_to_scope">Switching to %1$s to locate track</string>
     <string name="presentation_batch_d_library_source">Library Source</string>

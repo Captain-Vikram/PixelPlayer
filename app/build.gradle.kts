@@ -94,6 +94,11 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
 
         release {
@@ -266,6 +271,7 @@ dependencies {
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
+    implementation(libs.protobuf.java)
 
     // Identity & Background
     implementation(libs.androidx.work.runtime.ktx)
@@ -280,7 +286,6 @@ dependencies {
 
     // UI Utilities & Extra
     implementation(libs.timber)
-    implementation(libs.generativeai)
     implementation(libs.smooth.corner.rect.android.compose)
     implementation(libs.reorderables)
     implementation(libs.androidx.glance)

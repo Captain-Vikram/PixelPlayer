@@ -14,6 +14,9 @@ import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.playlist.M3uManager
 import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
+import kotlinx.coroutines.flow.combine
+import com.theveloper.pixelplay.extensions.core.toAppPlaylist
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,6 +75,7 @@ sealed class PlaylistSongsOrderMode {
 class PlaylistViewModel @Inject constructor(
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
     private val musicRepository: MusicRepository,
+    private val extensionRepository: ExtensionRepository,
     private val dailyMixManager: DailyMixManager,
     private val aiPlaylistGenerator: AiPlaylistGenerator,
     private val m3uManager: M3uManager,
@@ -109,9 +113,47 @@ class PlaylistViewModel @Inject constructor(
 
     init {
         loadPlaylistsAndInitialSortOption()
+        observeExtensionPlaylists()
         observeTelegramCloudPlaylistVisibility()
         observeTelegramTopicDisplayMode()
         observePlaylistOrderModes()
+    }
+
+    private fun observeExtensionPlaylists() {
+        viewModelScope.launch {
+            combine(
+                extensionRepository.currentMusicExtension,
+                extensionRepository.libraryShelves,
+                extensionRepository.shelves
+            ) { extension, libraryShelves, homeShelves ->
+                if (extension == null) return@combine emptyList<Playlist>()
+                
+                val extensionId = extension.metadata.id
+                val allShelves = libraryShelves + homeShelves
+                
+                allShelves.flatMap { shelf ->
+                    when (shelf) {
+                        is dev.brahmkshatriya.echo.common.models.Shelf.Lists<*> -> {
+                            shelf.list.filterIsInstance<dev.brahmkshatriya.echo.common.models.Playlist>()
+                                .map { it.toAppPlaylist(extensionId) }
+                        }
+                        is dev.brahmkshatriya.echo.common.models.Shelf.Item -> {
+                            val item = shelf.media
+                            if (item is dev.brahmkshatriya.echo.common.models.Playlist) {
+                                listOf(item.toAppPlaylist(extensionId))
+                            } else emptyList()
+                        }
+                        else -> emptyList()
+                    }
+                }.distinctBy { it.id }
+            }.collect { extPlaylists ->
+                _uiState.update { state ->
+                    val currentLocal = state.playlists.filter { it.source != "EXTENSION" }
+                    val sortedExt = sortPlaylistsList(extPlaylists, state.currentPlaylistSortOption)
+                    state.copy(playlists = currentLocal + sortedExt)
+                }
+            }
+        }
     }
 
     private fun observePlaylistOrderModes() {
@@ -187,7 +229,9 @@ class PlaylistViewModel @Inject constructor(
                 )
             } // Resetear detalles y canciones
             try {
-                if (isFolderPlaylistId(playlistId)) {
+                if (playlistId.startsWith("extension:")) {
+                    loadExtensionPlaylist(playlistId)
+                } else if (isFolderPlaylistId(playlistId)) {
                     val folderPath = Uri.decode(playlistId.removePrefix(FOLDER_PLAYLIST_PREFIX))
                     val folders = musicRepository.getMusicFolders().first()
                     val folder = findFolder(folderPath, folders)
@@ -282,6 +326,29 @@ class PlaylistViewModel @Inject constructor(
                         currentPlaylistSongs = emptyList()
                     )
                 }
+            }
+        }
+    }
+
+    private suspend fun loadExtensionPlaylist(mediaId: String) {
+        val result = extensionRepository.loadPlaylistDetails(mediaId)
+        if (result != null) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    currentPlaylistDetails = result.first,
+                    currentPlaylistSongs = result.second,
+                    playlistNotFound = false
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    playlistNotFound = true,
+                    currentPlaylistDetails = null,
+                    currentPlaylistSongs = emptyList()
+                )
             }
         }
     }
