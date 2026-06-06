@@ -1422,6 +1422,15 @@ class MusicService : MediaLibraryService() {
 
         override fun onPlayerError(error: PlaybackException) {
             Timber.tag(TAG).e(error, "Error en el reproductor: ")
+            serviceScope.launch {
+                val currentMediaItem = mediaSession?.player?.currentMediaItem
+                val trackTitle = currentMediaItem?.mediaMetadata?.title?.toString()
+                    ?: currentMediaItem?.mediaId
+                    ?: getString(R.string.unknown_song_title)
+                val errorMessage = error.localizedMessage ?: error.message ?: "Unknown error"
+                val toastMessage = getString(R.string.player_playback_error, "$trackTitle ($errorMessage)")
+                android.widget.Toast.makeText(this@MusicService, toastMessage, android.widget.Toast.LENGTH_LONG).show()
+            }
         }
     }
 

@@ -255,7 +255,7 @@ object MediaStorePermissionHelper {
     ): IntentSender? {
         return try {
             MediaStore.createDeleteRequest(context.contentResolver, uris).intentSender
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             null
         }
     }

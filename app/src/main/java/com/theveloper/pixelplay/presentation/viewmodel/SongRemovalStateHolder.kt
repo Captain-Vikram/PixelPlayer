@@ -147,8 +147,11 @@ class SongRemovalStateHolder @Inject constructor(
                 }
                 if (deleteRequests.size == deletableSongs.size) {
                     val uris = deleteRequests.map { it.second }.distinctBy { it.toString() }
-                    val deleteRequest = MediaStorePermissionHelper
-                        .createDeleteRequest(activity, uris)
+                    val deleteRequest = try {
+                        MediaStorePermissionHelper.createDeleteRequest(activity, uris)
+                    } catch (e: Throwable) {
+                        null
+                    }
                     if (deleteRequest != null) {
                         val acceptedUriStrings = deleteRequest.acceptedUris
                             .mapTo(mutableSetOf()) { it.toString() }
@@ -269,16 +272,20 @@ class SongRemovalStateHolder @Inject constructor(
             // which both confirms AND handles deletion in one step (no MANAGE_EXTERNAL_STORAGE needed).
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                 val intentSender = withContext(Dispatchers.IO) {
-                    MediaStorePermissionHelper
-                        .resolveDeleteRequestUri(
-                            context = activity,
-                            songId = song.id.toLongOrNull(),
-                            contentUriString = song.contentUriString,
-                            filePath = song.path,
-                        )?.let { uri ->
-                            MediaStorePermissionHelper
-                                .createDeleteRequestIntentSender(activity, listOf(uri))
-                        }
+                    try {
+                        MediaStorePermissionHelper
+                            .resolveDeleteRequestUri(
+                                context = activity,
+                                songId = song.id.toLongOrNull(),
+                                contentUriString = song.contentUriString,
+                                filePath = song.path,
+                            )?.let { uri ->
+                                MediaStorePermissionHelper
+                                    .createDeleteRequestIntentSender(activity, listOf(uri))
+                            }
+                    } catch (e: Throwable) {
+                        null
+                    }
                 }
                 if (intentSender != null) {
                     pendingDeleteSong = song

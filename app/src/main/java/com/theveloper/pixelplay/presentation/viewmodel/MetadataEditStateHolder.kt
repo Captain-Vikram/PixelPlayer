@@ -282,7 +282,9 @@ class MetadataEditStateHolder @Inject constructor(
 
     suspend fun deleteSong(song: Song): Boolean = withContext(Dispatchers.IO) {
         val fileInfo = FileDeletionUtils.getFileInfo(song.path)
-        if (fileInfo.exists && fileInfo.canWrite) {
+        if (!fileInfo.exists) {
+            true
+        } else if (fileInfo.canWrite) {
             val success = FileDeletionUtils.deleteFile(context, song.path)
             if (success) {
                 // Remove from DB happens in ViewModel call logic or should happen here?
