@@ -533,6 +533,7 @@ class LyricsRepositoryImpl @Inject constructor(
 
             // Strategy 4: Aggressive fallback - remove artist and trim title at separators
             if (results.isEmpty()) {
+                 // Include common CJK/Unicode separators: \uFF0D (fullwidth hyphen-minus), \u00B7 (middle dot), \u30FB (katakana middle dot)
                  val separators = charArrayOf('-', ',', '(', ')', '$', '#', ':', '%', '\uFF0D', '\u00B7', '\u30FB')
                  val index = cleanTitle.indexOfAny(separators)
                  if (index != -1) {
@@ -1682,6 +1683,7 @@ class LyricsRepositoryImpl @Inject constructor(
 
     private fun cleanTitleSmart(title: String): String {
         // 1. Remove leading digits/spaces/dots/hyphens (e.g., "01 ", "01. ", "01 - ")
+        // \uFF0D is the fullwidth hyphen-minus character used in fullwidth/CJK text.
         var cleaned = title.replace(Regex("^[\\d\\s.\\-\\uFF0D]+"), "")
         
         // 2. Truncate at first special char (-, (, ), Asian brackets)
