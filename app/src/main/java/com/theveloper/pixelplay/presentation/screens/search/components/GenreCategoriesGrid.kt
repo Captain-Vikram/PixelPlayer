@@ -59,6 +59,7 @@ import androidx.compose.foundation.border
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 
 @OptIn(UnstableApi::class)

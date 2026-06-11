@@ -222,7 +222,7 @@ class LyricsRepositoryImpl @Inject constructor(
 
     // Thread-safe rate limiting state.
     private val lastApiCalls = ConcurrentHashMap<String, Long>()
-    private val apiCallCounts = ConcurrentHashMap<String, Int>()
+    private val apiCallCounts = ConcurrentHashMap<String, RateLimitWindow>()
 
     // Gson for JSON cache
     private val gson = Gson()
