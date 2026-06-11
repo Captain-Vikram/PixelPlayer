@@ -222,7 +222,7 @@ class LyricsRepositoryImpl @Inject constructor(
 
     // Thread-safe rate limiting state.
     private val lastApiCalls = ConcurrentHashMap<String, Long>()
-    private val apiCallCounts = ConcurrentHashMap<String, Int>()
+    private val apiCallCounts = ConcurrentHashMap<String, RateLimitWindow>()
 
     // Gson for JSON cache
     private val gson = Gson()
@@ -304,6 +304,11 @@ class LyricsRepositoryImpl @Inject constructor(
     /**
      * Calculate delay needed before next API call (matching Rhythm)
      */
+    private data class RateLimitWindow(
+        val windowStartMillis: Long,
+        val count: Int
+    )
+
     private fun calculateApiDelay(apiName: String, currentTime: Long): Long {
         val lastCall = lastApiCalls[apiName] ?: 0L
         val minDelay = when (apiName.lowercase()) {
@@ -316,8 +321,13 @@ class LyricsRepositoryImpl @Inject constructor(
             return minDelay - timeSinceLastCall
         }
 
-        // Check if we're making too many calls per minute
-        val callsInLastMinute = apiCallCounts[apiName] ?: 0
+        // Check if we're making too many calls in the current fixed 60s window
+        val window = apiCallCounts[apiName]
+        val callsInLastMinute = if (window != null && (currentTime - window.windowStartMillis) < 60000L) {
+            window.count
+        } else {
+            0
+        }
         if (callsInLastMinute >= MAX_CALLS_PER_MINUTE) {
             // Exponential backoff
             return minDelay * 2
@@ -332,17 +342,16 @@ class LyricsRepositoryImpl @Inject constructor(
     private fun updateLastApiCall(apiName: String, timestamp: Long) {
         lastApiCalls[apiName] = timestamp
 
-        // Update call count for rate limiting
-        val currentCount = apiCallCounts[apiName] ?: 0
-        apiCallCounts[apiName] = currentCount + 1
-
-        // Reset counter every minute
-        if (currentCount == 0) {
-            repositoryScope.launch {
-                delay(60000)
-                apiCallCounts[apiName] = 0
-            }
+        val currentWindow = apiCallCounts[apiName]
+        val updatedWindow = if (currentWindow == null || (timestamp - currentWindow.windowStartMillis) >= 60000L) {
+            RateLimitWindow(
+                windowStartMillis = timestamp,
+                count = 1
+            )
+        } else {
+            currentWindow.copy(count = currentWindow.count + 1)
         }
+        apiCallCounts[apiName] = updatedWindow
     }
 
     /**
@@ -534,7 +543,7 @@ class LyricsRepositoryImpl @Inject constructor(
             // Strategy 4: Aggressive fallback - remove artist and trim title at separators
             if (results.isEmpty()) {
                  // Include common CJK/Unicode separators: \uFF0D (fullwidth hyphen-minus), \u00B7 (middle dot), \u30FB (katakana middle dot)
-                 val separators = charArrayOf('-', ',', '(', ')', '$', '#', ':', '%', '\uFF0D', '\u00B7', '\u30FB')
+                 val separators = charArrayOf('-', ',', '(', ')', ':', '\uFF0D', '\u00B7', '\u30FB')
                  val index = cleanTitle.indexOfAny(separators)
                  if (index != -1) {
                      val superCleanTitle = cleanTitle.substring(0, index).trim()
@@ -581,7 +590,7 @@ class LyricsRepositoryImpl @Inject constructor(
                                 )
                             )
                         } catch (e: NumberFormatException) {
-                            Log.w(TAG, "Skipping database save for non-numeric song ID: ${song.id} (likely Telegram song). Lyrics will be cached in JSON.")
+                            Log.w(TAG, "Skipping database save for non-numeric song ID: ${song.id} (possible streaming or external source). Lyrics will be cached in JSON.")
                         }
                         
                         return@withContext parsedLyrics
