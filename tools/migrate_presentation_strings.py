@@ -56,11 +56,9 @@ def insert_imports(text: str) -> str:
             insert_at = i + 1
     to_add = []
     if needs_string_resource(text):
-        if STRING_IMPORT not in text:
-            to_add.append(STRING_IMPORT + "\n")
+        to_add.append(STRING_IMPORT + "\n")
     if needs_r_import(text):
-        if R_IMPORT not in text:
-            to_add.append(R_IMPORT + "\n")
+        to_add.append(R_IMPORT + "\n")
     if not to_add:
         return text
     return "".join(lines[:insert_at] + to_add + lines[insert_at:])
