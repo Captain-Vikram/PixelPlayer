@@ -73,6 +73,7 @@ android {
         versionName = (project.findProperty("APP_VERSION_NAME") as? String) ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        resourceConfigurations += setOf("en", "de", "es", "fr", "in", "it", "ko", "nb", "ru", "zh-rCN")
 
         val telegramApiId = localProperties.getProperty("TELEGRAM_API_ID")?.ifEmpty { null }
             ?: "2040"
@@ -306,7 +307,6 @@ dependencies {
     // Projects
     implementation(project(":shared"))
     implementation(project(":common"))
-    implementation(project(":extension-loader"))
 
     // Testing (Unit)
     testImplementation(libs.junit.jupiter.api)

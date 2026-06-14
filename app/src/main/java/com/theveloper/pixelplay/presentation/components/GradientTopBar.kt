@@ -139,33 +139,6 @@ fun HomeGradientTopBar(
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
-
-                // Source Selection Chip
-                InputChip(
-                    selected = false,
-                    onClick = onSourceSelectionClick,
-                    enabled = isSourceSelectionEnabled,
-                    label = { Text(activeExtensionName ?: "Local Mode") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = if (activeExtensionName != null) Icons.Rounded.MusicNote else Icons.Rounded.Storage,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    trailingIcon = {
-                        if (isSourceSelectionEnabled) {
-                            Icon(Icons.Rounded.KeyboardArrowDown, null, modifier = Modifier.size(18.dp))
-                        }
-                    },
-                    shape = CircleShape,
-                    colors = InputChipDefaults.inputChipColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        labelColor = MaterialTheme.colorScheme.onSurface,
-                        leadingIconColor = MaterialTheme.colorScheme.primary
-                    ),
-                    border = null
-                )
             }
         },
         actions = {
@@ -182,20 +155,37 @@ fun HomeGradientTopBar(
                     )
                 }
 
-                // Extension Store (Cloud) Button
-                FilledIconButton(
+                // Fused Cloud/Source Button
+                InputChip(
+                    selected = false,
+                    onClick = onSourceSelectionClick,
+                    enabled = isSourceSelectionEnabled,
+                    label = { 
+                        Text(
+                            text = activeExtensionName ?: "Local Mode",
+                            style = MaterialTheme.typography.labelLarge
+                        ) 
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Cloud,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (isSourceSelectionEnabled) {
+                            Icon(Icons.Rounded.KeyboardArrowDown, null, modifier = Modifier.size(18.dp))
+                        }
+                    },
                     shape = CircleShape,
-                    colors = IconButtonDefaults.filledIconButtonColors(
+                    colors = InputChipDefaults.inputChipColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.primary
+                        labelColor = MaterialTheme.colorScheme.onSurface,
+                        leadingIconColor = MaterialTheme.colorScheme.primary
                     ),
-                    onClick = onStoreClick
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Cloud,
-                        contentDescription = "Extension Store"
-                    )
-                }
+                    border = null
+                )
             }
         },
         colors = topAppBarColors(

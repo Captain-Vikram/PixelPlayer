@@ -24,7 +24,6 @@ import dev.brahmkshatriya.echo.common.providers.WebViewClientProvider
 import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.get
 import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.getOrThrow
 import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.inject
-import dev.brahmkshatriya.echo.extension.loader.db.ExtensionDatabase
 import dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser
 import dev.brahmkshatriya.echo.extension.loader.exceptions.AppException.Companion.toAppException
 import dev.brahmkshatriya.echo.extension.loader.exceptions.RequiredExtensionsMissingException
@@ -42,20 +41,25 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
+import javax.inject.Inject
+import javax.inject.Singleton
+
 @UnstableApi
-class ExtensionLoader(
+@Singleton
+class ExtensionLoader @Inject constructor(
     val host: ExtensionHost,
-    val webViewClientFactory: (Metadata) -> WebViewClient,
-    vararg builtIns: Pair<Metadata, Lazy<ExtensionClient>>
+    @dev.brahmkshatriya.echo.extension.loader.di.WebViewClientFactory 
+    val webViewClientFactory: @JvmSuppressWildcards (Metadata) -> WebViewClient,
+    val extensionDao: dev.brahmkshatriya.echo.extension.loader.db.ExtensionDao,
+    val extensionUserDao: dev.brahmkshatriya.echo.extension.loader.db.UserDao,
+    @com.theveloper.pixelplay.di.AppScope
+    val scope: CoroutineScope
 ) {
     val parser = ExtensionParser(host.context)
-    val scope = CoroutineScope(Dispatchers.IO)
-    val db = ExtensionDatabase.create(host.context)
 
     val fileIgnoreFlow = MutableSharedFlow<File?>()
     private val repository = CombinedRepository(
-        scope, host.context, fileIgnoreFlow, parser,
-        *builtIns
+        scope, host.context, fileIgnoreFlow, parser
     )
 
     private val settings = host.settings
@@ -101,7 +105,7 @@ class ExtensionLoader(
         list?.groupBy { it.getOrNull()?.first?.run { type to id } }?.map { entry ->
             entry.value.minBy { it.getOrNull()?.first?.importType?.ordinal ?: Int.MAX_VALUE }
         }.orEmpty()
-    }.combine(db.extensionEnabledFlow) { list, enabledList ->
+    }.combine(extensionDao.getExtensionFlow()) { list, enabledList ->
         val enabledMap = enabledList.associate { (it.type to it.id) to it.enabled }
         list.map { result ->
             result.mapCatching { (metadata, injectable) ->
@@ -116,7 +120,7 @@ class ExtensionLoader(
                 it.first to it.second.injected(it.first)
             }
         }
-    }.combine(db.currentUsersFlow) { list, users ->
+    }.combine(extensionUserDao.observeCurrentUser()) { list, users ->
         list.onEach { result ->
             scope.launch(Dispatchers.IO) {
                 val (metadata, injectable) = result.getOrNull() ?: return@launch
@@ -124,7 +128,8 @@ class ExtensionLoader(
                     injectable.injectOrRun("user") {
                         if (this !is LoginClient) return@injectOrRun
                         val newCurr = users.getUser(metadata)
-                        val user = newCurr?.let { db.getUser(it) }
+                        val userEntity = newCurr?.let { extensionUserDao.getUser(it.type, it.extId, it.userId ?: "") }
+                        val user = userEntity?.user?.getOrNull()
                         setLoginUser(user)
                     }
                 }.onFailure {

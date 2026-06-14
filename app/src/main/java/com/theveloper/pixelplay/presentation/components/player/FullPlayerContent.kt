@@ -184,6 +184,112 @@ private suspend fun validateLyricsImport(
     } ?: LyricsImportValidationResult.Invalid(LyricsImportFailureReason.EMPTY_CONTENT)
 }
 
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.style.TextAlign
+import com.theveloper.pixelplay.data.model.Lyrics
+
+@Composable
+private fun SyncedSubtitlesOverlay(
+    lyrics: Lyrics?,
+    currentPosition: Long,
+    expansionFraction: Float,
+    modifier: Modifier = Modifier
+) {
+    if (lyrics == null || lyrics.synced.isNullOrEmpty() || expansionFraction < 0.1f) return
+
+    val currentLine = remember(lyrics, currentPosition) {
+        lyrics.synced.findLast { it.time <= currentPosition }?.line ?: ""
+    }
+
+    if (currentLine.isBlank()) return
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .graphicsLayer {
+                alpha = expansionFraction
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = currentLine,
+            style = MaterialTheme.typography.headlineSmall,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            shadow = Shadow(
+                color = Color.Black,
+                offset = Offset(2f, 2f),
+                blurRadius = 4f
+            )
+        )
+    }
+}
+
+@androidx.annotation.OptIn(UnstableApi::class)
+@Composable
+private fun VideoLoopCanvas(
+    videoUri: String?,
+    isPlaying: Boolean,
+    expansionFraction: Float,
+    modifier: Modifier = Modifier
+) {
+    if (videoUri.isNullOrBlank() || expansionFraction < 0.01f) return
+
+    val context = LocalContext.current
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_ALL
+            volume = 0f
+        }
+    }
+
+    LaunchedEffect(videoUri) {
+        exoPlayer.setMediaItem(MediaItem.fromUri(videoUri))
+        exoPlayer.prepare()
+        if (isPlaying) exoPlayer.play()
+    }
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            if (exoPlayer.playbackState == Player.STATE_ENDED) {
+                exoPlayer.seekTo(0)
+            }
+            exoPlayer.play()
+        } else {
+            exoPlayer.pause()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                useController = false
+                player = exoPlayer
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            }
+        },
+        modifier = modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                alpha = expansionFraction
+            }
+    )
+}
+
 @androidx.annotation.OptIn(UnstableApi::class)
 @SuppressLint("StateFlowValueCalledInComposition")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -360,6 +466,9 @@ fun FullPlayerContent(
                 },
                 onManualSearch = { title, artist ->
                     playerViewModel.searchLyricsManually(title, artist)
+                },
+                onSelectSource = { extId ->
+                    playerViewModel.selectLyricsSource(extId)
                 },
                 onDismiss = {
                     // El usuario cancela o cierra el diálogo
@@ -913,6 +1022,21 @@ fun FullPlayerContent(
                 .fillMaxSize()
                 .graphicsLayer { alpha = contentAlpha }
         ) {
+            VideoLoopCanvas(
+                videoUri = song.backgroundUriString,
+                isPlaying = isPlayingProvider(),
+                expansionFraction = expansionFractionProvider()
+            )
+
+            SyncedSubtitlesOverlay(
+                lyrics = lyricsProvider(),
+                currentPosition = currentPositionProvider(),
+                expansionFraction = expansionFractionProvider(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = if (isLandscape) 40.dp else 240.dp)
+            )
+
             if (isLandscape) {
                 FullPlayerLandscapeContent(
                     paddingValues = paddingValues,

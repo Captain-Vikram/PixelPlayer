@@ -51,7 +51,7 @@ fun SmartImage(
     errorResId: Int = R.drawable.ic_music_placeholder,
     shape: Shape = RectangleShape,
     contentScale: ContentScale = ContentScale.Crop,
-    crossfadeDurationMillis: Int = 300,
+    crossfadeDurationMillis: Int = 200,
     useDiskCache: Boolean = true,
     useMemoryCache: Boolean = true,
     allowHardware: Boolean = false,

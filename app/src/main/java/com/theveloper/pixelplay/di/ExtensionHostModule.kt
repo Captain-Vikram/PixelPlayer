@@ -16,27 +16,26 @@ object ExtensionHostModule {
 
     @Provides
     @Singleton
-    fun provideExtensionHost(@ApplicationContext context: Context): PixelPlayExtensionHost =
-        PixelPlayExtensionHost(context as android.app.Application)
+    fun provideExtensionHost(
+        @ApplicationContext context: Context,
+        preferencesRepository: com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+    ): dev.brahmkshatriya.echo.extension.loader.ExtensionHost =
+        PixelPlayExtensionHost(context as android.app.Application, preferencesRepository)
 
     @Provides
     @Singleton
-    fun provideExtensionLoader(
-        host: PixelPlayExtensionHost,
+    @dev.brahmkshatriya.echo.extension.loader.di.WebViewClientFactory
+    fun provideWebViewClientFactory(
         webViewManager: com.theveloper.pixelplay.extensions.webview.ExtensionWebViewManager
-    ): ExtensionLoader =
-        ExtensionLoader(
-            host = host,
-            webViewClientFactory = { metadata -> 
-                object : dev.brahmkshatriya.echo.common.helpers.WebViewClient {
-                    override suspend fun await(
-                        showWebView: Boolean, reason: String, request: dev.brahmkshatriya.echo.common.helpers.WebViewRequest<String>
-                    ): Result<String?> {
-                        return webViewManager.await(request, reason)
-                    }
-                }
+    ): (dev.brahmkshatriya.echo.common.models.Metadata) -> dev.brahmkshatriya.echo.common.helpers.WebViewClient = { metadata -> 
+        object : dev.brahmkshatriya.echo.common.helpers.WebViewClient {
+            override suspend fun await(
+                showWebView: Boolean, reason: String, request: dev.brahmkshatriya.echo.common.helpers.WebViewRequest<String>
+            ): Result<String?> {
+                return webViewManager.await(request, reason)
             }
-        )
+        }
+    }
 
 }
 

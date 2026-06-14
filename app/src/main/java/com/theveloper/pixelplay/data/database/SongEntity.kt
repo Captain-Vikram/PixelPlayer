@@ -99,7 +99,9 @@ data class SongEntity(
     @ColumnInfo(name = "telegram_file_id") val telegramFileId: Int? = null,
     @ColumnInfo(name = "artists_json") val artistsJson: String? = null,
     @ColumnInfo(name = "source_type", defaultValue = "0") val sourceType: Int = SourceType.LOCAL,
-    @ColumnInfo(name = "extension_id") val extensionId: String? = null
+    @ColumnInfo(name = "extension_id") val extensionId: String? = null,
+    @ColumnInfo(name = "background_uri_string") val backgroundUriString: String? = null,
+    @ColumnInfo(name = "subtitle_uri_string") val subtitleUriString: String? = null
 )
 
 private fun SongEntity.toSongInternal(artists: List<ArtistRef>): Song {
@@ -152,7 +154,9 @@ private fun SongEntity.toSongInternal(artists: List<ArtistRef>): Song {
         mimeType = this.mimeType,
         bitrate = this.bitrate,
         sampleRate = this.sampleRate,
-        extensionId = this.extensionId
+        extensionId = this.extensionId,
+        backgroundUriString = this.backgroundUriString,
+        subtitleUriString = this.subtitleUriString
     )
 }
 
@@ -245,7 +249,9 @@ fun Song.toEntity(filePathFromMediaStore: String, parentDirFromMediaStore: Strin
         bitrate = this.bitrate,
         sampleRate = this.sampleRate,
         sourceType = if (this.extensionId != null) SourceType.EXTENSION else SourceType.fromContentUri(this.contentUriString),
-        extensionId = this.extensionId
+        extensionId = this.extensionId,
+        backgroundUriString = this.backgroundUriString,
+        subtitleUriString = this.subtitleUriString
     )
 }
 
@@ -285,6 +291,8 @@ fun Song.toEntityWithoutPaths(): SongEntity {
         bitrate = this.bitrate,
         sampleRate = this.sampleRate,
         sourceType = if (this.extensionId != null) SourceType.EXTENSION else SourceType.fromContentUri(this.contentUriString),
-        extensionId = this.extensionId
+        extensionId = this.extensionId,
+        backgroundUriString = this.backgroundUriString,
+        subtitleUriString = this.subtitleUriString
     )
 }

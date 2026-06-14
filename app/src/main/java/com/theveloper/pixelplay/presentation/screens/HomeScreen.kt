@@ -124,7 +124,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 
-private const val HomeLoadingPlaceholderMinDurationMillis = 1200L
+private const val HomeLoadingPlaceholderMinDurationMillis = 300L
 
 // Modern HomeScreen with collapsible top bar and staggered grid layout
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -164,9 +164,9 @@ fun HomeScreen(
     val yourMixSongsFromExtension by extensionsViewModel.yourMixSongsFromExtension.collectAsStateWithLifecycle()
     val dailyMixSongsFromExtension by extensionsViewModel.dailyMixSongsFromExtension.collectAsStateWithLifecycle()
 
-    // Check if extension is active and has songs (use same UI layout, just different data)
-    val isExtensionActive = remember(currentMusicExtension, yourMixSongsFromExtension, dailyMixSongsFromExtension) {
-        currentMusicExtension != null && (yourMixSongsFromExtension.isNotEmpty() || dailyMixSongsFromExtension.isNotEmpty())
+    // Check if extension is active
+    val isExtensionActive = remember(currentMusicExtension) {
+        currentMusicExtension != null
     }
 
     val usesFallbackHomeMix = remember(curatedYourMixSongs, dailyMixSongs) {
@@ -744,6 +744,10 @@ fun HomeScreen(
         val isJellyfinLoggedIn by jellyfinViewModel.isLoggedIn.collectAsStateWithLifecycle()
         StreamingProviderSheet(
             onDismissRequest = { showStreamingProviderSheet = false },
+            playerViewModel = playerViewModel,
+            onNavigateToExtensionLogin = { extensionId ->
+                navController.navigateSafely(Screen.ExtensionLogin.createRoute(extensionId))
+            },
             isNeteaseLoggedIn = isNeteaseLoggedIn,
             onNavigateToNeteaseDashboard = {
                 navController.navigateSafely(Screen.NeteaseDashboard.route)

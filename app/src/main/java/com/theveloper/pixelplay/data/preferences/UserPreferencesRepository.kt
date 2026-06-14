@@ -212,6 +212,7 @@ constructor(
         // Developer Options
         val ALBUM_ART_QUALITY = stringPreferencesKey("album_art_quality")
         val ALBUM_ART_CACHE_LIMIT_MB = intPreferencesKey("album_art_cache_limit_mb")
+        val EXTENSION_MEDIA_CACHE_LIMIT_MB = intPreferencesKey("extension_media_cache_limit_mb")
         val TAP_BACKGROUND_CLOSES_PLAYER = booleanPreferencesKey("tap_background_closes_player")
         val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
         val IMMERSIVE_LYRICS_ENABLED = booleanPreferencesKey("immersive_lyrics_enabled")
@@ -1239,6 +1240,18 @@ constructor(
         /** Default word-based delimiters (matched case-insensitively with whitespace boundaries) */
         val DEFAULT_ARTIST_WORD_DELIMITERS = listOf("featuring", "feat.", "feat", "ft.", "ft", "vs.", "vs", "versus", "with", "prod.", "prod")
         const val DEFAULT_ALBUM_ART_CACHE_LIMIT_MB = 200
+        const val DEFAULT_EXTENSION_MEDIA_CACHE_LIMIT_MB = 500
+    }
+
+    val extensionMediaCacheLimitMbFlow: Flow<Int> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.EXTENSION_MEDIA_CACHE_LIMIT_MB] ?: DEFAULT_EXTENSION_MEDIA_CACHE_LIMIT_MB
+        }
+
+    suspend fun setExtensionMediaCacheLimitMb(limitMb: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXTENSION_MEDIA_CACHE_LIMIT_MB] = limitMb.coerceIn(100, 5000)
+        }
     }
 
     val navBarCornerRadiusFlow: Flow<Int> =

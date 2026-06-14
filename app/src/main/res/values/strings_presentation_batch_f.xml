@@ -236,4 +236,7 @@
         <item quantity="one">%d topic</item>
         <item quantity="other">%d topics</item>
     </plurals>
+    <string name="presentation_batch_f_exp_extension_cache_title">Extension Cache</string>
+    <string name="presentation_batch_f_exp_extension_cache_limit">Extension Media Cache Limit</string>
+    <string name="presentation_batch_f_exp_extension_cache_subtitle">Set the disk cache size for extension media (Spotify, YT Music, etc.)</string>
 </resources>

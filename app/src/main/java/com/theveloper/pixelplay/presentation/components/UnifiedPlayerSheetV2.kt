@@ -49,6 +49,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import com.theveloper.pixelplay.presentation.utils.bounceClick
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -719,13 +721,12 @@ fun UnifiedPlayerSheetV2(
                                 enabled = sheetInteractionState.canDragSheet,
                                 handler = sheetInteractionState.sheetVerticalDragGestureHandler
                             )
-                            .clickable(
+                            .bounceClick(
                                 enabled = tapBackgroundClosesPlayer || currentSheetContentState == PlayerSheetState.COLLAPSED,
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                playerViewModel.togglePlayerSheetState()
-                            }
+                                onClick = {
+                                    playerViewModel.togglePlayerSheetState()
+                                }
+                            )
                             .semantics {
                                 contentDescription = playerSheetSemanticsDescription
                             }

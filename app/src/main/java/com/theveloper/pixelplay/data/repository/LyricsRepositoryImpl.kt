@@ -1630,6 +1630,31 @@ class LyricsRepositoryImpl @Inject constructor(
         lyricsCache.evictAll()
     }
 
+    override suspend fun fetchFromUrl(url: String): Lyrics? = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+        
+        try {
+            okHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val rawLyrics = response.body?.string()
+                    if (!rawLyrics.isNullOrBlank()) {
+                        val parsed = LyricsUtils.parseLyrics(rawLyrics)
+                        // Simple validation: must have at least some plain or synced content
+                        if (!parsed.plain.isNullOrBlank() || !parsed.synced.isNullOrEmpty()) {
+                            return@withContext parsed.copy(areFromRemote = true)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch lyrics from URL: $url", e)
+        }
+        null
+    }
+
     private fun generateCacheKey(songId: String): String = songId
 
     private fun createTempFileFromUri(uri: Uri): File? {

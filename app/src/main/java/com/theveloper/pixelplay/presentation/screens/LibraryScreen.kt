@@ -196,9 +196,12 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import com.theveloper.pixelplay.presentation.utils.bounceClick
+import com.theveloper.pixelplay.presentation.utils.bounceCombinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.ripple
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -2509,7 +2512,7 @@ fun LibraryNavigationPill(
                             bottomEnd = innerRadius
                         )
                     )
-                    .clickable(onClick = onClick)
+                    .bounceClick(onClick = onClick)
             ) {
                 Box(
                     modifier = Modifier.padding(horizontal = titleHorizontalPadding),
@@ -3133,12 +3136,11 @@ fun LibraryFoldersTab(
 fun FolderPlaylistItem(folder: MusicFolder, onClick: () -> Unit) {
     val previewSongs = remember(folder) { folder.collectAllSongs().take(9) }
 
-    Card(
+    Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
+        modifier = Modifier.fillMaxWidth().bounceClick(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -3171,12 +3173,11 @@ fun FolderPlaylistItem(folder: MusicFolder, onClick: () -> Unit) {
 
 @Composable
 fun FolderListItem(folder: MusicFolder, onClick: () -> Unit) {
-    Card(
+    Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
+        modifier = Modifier.fillMaxWidth().bounceClick(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -3349,7 +3350,8 @@ fun AlbumGridItemRedesigned(
             }
         }
     } else {
-        Card(
+        val interactionSource = remember { MutableInteractionSource() }
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .scale(selectionScale)
@@ -3365,7 +3367,9 @@ fun AlbumGridItemRedesigned(
                     }
                 )
                 .clip(cardShape)
-                .combinedClickable(
+                .bounceCombinedClickable(
+                    interactionSource = interactionSource,
+                    indication = ripple(),
                     onClick = {
                         if (isSelectionMode) {
                             onSelectionToggle()
@@ -3376,8 +3380,7 @@ fun AlbumGridItemRedesigned(
                     onLongClick = onLongPress
                 ),
             shape = cardShape,
-            //elevation = CardDefaults.cardElevation(defaultElevation = 4.dp, pressedElevation = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = itemDesignColorScheme.surfaceVariant.copy(alpha = 0.3f))
+            color = itemDesignColorScheme.surfaceVariant.copy(alpha = 0.3f)
         ) {
             Box {
                 Column(
@@ -3471,12 +3474,11 @@ fun AlbumGridItemRedesigned(
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun ArtistListItem(artist: Artist, onClick: () -> Unit, isLoading: Boolean = false, sourceLabel: String? = null) {
-    Card(
+    Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
+        modifier = Modifier.fillMaxWidth().bounceClick(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (isLoading) {
@@ -3629,7 +3631,8 @@ fun AlbumListItem(
             }
         }
     } else {
-        Card(
+        val interactionSource = remember { MutableInteractionSource() }
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(88.dp)
@@ -3646,7 +3649,9 @@ fun AlbumListItem(
                     }
                 )
                 .clip(cardShape)
-                .combinedClickable(
+                .bounceCombinedClickable(
+                    interactionSource = interactionSource,
+                    indication = ripple(),
                     onClick = {
                         if (isSelectionMode) {
                             onSelectionToggle()
@@ -3657,7 +3662,7 @@ fun AlbumListItem(
                     onLongClick = onLongPress
                 ),
             shape = cardShape,
-            colors = CardDefaults.cardColors(containerColor = itemDesignColorScheme.surfaceVariant.copy(alpha = 0.3f))
+            color = itemDesignColorScheme.surfaceVariant.copy(alpha = 0.3f)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Row(

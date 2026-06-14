@@ -63,7 +63,8 @@ class LyricsTranslationCallbacks(
 class LyricsStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val songMetadataEditor: SongMetadataEditor
+    private val songMetadataEditor: SongMetadataEditor,
+    private val extensionLoader: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
 ) {
     private var scope: CoroutineScope? = null
     private var loadingJob: Job? = null
@@ -183,6 +184,27 @@ class LyricsStateHolder @Inject constructor(
     }
 
     /**
+     * Fetch subtitles from an extension-provided URL.
+     */
+    fun fetchExtensionSubtitles(song: Song, subtitleUrl: String) {
+        loadingJob?.cancel()
+        loadingJob = scope?.launch {
+            _searchUiState.value = LyricsSearchUiState.Loading
+            
+            val fetchedLyrics = withContext(Dispatchers.IO) {
+                musicRepository.lyricsRepository.fetchFromUrl(subtitleUrl)
+            }
+            
+            if (fetchedLyrics != null) {
+                _searchUiState.value = LyricsSearchUiState.Success(fetchedLyrics)
+                _songUpdates.emit(song to fetchedLyrics)
+            } else {
+                _searchUiState.value = LyricsSearchUiState.Idle
+            }
+        }
+    }
+
+    /**
      * Fetch lyrics for the given song, respecting the user's source preference.
      */
     fun fetchLyricsForSong(
@@ -194,6 +216,10 @@ class LyricsStateHolder @Inject constructor(
         loadingJob?.cancel()
         loadingJob = scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Loading
+
+            val availableExtensions = extensionLoader.all.value.filter { 
+                it.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.LyricsClient 
+            }
 
             if (!forcePickResults) {
                 val storedLyrics = withContext(Dispatchers.IO) {
@@ -250,10 +276,15 @@ class LyricsStateHolder @Inject constructor(
             if (forcePickResults) {
                 musicRepository.searchRemoteLyrics(song)
                     .onSuccess { (query, results) ->
-                        _searchUiState.value = LyricsSearchUiState.PickResult(query, results)
+                        _searchUiState.value = LyricsSearchUiState.PickResult(
+                            query = query,
+                            results = results,
+                            availableExtensions = availableExtensions,
+                            selectedExtensionId = null
+                        )
                     }
                     .onFailure { error ->
-                        handleError(error)
+                        handleError(error, availableExtensions)
                     }
             } else {
                 musicRepository.getLyricsFromRemote(song)
@@ -268,11 +299,16 @@ class LyricsStateHolder @Inject constructor(
                             // Fallback to search
                             musicRepository.searchRemoteLyrics(song)
                                 .onSuccess { (query, results) ->
-                                    _searchUiState.value = LyricsSearchUiState.PickResult(query, results)
+                                    _searchUiState.value = LyricsSearchUiState.PickResult(
+                                        query = query,
+                                        results = results,
+                                        availableExtensions = availableExtensions,
+                                        selectedExtensionId = null
+                                    )
                                 }
-                                .onFailure { searchError -> handleError(searchError) }
+                                .onFailure { searchError -> handleError(searchError, availableExtensions) }
                         } else {
-                            handleError(error)
+                            handleError(error, availableExtensions)
                         }
                     }
             }
@@ -287,11 +323,21 @@ class LyricsStateHolder @Inject constructor(
         loadingJob?.cancel()
         loadingJob = scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Loading
+
+            val availableExtensions = extensionLoader.all.value.filter { 
+                it.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.LyricsClient 
+            }
+
             musicRepository.searchRemoteLyricsByQuery(title, artist)
                 .onSuccess { (q, results) ->
-                    _searchUiState.value = LyricsSearchUiState.PickResult(q, results)
+                    _searchUiState.value = LyricsSearchUiState.PickResult(
+                        query = q,
+                        results = results,
+                        availableExtensions = availableExtensions,
+                        selectedExtensionId = null
+                    )
                 }
-                .onFailure { error -> handleError(error) }
+                .onFailure { error -> handleError(error, availableExtensions) }
         }
     }
 
@@ -333,6 +379,72 @@ class LyricsStateHolder @Inject constructor(
             }
 
             _messageEvents.emit("Lyrics imported successfully!")
+        }
+    }
+
+    /**
+     * Switch lyrics source (extension or internal).
+     */
+    fun selectLyricsSource(song: Song, extensionId: String?) {
+        val currentState = _searchUiState.value as? LyricsSearchUiState.PickResult ?: return
+        
+        loadingJob?.cancel()
+        loadingJob = scope?.launch {
+            _searchUiState.value = currentState.copy(
+                selectedExtensionId = extensionId,
+                results = emptyList() // Clear previous results while loading
+            )
+            
+            if (extensionId == null) {
+                // Return to internal LRCLIB
+                musicRepository.searchRemoteLyricsByQuery(song.title, song.displayArtist)
+                    .onSuccess { (q, results) ->
+                        _searchUiState.value = (_searchUiState.value as LyricsSearchUiState.PickResult).copy(
+                            results = results
+                        )
+                    }
+                    .onFailure { error -> handleError(error, currentState.availableExtensions) }
+            } else {
+                // Fetch from extension
+                try {
+                    val extension = extensionLoader.all.value.find { it.metadata.id == extensionId } ?: return@launch
+                    val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.LyricsClient ?: return@launch
+                    
+                    val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
+                        id = song.id.substringAfter(":track:"),
+                        title = song.title
+                    )
+                    
+                    val lyricsFeed = client.loadLyrics(echoTrack)
+                    val results = lyricsFeed.loadAll().map { echoLyrics ->
+                        // Map Echo Lyrics to our internal SearchResult
+                        val raw = (echoLyrics.lyrics as? dev.brahmkshatriya.echo.common.models.Lyrics.Simple)?.text ?: ""
+                        LyricsSearchResult(
+                            record = com.theveloper.pixelplay.data.network.lyrics.LrcLibResponse(
+                                id = echoLyrics.id.hashCode(),
+                                name = echoLyrics.title ?: song.title,
+                                artistName = echoLyrics.subtitle ?: song.displayArtist,
+                                albumName = "",
+                                duration = 0.0,
+                                plainLyrics = raw,
+                                syncedLyrics = null
+                            ),
+                            lyrics = com.theveloper.pixelplay.data.model.Lyrics(
+                                plain = raw,
+                                synced = emptyList(),
+                                areFromRemote = true
+                            ),
+                            rawLyrics = raw
+                        )
+                    }
+                    
+                    _searchUiState.value = (_searchUiState.value as LyricsSearchUiState.PickResult).copy(
+                        results = results
+                    )
+                } catch (e: Exception) {
+                    handleError(e, currentState.availableExtensions)
+                }
+            }
         }
     }
 
@@ -407,11 +519,21 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    private fun handleError(error: Throwable) {
+    private fun handleError(error: Throwable, availableExtensions: List<dev.brahmkshatriya.echo.common.Extension<*>>) {
         _searchUiState.value = if (error is NoLyricsFoundException) {
             LyricsSearchUiState.NotFound("Lyrics not found")
         } else {
             LyricsSearchUiState.Error(error.message ?: "Unknown error")
+        }
+        
+        // Ensure we can still see available extensions if a search failed
+        if (_searchUiState.value is LyricsSearchUiState.NotFound && availableExtensions.isNotEmpty()) {
+             _searchUiState.value = LyricsSearchUiState.PickResult(
+                 query = "",
+                 results = emptyList(),
+                 availableExtensions = availableExtensions,
+                 selectedExtensionId = null
+             )
         }
     }
 

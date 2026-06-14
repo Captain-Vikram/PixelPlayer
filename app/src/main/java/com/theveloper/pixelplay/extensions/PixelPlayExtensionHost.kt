@@ -20,9 +20,13 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+
 @Singleton
 class PixelPlayExtensionHost @Inject constructor(
-    private val app: Application
+    private val app: Application,
+    private val preferencesRepository: com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 ) : ExtensionHost {
     override val context: Context get() = app
     override val settings: SharedPreferences = app.getSharedPreferences("extensions", Context.MODE_PRIVATE)
@@ -34,9 +38,12 @@ class PixelPlayExtensionHost @Inject constructor(
 
     override val cache: SimpleCache by lazy {
         val cacheDir = File(app.cacheDir, "extension_media")
+        val limitMb = runBlocking {
+            preferencesRepository.extensionMediaCacheLimitMbFlow.first()
+        }
         SimpleCache(
             cacheDir,
-            LeastRecentlyUsedCacheEvictor(100 * 1024 * 1024L),
+            LeastRecentlyUsedCacheEvictor(limitMb * 1024 * 1024L),
             StandaloneDatabaseProvider(app)
         )
     }

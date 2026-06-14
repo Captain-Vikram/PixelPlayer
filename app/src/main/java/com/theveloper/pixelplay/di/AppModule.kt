@@ -171,7 +171,9 @@ object AppModule {
             PixelPlayDatabase.MIGRATION_39_40,
             PixelPlayDatabase.MIGRATION_40_41,
             PixelPlayDatabase.MIGRATION_41_42,
-            PixelPlayDatabase.MIGRATION_42_43
+            PixelPlayDatabase.MIGRATION_42_43,
+            PixelPlayDatabase.MIGRATION_43_44,
+            PixelPlayDatabase.MIGRATION_44_45
         )
             .addCallback(PixelPlayDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
@@ -276,6 +278,18 @@ object AppModule {
     @Provides
     fun provideJellyfinDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.JellyfinDao {
         return database.jellyfinDao()
+    }
+
+    @Singleton
+    @Provides
+    fun provideExtensionDao(database: PixelPlayDatabase): dev.brahmkshatriya.echo.extension.loader.db.ExtensionDao {
+        return database.extensionDao()
+    }
+
+    @Singleton
+    @Provides
+    fun provideExtensionUserDao(database: PixelPlayDatabase): dev.brahmkshatriya.echo.extension.loader.db.UserDao {
+        return database.extensionUserDao()
     }
 
     @Provides

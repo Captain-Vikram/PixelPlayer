@@ -143,24 +143,74 @@ class SearchStateHolder @Inject constructor(
                         
                         val activeExtension = extensionRepository.currentMusicExtension.value
                         
-                        if (activeExtension != null) {
-                            // EXCLUSIVE SEARCH: Only Search Extension
-                            val client = activeExtension.instance.value().getOrNull()
-                            if (client is SearchFeedClient) {
-                                val feed = client.loadSearchFeed(normalizedQuery)
-                                val shelves = feed.getPagedData(feed.tabs.firstOrNull()).pagedData.loadPage(null).data
-                                _searchResultsShelves.value = filterShelvesByType(shelves, currentFilter)
-                            } else {
-                                _searchResultsShelves.value = emptyList()
-                            }
+                        val localSearchFlow = if (sourceScope == com.theveloper.pixelplay.data.model.SourceScope.All || 
+                            sourceScope == com.theveloper.pixelplay.data.model.SourceScope.Local) {
+                            musicRepository.searchAll(normalizedQuery, currentFilter)
                         } else {
-                            // EXCLUSIVE SEARCH: Only Local Library
-                            musicRepository.searchAll(normalizedQuery, currentFilter).collect { resultsList ->
-                                if (request.requestId == latestSearchRequestId.get()) {
-                                    _searchResultsShelves.value = resultsToShelves(resultsList)
+                            kotlinx.coroutines.flow.flowOf(emptyList())
+                        }
+
+                        val extensionSearchFlow = if (activeExtension != null && 
+                            (sourceScope == com.theveloper.pixelplay.data.model.SourceScope.All || 
+                             sourceScope is com.theveloper.pixelplay.data.model.SourceScope.Extension)) {
+                            kotlinx.coroutines.flow.flow {
+                                try {
+                                    val client = activeExtension.instance.value().getOrNull()
+                                    if (client is SearchFeedClient) {
+                                        val feed = client.loadSearchFeed(normalizedQuery)
+                                        val shelves = feed.getPagedData(feed.tabs.firstOrNull()).pagedData.loadPage(null).data
+                                        emit(filterShelvesByType(shelves, currentFilter))
+                                    } else {
+                                        emit(emptyList())
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Error performing extension search")
+                                    emit(emptyList())
                                 }
                             }
+                        } else {
+                            kotlinx.coroutines.flow.flowOf(emptyList())
                         }
+
+                        val localSearchFlowWithCatch = localSearchFlow.catch { e ->
+                            Timber.e(e, "Error performing local search")
+                            emit(emptyList())
+                        }
+
+                        // Combine results
+                        kotlinx.coroutines.flow.combine(localSearchFlowWithCatch, extensionSearchFlow) { localResults, extShelves ->
+                            val localShelves = resultsToShelves(localResults)
+                            
+                            val extensionName = activeExtension?.metadata?.name ?: "Extension"
+                            val attributedExtShelves = extShelves.map { shelf ->
+                                when (shelf) {
+                                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> 
+                                        shelf.copy(title = "${shelf.title} ($extensionName)")
+                                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items ->
+                                        shelf.copy(title = "${shelf.title} ($extensionName)")
+                                    is dev.brahmkshatriya.echo.common.models.Shelf.Item ->
+                                        shelf.copy(title = "${shelf.title} ($extensionName)")
+                                    else -> shelf
+                                }
+                            }
+                            
+                            val attributedLocalShelves = localShelves.map { shelf ->
+                                when (shelf) {
+                                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> 
+                                        shelf.copy(title = "${shelf.title} (Local)")
+                                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items ->
+                                        shelf.copy(title = "${shelf.title} (Local)")
+                                    else -> shelf
+                                }
+                            }
+
+                            attributedLocalShelves + attributedExtShelves
+                        }.collect { combinedShelves ->
+                            if (request.requestId == latestSearchRequestId.get()) {
+                                _searchResultsShelves.value = combinedShelves
+                            }
+                        }
+                        
                     } catch (e: Exception) {
                         if (request.requestId == latestSearchRequestId.get()) {
                             Timber.e(e, "Error performing search")
@@ -185,7 +235,7 @@ class SearchStateHolder @Inject constructor(
                             SearchFilterType.ALBUMS -> item is dev.brahmkshatriya.echo.common.models.Album
                             SearchFilterType.ARTISTS -> item is dev.brahmkshatriya.echo.common.models.Artist
                             SearchFilterType.PLAYLISTS -> item is dev.brahmkshatriya.echo.common.models.Playlist
-                            else -> true
+                            SearchFilterType.ALL -> true
                         }
                     }
                     if (filteredList.isNotEmpty()) {

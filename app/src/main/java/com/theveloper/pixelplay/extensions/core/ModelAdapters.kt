@@ -22,6 +22,10 @@ fun Track.toSong(extensionId: String, streamUrl: String? = null): Song {
     val artistSyntheticId = artists.firstOrNull()?.let { "extension:$extensionId:artist:${it.id}" }
     val mediaId = "extension:$extensionId:track:$id"
     
+    // Extract video loops (Background) and synced lyrics (Subtitle) if provided directly
+    val backgroundStream = backgrounds.firstOrNull()
+    val subtitleStream = subtitles.firstOrNull()
+    
     return Song(
         id = mediaId,
         title = title,
@@ -43,7 +47,9 @@ fun Track.toSong(extensionId: String, streamUrl: String? = null): Song {
         mimeType = "audio/mpeg", 
         bitrate = 0,
         sampleRate = 0,
-        extensionId = extensionId
+        extensionId = extensionId,
+        backgroundUriString = backgroundStream?.id,
+        subtitleUriString = subtitleStream?.id
     )
 }
 

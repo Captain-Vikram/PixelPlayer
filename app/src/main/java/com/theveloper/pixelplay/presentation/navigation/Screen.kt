@@ -58,6 +58,9 @@ sealed class Screen(val route: String) {
     object ExtensionSettings : Screen("extension_settings/{extensionId}") {
         fun createRoute(extensionId: String) = "extension_settings/$extensionId"
     }
+    object ExtensionLogin : Screen("extension_login/{extensionId}") {
+        fun createRoute(extensionId: String) = "extension_login/$extensionId"
+    }
     object Downloads : Screen("downloads")
 
 }

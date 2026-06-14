@@ -60,6 +60,11 @@ interface LyricsRepository {
     fun clearCache()
 
     /**
+     * Fetch lyrics from a direct URL.
+     */
+    suspend fun fetchFromUrl(url: String): Lyrics?
+
+    /**
      * Scans local .lrc files for the provided songs and updates the database if found.
      * 
      * @param songs List of songs to scan for

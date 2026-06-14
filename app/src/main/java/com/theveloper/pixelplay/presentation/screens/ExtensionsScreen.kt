@@ -269,7 +269,7 @@ fun ExtensionsScreen(
                             subtitle = extension.metadata.description.takeIf { it.isNotBlank() } ?: "v${extension.metadata.version}",
                             iconModel = iconModel,
                             isSelected = extension == currentExtension,
-                            isLoginNeeded = caps.isLoginNeeded,
+                            caps = caps,
                             onClick = { 
                                 if (extension is MusicExtension) viewModel.selectMusicExtension(extension) 
                             },
@@ -300,17 +300,18 @@ fun ExpressiveExtensionItem(
     subtitle: String,
     iconModel: Any?,
     isSelected: Boolean,
-    isLoginNeeded: Boolean,
+    caps: ExtensionCapabilities,
     onClick: () -> Unit,
     onActionClick: () -> Unit,
     onSettingsClick: () -> Unit,
     shape: androidx.compose.ui.graphics.Shape
 ) {
+    val isLoginNeeded = caps.isLoginNeeded
     Surface(
         onClick = onClick,
         shape = shape,
         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().height(88.dp)
+        modifier = Modifier.fillMaxWidth().height(104.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -353,11 +354,20 @@ fun ExpressiveExtensionItem(
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = (if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface).copy(alpha = 0.65f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                
+                Spacer(Modifier.height(4.dp))
+                
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (caps.canHomeFeed || caps.canLibraryFeed) PurposeBadge("Music")
+                    if (caps.canLyrics) PurposeBadge("Lyrics")
+                    if (caps.canRadio) PurposeBadge("Radio")
+                    if (caps.canEditPlaylists) PurposeBadge("Playlists")
+                }
             }
 
             if (isLoginNeeded) {
@@ -380,6 +390,21 @@ fun ExpressiveExtensionItem(
                 Icon(Icons.Rounded.Settings, contentDescription = "Settings")
             }
         }
+    }
+}
+
+@Composable
+private fun PurposeBadge(text: String) {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
+        contentColor = MaterialTheme.colorScheme.secondary
+    ) {
+        Text(
+            text = text.uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+        )
     }
 }
 

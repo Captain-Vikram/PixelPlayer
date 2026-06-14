@@ -146,6 +146,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.roundToInt
 
+import com.theveloper.pixelplay.presentation.components.ExtensionWebViewHandler
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import com.theveloper.pixelplay.presentation.utils.AppHapticsConfig
 import com.theveloper.pixelplay.presentation.utils.LocalAppHapticsConfig
@@ -183,6 +184,8 @@ class MainActivity : ComponentActivity() {
     lateinit var themePreferencesRepository: ThemePreferencesRepository
     @Inject
     lateinit var syncManager: SyncManager
+    @Inject
+    lateinit var extensionWebViewManager: com.theveloper.pixelplay.extensions.webview.ExtensionWebViewManager
     // For handling shortcut navigation - using StateFlow so composables can observe changes
     private val _pendingPlaylistNavigation = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     private val _pendingShuffleAll = kotlinx.coroutines.flow.MutableStateFlow(false)
@@ -300,6 +303,8 @@ class MainActivity : ComponentActivity() {
                     delay(100)
                     contentVisible = true
                 }
+
+                ExtensionWebViewHandler(extensionWebViewManager)
 
                 Surface(
                     modifier = Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }, 

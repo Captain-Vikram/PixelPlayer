@@ -40,4 +40,3 @@ include(":baselineprofile")
 
 include(":common")
 project(":common").projectDir = File(rootDir, "../echo/common")
-include(":extension-loader")

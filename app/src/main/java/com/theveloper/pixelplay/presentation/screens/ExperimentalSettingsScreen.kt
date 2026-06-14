@@ -718,6 +718,7 @@ fun ExperimentalSettingsScreen(
 
             item(key = "visual_tweaks_section") {
                 val albumArtQuality = uiState.albumArtQuality
+                val extensionCacheLimit = uiState.extensionMediaCacheLimitMb
                 
                  SettingsSection(
                     title = stringResource(R.string.presentation_batch_f_exp_album_art_resolution),
@@ -786,6 +787,66 @@ fun ExperimentalSettingsScreen(
                                    }
                                }
                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                SettingsSection(
+                    title = stringResource(R.string.presentation_batch_f_exp_extension_cache_title),
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Rounded.BlurOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.presentation_batch_f_exp_extension_cache_limit),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.presentation_batch_f_exp_extension_cache_subtitle),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Text(
+                                        text = "$extensionCacheLimit MB",
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+
+                            Slider(
+                                value = extensionCacheLimit.toFloat(),
+                                onValueChange = { settingsViewModel.setExtensionMediaCacheLimitMb(it.roundToInt()) },
+                                valueRange = 100f..5000f,
+                                steps = 49
+                            )
                         }
                     }
                 }

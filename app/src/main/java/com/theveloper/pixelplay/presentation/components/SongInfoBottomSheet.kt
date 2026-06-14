@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
@@ -130,7 +131,8 @@ fun SongInfoBottomSheet(
     aiMetadataSuccess: Boolean = false,
     aiError: String? = null,
     onRetryMetadata: () -> Unit = {},
-    songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel()
+    songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel(),
+    playerViewModel: com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     var showEditSheet by remember { mutableStateOf(false) }
@@ -489,27 +491,19 @@ fun SongInfoBottomSheet(
                                         item {
                                             Row(
                                                 modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(IntrinsicSize.Min),
+                                                    .fillMaxWidth(),
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
                                                 FilledTonalButton(
                                                     modifier = Modifier
-<<<<<<< HEAD
-                                                        .weight(0.5f)
+                                                        .weight(if (isExtension) 0.75f else 0.5f)
                                                         .heightIn(min = 80.dp),
                                                     colors = ButtonDefaults.filledTonalButtonColors(
                                                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                                     ),
                                                     contentPadding = PaddingValues(horizontal = 10.dp),
-=======
-                                                        .weight(if (isExtension) 0.75f else 0.5f)
-                                                        .fillMaxHeight(),
-                                                    onClick = onPlaySong,
-                                                    elevation = FloatingActionButtonDefaults.elevation(0.dp),
->>>>>>> 4c53b634 (Implement advanced extension feed handling, modular search overhaul, and playback reliability fixes)
                                                     shape = playButtonShape,
                                                     onClick = onPlaySong
                                                 ) {
@@ -531,7 +525,7 @@ fun SongInfoBottomSheet(
                                                 FilledIconButton(
                                                     modifier = Modifier
                                                         .weight(0.25f)
-                                                        .fillMaxHeight(),
+                                                        .height(80.dp),
                                                     onClick = onToggleFavorite,
                                                     shape = favoriteButtonShape,
                                                     colors = IconButtonDefaults.filledIconButtonColors(
@@ -552,7 +546,7 @@ fun SongInfoBottomSheet(
                                                     FilledTonalIconButton(
                                                         modifier = Modifier
                                                             .weight(0.25f)
-                                                            .fillMaxHeight(),
+                                                            .height(80.dp),
                                                         onClick = {
                                                             try {
                                                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -589,8 +583,7 @@ fun SongInfoBottomSheet(
                                         item {
                                             Row(
                                                 modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(IntrinsicSize.Min),
+                                                    .fillMaxWidth(),
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
@@ -650,8 +643,7 @@ fun SongInfoBottomSheet(
                                         item {
                                             Row(
                                                 modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(IntrinsicSize.Min),
+                                                    .fillMaxWidth(),
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
@@ -681,24 +673,6 @@ fun SongInfoBottomSheet(
                                                     )
                                                 }
 
-<<<<<<< HEAD
-                                                FilledTonalButton(
-                                                    modifier = Modifier
-                                                        .weight(0.5f)
-                                                        .heightIn(min = 66.dp),
-                                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                                    ),
-                                                    contentPadding = PaddingValues(horizontal = 10.dp),
-                                                    shape = CircleShape,
-                                                    onClick = {
-                                                        (context as? Activity)?.let { activity ->
-                                                            onDeleteFromDevice(activity, song) { result ->
-                                                                if (result) {
-                                                                    removeFromListTrigger()
-                                                                    onDismiss()
-=======
                                                 if (!isExtension) {
                                                     FilledTonalButton(
                                                         modifier = Modifier
@@ -708,6 +682,7 @@ fun SongInfoBottomSheet(
                                                             containerColor = MaterialTheme.colorScheme.errorContainer,
                                                             contentColor = MaterialTheme.colorScheme.onErrorContainer
                                                         ),
+                                                        contentPadding = PaddingValues(horizontal = 10.dp),
                                                         shape = CircleShape,
                                                         onClick = {
                                                             (context as? Activity)?.let { activity ->
@@ -716,7 +691,6 @@ fun SongInfoBottomSheet(
                                                                         removeFromListTrigger()
                                                                         onDismiss()
                                                                     }
->>>>>>> 4c53b634 (Implement advanced extension feed handling, modular search overhaul, and playback reliability fixes)
                                                                 }
                                                             }
                                                         }
@@ -726,24 +700,43 @@ fun SongInfoBottomSheet(
                                                             contentDescription = stringResource(R.string.delete_action)
                                                         )
                                                         Spacer(Modifier.width(8.dp))
-                                                        Text(stringResource(R.string.delete_action))
+                                                        TightWrapText(
+                                                            text = stringResource(R.string.delete_action),
+                                                            modifier = Modifier.padding(end = 4.dp),
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            maxLines = 2,
+                                                            lineHeight = 20.sp
+                                                        )
                                                     }
-<<<<<<< HEAD
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.DeleteForever,
-                                                        contentDescription = stringResource(R.string.delete_action)
-                                                    )
-                                                    Spacer(Modifier.width(6.dp))
-                                                    TightWrapText(
-                                                        text = stringResource(R.string.delete_action),
-                                                        modifier = Modifier.padding(end = 4.dp),
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        maxLines = 2,
-                                                        lineHeight = 20.sp
-                                                    )
-=======
->>>>>>> 4c53b634 (Implement advanced extension feed handling, modular search overhaul, and playback reliability fixes)
+                                                } else {
+                                                    FilledTonalButton(
+                                                        modifier = Modifier
+                                                            .weight(0.5f)
+                                                            .heightIn(min = 66.dp),
+                                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                                        ),
+                                                        contentPadding = PaddingValues(horizontal = 10.dp),
+                                                        shape = CircleShape,
+                                                        onClick = {
+                                                            playerViewModel.startRadio(song)
+                                                            onDismiss()
+                                                        }
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Rounded.Sensors,
+                                                            contentDescription = "Start Radio"
+                                                        )
+                                                        Spacer(Modifier.width(6.dp))
+                                                        TightWrapText(
+                                                            text = "Start Radio",
+                                                            modifier = Modifier.padding(end = 4.dp),
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            maxLines = 1,
+                                                            lineHeight = 20.sp
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -757,15 +750,14 @@ fun SongInfoBottomSheet(
                                                 if (shouldRenderWatchTransferRow) {
                                                     Row(
                                                         modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .height(IntrinsicSize.Min),
+                                                            .fillMaxWidth(),
                                                         verticalAlignment = Alignment.CenterVertically,
                                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                                     ) {
                                                         RingtoneActionButton(
                                                             modifier = Modifier
                                                                 .weight(0.38f)
-                                                                .fillMaxHeight(),
+                                                                .heightIn(min = 66.dp),
                                                             showText = true,
                                                             compactText = true,
                                                             onClick = { showTonePickerDialog = true },
@@ -774,7 +766,7 @@ fun SongInfoBottomSheet(
                                                         FilledTonalButton(
                                                             modifier = Modifier
                                                                 .weight(0.62f)
-                                                                .fillMaxHeight(),
+                                                                .heightIn(min = 66.dp),
                                                             colors = ButtonDefaults.filledTonalButtonColors(
                                                                 containerColor = if (isPixelPlayWatchAvailable) {
                                                                     sendToWatchContainerColor

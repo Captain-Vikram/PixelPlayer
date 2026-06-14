@@ -59,6 +59,12 @@ import com.theveloper.pixelplay.presentation.viewmodel.LyricsSearchUiState
 import com.theveloper.pixelplay.utils.ProviderText
 import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
 
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.ui.graphics.Color
+
 @Composable
 fun FetchLyricsDialog(
     uiState: LyricsSearchUiState,
@@ -66,6 +72,7 @@ fun FetchLyricsDialog(
     onConfirm: (Boolean) -> Unit,
     onPickResult: (LyricsSearchResult) -> Unit,
     onManualSearch: (String, String?) -> Unit,
+    onSelectSource: (String?) -> Unit,
     onDismiss: () -> Unit,
     onImport: () -> Unit
 ) {
@@ -105,9 +112,10 @@ fun FetchLyricsDialog(
                     }
                     is LyricsSearchUiState.PickResult -> {
                         PickResultContent(
-                            results = uiState.results,
+                            state = uiState,
                             onPickResult = onPickResult,
-                            onCancel = onDismiss // Usamos botón cancelar en lugar de X
+                            onSelectSource = onSelectSource,
+                            onCancel = onDismiss
                         )
                     }
                     is LyricsSearchUiState.NotFound -> {
@@ -303,36 +311,92 @@ private fun LoadingContent() {
 
 @Composable
 private fun PickResultContent(
-    results: List<LyricsSearchResult>,
+    state: LyricsSearchUiState.PickResult,
     onPickResult: (LyricsSearchResult) -> Unit,
+    onSelectSource: (String?) -> Unit,
     onCancel: () -> Unit
 ) {
-    Text(
-        text = stringResource(R.string.found_n_matches_format).format(results.size),
-        style = MaterialTheme.typography.headlineSmall,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth()
-    )
+    val results = state.results
+    val extensions = state.availableExtensions
+    val selectedId = state.selectedExtensionId
 
-    Spacer(modifier = Modifier.height(24.dp))
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = if (results.isEmpty() && state.query.isNotEmpty()) 
+                stringResource(R.string.lyrics_not_found)
+            else stringResource(R.string.found_n_matches_format).format(results.size),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
 
-    // Lista Scrollable Optimizada
-    LazyColumn(
-        modifier = Modifier.heightIn(max = 350.dp), // Altura máxima dinámica
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(bottom = 8.dp)
-    ) {
-        items(results, key = { it.record.id }) { result ->
-            ResultItemCard(result = result, onClick = { onPickResult(result) })
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (extensions.isNotEmpty()) {
+            ScrollableTabRow(
+                selectedTabIndex = if (selectedId == null) 0 else extensions.indexOfFirst { it.metadata.id == selectedId } + 1,
+                containerColor = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.primary,
+                edgePadding = 0.dp,
+                divider = {},
+                indicator = { tabPositions ->
+                    val index = if (selectedId == null) 0 else extensions.indexOfFirst { it.metadata.id == selectedId } + 1
+                    if (index < tabPositions.size) {
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[index]),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            ) {
+                Tab(
+                    selected = selectedId == null,
+                    onClick = { onSelectSource(null) },
+                    text = { Text("Search") }
+                )
+                extensions.forEach { ext ->
+                    Tab(
+                        selected = selectedId == ext.metadata.id,
+                        onClick = { onSelectSource(ext.metadata.id) },
+                        text = { Text(ext.metadata.name) }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
-        item {
-            ProviderText(
-                providerText = stringResource(R.string.lyrics_provided_by),
-                uri = stringResource(R.string.lrclib_uri),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp)
-            )
+        if (results.isEmpty() && state.selectedExtensionId != null) {
+            Column(
+                modifier = Modifier.heightIn(min = 200.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularWavyProgressIndicator(modifier = Modifier.size(40.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Fetching from ${extensions.find { it.metadata.id == selectedId }?.metadata?.name}...")
+            }
+        } else {
+            // Lista Scrollable Optimizada
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 350.dp), // Altura máxima dinámica
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 8.dp)
+            ) {
+                items(results) { result ->
+                    ResultItemCard(result = result, onClick = { onPickResult(result) })
+                }
+
+                if (selectedId == null) {
+                    item {
+                        ProviderText(
+                            providerText = stringResource(R.string.lyrics_provided_by),
+                            uri = stringResource(R.string.lrclib_uri),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 

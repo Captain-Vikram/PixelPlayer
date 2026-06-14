@@ -58,8 +58,8 @@ internal fun resolveVerticalSheetTargetState(
 
 internal fun collapseSpringDampingForFraction(currentFraction: Float): Float {
     return lerp(
-        start = Spring.DampingRatioNoBouncy,
-        stop = Spring.DampingRatioLowBouncy,
+        start = Spring.DampingRatioLowBouncy,
+        stop = Spring.DampingRatioMediumBouncy,
         fraction = currentFraction
     )
 }

@@ -248,6 +248,7 @@ class PlayerViewModel @Inject constructor(
     val playlistSelectionStateHolder: PlaylistSelectionStateHolder,
     private val extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader,
     private val extensionRepository: ExtensionRepository,
+    val extensionWebViewManager: com.theveloper.pixelplay.extensions.webview.ExtensionWebViewManager,
     private val downloadManager: com.theveloper.pixelplay.data.download.DownloadManager,
     private val sessionToken: SessionToken,
     private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory
@@ -3150,6 +3151,11 @@ class PlayerViewModel @Inject constructor(
                     mediaItem?.let { transitionedItem ->
                         val song = resolveSongFromMediaItem(transitionedItem)
 
+                        // Auto-fetch extension subtitles if available
+                        song?.subtitleUriString?.takeIf { it.isNotBlank() }?.let { url ->
+                            lyricsStateHolder.fetchExtensionSubtitles(song, url)
+                        }
+
                         // Offline check for Telegram songs
                         if (song?.contentUriString?.startsWith("telegram:") == true) {
                             ensureTelegramPlaybackObserversStarted()
@@ -3882,6 +3888,40 @@ class PlayerViewModel @Inject constructor(
             )
         }
         multiSelectionStateHolder.clearSelection()
+    }
+
+    fun startRadio(song: Song) {
+        val extensionId = song.extensionId ?: return
+        viewModelScope.launch {
+            try {
+                val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return@launch
+                val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.RadioClient ?: return@launch
+                
+                // Extract original ID from synthetic ID (extension:id:track:originalId)
+                val originalId = song.id.substringAfter(":track:")
+                val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
+                    id = originalId,
+                    title = song.title
+                )
+                
+                val radio = client.radio(echoTrack, null)
+                val radioTracksFeed = client.loadTracks(radio)
+                
+                // Use the loadAll helper from ModelAdapters (imported implicitly via extension methods if needed, 
+                // but here we just need to load the first page or all if small)
+                val radioTracks = radioTracksFeed.loadAll()
+                
+                if (radioTracks.isNotEmpty()) {
+                    val songsToPlay = radioTracks.map { it.toSong(extensionId) }
+                    playSongs(songsToPlay, songsToPlay.first(), "Radio: ${song.title}")
+                } else {
+                    _toastEvents.emit("No radio tracks found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to start radio for song: ${song.id}")
+                _toastEvents.emit("Failed to start radio")
+            }
+        }
     }
 
     fun playSelectedAlbums(albums: List<Album>) {
@@ -4862,6 +4902,11 @@ class PlayerViewModel @Inject constructor(
                 getErrorString = { detail -> context.getString(R.string.ai_error_generic, detail) }
             )
         )
+    }
+
+    fun selectLyricsSource(extensionId: String?) {
+        val song = stablePlayerState.value.currentSong ?: return
+        lyricsStateHolder.selectLyricsSource(song, extensionId)
     }
 
     /**

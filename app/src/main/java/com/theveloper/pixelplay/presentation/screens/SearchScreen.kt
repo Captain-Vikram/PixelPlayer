@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -110,36 +111,28 @@ fun SearchScreen(
         onSearchBarActiveChange(false)
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Search Bar Area
-            Row(
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, top = statusBarTopInset + 12.dp, end = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(top = statusBarTopInset)
             ) {
-                DockedSearchBar(
+                // Search Bar
+                OutlinedTextField(
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
                         .focusRequester(focusRequester),
-                    query = searchQuery,
-                    onQueryChange = { 
+                    value = searchQuery,
+                    onValueChange = { 
                         searchQuery = it
                         playerViewModel.updateSearchQuery(it)
                     },
-                    onSearch = { keyboardController?.hide() },
-                    active = false,
-                    onActiveChange = {},
-                    placeholder = { Text("Search music...") },
-                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                    placeholder = { Text("Search songs, artists, albums...") },
+                    leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.primary) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { 
@@ -150,79 +143,106 @@ fun SearchScreen(
                             }
                         }
                     },
-                    colors = SearchBarDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    shape = CircleShape,
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Search
                     ),
-                    content = {}
-                )
-            }
-
-            // Exclusive Source and Type Filters
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val currentMusicExtension = playerViewModel.currentMusicExtension
-                
-                // Source Selector (Exclusive)
-                item {
-                    val activeExtension by currentMusicExtension.collectAsStateWithLifecycle()
-                    SearchSourceScopeChip(
-                        scope = com.theveloper.pixelplay.data.model.SourceScope.Local,
-                        currentScope = if (activeExtension == null) com.theveloper.pixelplay.data.model.SourceScope.Local else com.theveloper.pixelplay.data.model.SourceScope.All,
-                        extensionName = null,
-                        onScopeSelected = { playerViewModel.selectMusicExtension(null) }
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onSearch = { keyboardController?.hide() }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = Color.Transparent
                     )
-                }
-                item {
-                    val activeExtension by currentMusicExtension.collectAsStateWithLifecycle()
-                    activeExtension?.let { ext ->
+                )
+
+                // Filters
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val currentMusicExtension = playerViewModel.currentMusicExtension
+                    val currentScope = searchUiState.currentSourceScope
+                    
+                    // Source Selector
+                    item {
                         SearchSourceScopeChip(
-                            scope = com.theveloper.pixelplay.data.model.SourceScope.Extension(ext.metadata.id),
-                            currentScope = com.theveloper.pixelplay.data.model.SourceScope.Extension(ext.metadata.id),
-                            extensionName = ext.metadata.name,
-                            onScopeSelected = {}
+                            scope = com.theveloper.pixelplay.data.model.SourceScope.All,
+                            currentScope = currentScope,
+                            extensionName = null,
+                            onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
                         )
                     }
+                    item {
+                        SearchSourceScopeChip(
+                            scope = com.theveloper.pixelplay.data.model.SourceScope.Local,
+                            currentScope = currentScope,
+                            extensionName = null,
+                            onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
+                        )
+                    }
+                    item {
+                        val activeExtension by currentMusicExtension.collectAsStateWithLifecycle()
+                        activeExtension?.let { ext ->
+                            SearchSourceScopeChip(
+                                scope = com.theveloper.pixelplay.data.model.SourceScope.Extension(ext.metadata.id),
+                                currentScope = currentScope,
+                                extensionName = ext.metadata.name,
+                                onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
+                            )
+                        }
+                    }
+
+                    item { 
+                        VerticalDivider(
+                            modifier = Modifier.height(24.dp).padding(horizontal = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+
+                    // Type Filters
+                    item { SearchFilterChip(SearchFilterType.ALL, currentFilter, playerViewModel) }
+                    item { SearchFilterChip(SearchFilterType.SONGS, currentFilter, playerViewModel) }
+                    item { SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel) }
+                    item { SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel) }
+                    item { SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel) }
                 }
-
-                item { Spacer(Modifier.width(8.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant).width(1.dp)) }
-
-                // Type Filters
-                item { SearchFilterChip(SearchFilterType.ALL, currentFilter, playerViewModel) }
-                item { SearchFilterChip(SearchFilterType.SONGS, currentFilter, playerViewModel) }
-                item { SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel) }
-                item { SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel) }
-                item { SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel) }
             }
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = innerPadding.calculateTopPadding())
+        ) {
+            val currentMusicExtension by playerViewModel.currentMusicExtension.collectAsStateWithLifecycle()
+            val activeExtensionId = currentMusicExtension?.metadata?.id
 
-            // Content Area
-            Crossfade(
-                targetState = searchQuery.isEmpty(),
-                animationSpec = tween(300),
-                label = "search_content"
-            ) { isEmpty ->
-                if (isEmpty) {
-                    DiscoveryFeed(
-                        shelves = searchFeedShelves,
-                        isLoading = isLoadingSearchFeed,
-                        onRefresh = { playerViewModel.loadSearchFeed() },
-                        playerViewModel = playerViewModel,
-                        navController = navController
-                    )
-                } else {
-                    SearchResults(
-                        shelves = searchResultsShelves,
-                        isLoading = isLoadingSearch,
-                        searchQuery = searchQuery,
-                        playerViewModel = playerViewModel,
-                        navController = navController
-                    )
-                }
+            if (searchQuery.isEmpty()) {
+                DiscoveryFeed(
+                    shelves = searchFeedShelves,
+                    isLoading = isLoadingSearchFeed,
+                    onRefresh = { playerViewModel.loadSearchFeed() },
+                    playerViewModel = playerViewModel,
+                    navController = navController,
+                    activeExtensionId = activeExtensionId
+                )
+            } else {
+                SearchResults(
+                    shelves = searchResultsShelves,
+                    isLoading = isLoadingSearch,
+                    searchQuery = searchQuery,
+                    playerViewModel = playerViewModel,
+                    navController = navController,
+                    activeExtensionId = activeExtensionId
+                )
             }
         }
     }
@@ -234,8 +254,11 @@ private fun DiscoveryFeed(
     isLoading: Boolean,
     onRefresh: () -> Unit,
     playerViewModel: PlayerViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    activeExtensionId: String?
 ) {
+    val searchHistory by playerViewModel.searchHistory.collectAsStateWithLifecycle()
+
     PullToRefreshBox(
         modifier = Modifier.fillMaxSize(),
         isRefreshing = isLoading,
@@ -244,27 +267,82 @@ private fun DiscoveryFeed(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = MiniPlayerHeight + 40.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Recent Searches
+            if (searchHistory.isNotEmpty()) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Recent Searches",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        TextButton(onClick = { playerViewModel.clearSearchHistory() }) {
+                            Text("Clear All")
+                        }
+                    }
+                    
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(searchHistory) { historyItem ->
+                            SuggestionChip(
+                                onClick = { 
+                                    playerViewModel.updateSearchQuery(historyItem.query)
+                                    playerViewModel.performSearch(historyItem.query)
+                                },
+                                label = { Text(historyItem.query) },
+                                shape = CircleShape,
+                                leadingIcon = { Icon(Icons.Rounded.History, null, modifier = Modifier.size(16.dp)) },
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick = { playerViewModel.deleteSearchHistoryItem(historyItem.query) },
+                                        modifier = Modifier.size(16.dp)
+                                    ) {
+                                        Icon(Icons.Rounded.Close, null)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
             if (shelves.isNotEmpty()) {
                 item {
                     ExtensionShelvesSection(
                         shelves = shelves,
                         onItemClick = { item ->
-                            handleEchoItemClick(item, playerViewModel, navController)
+                            handleEchoItemClick(item, playerViewModel, navController, activeExtensionId)
                         }
                     )
                 }
             } else {
-                item { 
-                    val genres by playerViewModel.genres.collectAsStateWithLifecycle(initialValue = emptyList())
-                    GenreCategoriesGrid(
-                        genres = genres,
-                        playerViewModel = playerViewModel,
-                        onGenreClick = { genre ->
-                             navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(genre.name, "UTF-8")))
-                        }
-                    )
+                item {
+                    Column(modifier = Modifier.padding(top = 16.dp)) {
+                        Text(
+                            text = "Browse Genres",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
+                        )
+                        val genres by playerViewModel.genres.collectAsStateWithLifecycle(initialValue = emptyList())
+                        GenreCategoriesGrid(
+                            genres = genres,
+                            playerViewModel = playerViewModel,
+                            onGenreClick = { genre ->
+                                 navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(genre.name, "UTF-8")))
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -277,11 +355,12 @@ private fun SearchResults(
     isLoading: Boolean,
     searchQuery: String,
     playerViewModel: PlayerViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    activeExtensionId: String?
 ) {
     if (isLoading && shelves.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(strokeCap = androidx.compose.ui.graphics.StrokeCap.Round)
         }
     } else if (shelves.isEmpty()) {
         EmptySearchResults(searchQuery, MaterialTheme.colorScheme)
@@ -289,15 +368,110 @@ private fun SearchResults(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 8.dp, bottom = MiniPlayerHeight + 40.dp),
-            verticalArrangement = Arrangement.spacedBy(32.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item {
-                ExtensionShelvesSection(
-                    shelves = shelves,
-                    onItemClick = { item ->
-                        handleEchoItemClick(item, playerViewModel, navController)
-                    }
+            shelves.forEach { shelf ->
+                item {
+                    SearchShelf(
+                        shelf = shelf,
+                        playerViewModel = playerViewModel,
+                        navController = navController,
+                        activeExtensionId = activeExtensionId
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchShelf(
+    shelf: Shelf,
+    playerViewModel: PlayerViewModel,
+    navController: NavHostController,
+    activeExtensionId: String?
+) {
+    val items = when (shelf) {
+        is Shelf.Lists<*> -> shelf.list.filterIsInstance<EchoMediaItem>()
+        is Shelf.Item -> listOf(shelf.media)
+        else -> emptyList()
+    }
+
+    if (items.isEmpty()) return
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (shelf.title.isNotBlank()) {
+            val isLocal = shelf.title.contains("(Local)")
+            val cleanTitle = shelf.title.substringBefore(" (")
+            val sourceLabel = if (shelf.title.contains("(")) shelf.title.substringAfterLast("(") .substringBefore(")") else null
+
+            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) {
+                Text(
+                    text = cleanTitle,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
                 )
+                if (sourceLabel != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (isLocal) Icons.Rounded.Storage else Icons.Rounded.Cloud,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = sourceLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Special handling for Track lists to use EnhancedSongListItem
+        if (items.all { it is dev.brahmkshatriya.echo.common.models.Track }) {
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items.forEach { item ->
+                    val track = item as dev.brahmkshatriya.echo.common.models.Track
+                    val idParts = track.id.split(":")
+                    val isExtensionItem = idParts.getOrNull(0) == "extension"
+                    val extensionId = if (isExtensionItem) idParts.getOrNull(1) else activeExtensionId
+                    
+                    track.toSong(extensionId ?: "")?.let { song ->
+                        LibraryPlaybackAwareSongItem(
+                            song = song,
+                            playerViewModel = playerViewModel,
+                            onMoreOptionsClick = { /* Handle more options */ },
+                            onClick = {
+                                val allSongs = items.filterIsInstance<dev.brahmkshatriya.echo.common.models.Track>()
+                                    .mapNotNull { it.toSong(extensionId ?: "") }
+                                playerViewModel.showAndPlaySong(song, allSongs, shelf.title)
+                            }
+                        )
+                    }
+                }
+            }
+        } else {
+            // Horizontal scroll for other types (Albums, Artists, Playlists)
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(items, key = { it.id }) { item ->
+                    com.theveloper.pixelplay.presentation.components.ExtensionMediaItemCard(
+                        item = item,
+                        onClick = { handleEchoItemClick(item, playerViewModel, navController, activeExtensionId) }
+                    )
+                }
             }
         }
     }
@@ -307,32 +481,33 @@ private fun SearchResults(
 private fun handleEchoItemClick(
     item: EchoMediaItem,
     playerViewModel: PlayerViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    activeExtensionId: String?
 ) {
     val idParts = item.id.split(":")
     val isExtension = idParts.getOrNull(0) == "extension"
-    val extensionId = if (isExtension) idParts.getOrNull(1) else null
+    val extensionId = if (isExtension) idParts.getOrNull(1) else activeExtensionId
 
     when (item) {
         is dev.brahmkshatriya.echo.common.models.Track -> {
-            val song = if (isExtension && extensionId != null) {
+            val song = if (extensionId != null) {
                 item.toSong(extensionId)
             } else {
-                // Local resolve
-                null
+                // Local resolve: The ID is already the local song ID
+                playerViewModel.songs.value.find { it.id == item.id }
             }
             song?.let { playerViewModel.showAndPlaySong(it, listOf(it), "Search Result") }
         }
         is dev.brahmkshatriya.echo.common.models.Album -> {
-            val mediaId = item.id
+            val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:album:${item.id}"
             navController.navigateSafely(Screen.AlbumDetail.createRoute(mediaId))
         }
         is dev.brahmkshatriya.echo.common.models.Artist -> {
-            val mediaId = item.id
+            val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:artist:${item.id}"
             navController.navigateSafely(Screen.ArtistDetail.createRoute(mediaId))
         }
         is dev.brahmkshatriya.echo.common.models.Playlist -> {
-            val mediaId = item.id
+            val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:playlist:${item.id}"
             navController.navigateSafely(Screen.PlaylistDetail.createRoute(mediaId))
         }
         is dev.brahmkshatriya.echo.common.models.Radio -> {

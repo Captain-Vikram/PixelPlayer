@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -133,22 +134,31 @@ fun GenreCategoriesGrid(
             }
         }
 
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            maxItemsInEachRow = if (isGridView) 2 else 1
-        ) {
-            genres.forEach { genre ->
-                Box(
-                    modifier = Modifier.weight(1f, fill = true)
-                ) {
-                    GenreCard(
-                        genre = genre,
-                        customIcons = customGenreIcons,
-                        onClick = { onGenreClick(genre) },
-                        isGridView = isGridView
-                    )
+        val chunkedGenres = remember(genres, isGridView) {
+            genres.chunked(if (isGridView) 2 else 1)
+        }
+
+        chunkedGenres.forEach { rowGenres ->
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                rowGenres.forEach { genre ->
+                    Box(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        GenreCard(
+                            genre = genre,
+                            customIcons = customGenreIcons,
+                            onClick = { onGenreClick(genre) },
+                            isGridView = isGridView
+                        )
+                    }
+                }
+                
+                // If it's a grid but we only have one item in this row, add a spacer to maintain alignment
+                if (isGridView && rowGenres.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }

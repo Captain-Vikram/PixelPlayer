@@ -191,6 +191,28 @@
 -keep class com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
 
+# Networking & Serialization (Required by YouTube & other extensions)
+-keep class okhttp3.** { *; }
+-keep interface okhttp3.** { *; }
+-dontwarn okhttp3.**
+
+-keep class kotlinx.serialization.** { *; }
+-keep interface kotlinx.serialization.** { *; }
+-dontwarn kotlinx.serialization.**
+
+-keep class kotlinx.coroutines.** { *; }
+-keep interface kotlinx.coroutines.** { *; }
+-dontwarn kotlinx.coroutines.**
+
+-keep class okio.** { *; }
+-keep interface okio.** { *; }
+-dontwarn okio.**
+
+# HTML Parsing (Required by YouTube/NewPipeExtractor)
+-keep class org.jsoup.** { *; }
+-keep interface org.jsoup.** { *; }
+-dontwarn org.jsoup.**
+
 # Echo Extension Loader & Common
 -keep class dev.brahmkshatriya.echo.** { *; }
 -dontwarn dev.brahmkshatriya.echo.**

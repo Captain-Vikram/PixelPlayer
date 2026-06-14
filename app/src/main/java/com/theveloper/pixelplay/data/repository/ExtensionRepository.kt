@@ -13,6 +13,8 @@ import dev.brahmkshatriya.echo.common.clients.ArtistClient
 import dev.brahmkshatriya.echo.common.clients.PlaylistClient
 import dev.brahmkshatriya.echo.common.clients.RadioClient
 import dev.brahmkshatriya.echo.common.clients.TrackClient
+import dev.brahmkshatriya.echo.common.clients.LyricsClient
+import dev.brahmkshatriya.echo.common.clients.PlaylistEditClient
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
 import com.theveloper.pixelplay.extensions.core.toAppAlbum
 import com.theveloper.pixelplay.extensions.core.toAppArtist
@@ -90,6 +92,9 @@ class ExtensionRepository @Inject constructor(
     private val _isLoadingLibraryFeed = MutableStateFlow(false)
     val isLoadingLibraryFeed: StateFlow<Boolean> = _isLoadingLibraryFeed.asStateFlow()
 
+    private val homeFeedShelvesCache = mutableMapOf<String, List<Shelf>>()
+    private val libraryFeedShelvesCache = mutableMapOf<String, List<Shelf>>()
+
     private val _messages = MutableSharedFlow<dev.brahmkshatriya.echo.common.models.Message>()
     val messages = _messages.asSharedFlow()
 
@@ -121,7 +126,10 @@ class ExtensionRepository @Inject constructor(
                     caps[ext.metadata.id] = ExtensionCapabilities(
                         isLoginNeeded = instance is LoginClient,
                         canHomeFeed = instance is HomeFeedClient,
-                        canLibraryFeed = instance is LibraryFeedClient
+                        canLibraryFeed = instance is LibraryFeedClient,
+                        canLyrics = instance is LyricsClient,
+                        canRadio = instance is RadioClient,
+                        canEditPlaylists = instance is PlaylistEditClient
                     )
                 }
                 _extensionCapabilities.value = caps
@@ -174,8 +182,6 @@ class ExtensionRepository @Inject constructor(
     fun selectMusicExtension(extension: MusicExtension?) {
         if (extension == null) {
             extensionEngine.current.value = null
-            // Also clear saved extension in engine preferences if possible
-            // For now just setting it to null will trigger the observer
         } else {
             extensionEngine.setupMusicExtension(extension, true)
         }
@@ -276,12 +282,21 @@ class ExtensionRepository @Inject constructor(
     }
 
     fun refreshFeeds() {
-        loadHomeFeed()
-        loadLibraryFeed()
+        loadHomeFeed(forceRefresh = true)
+        loadLibraryFeed(forceRefresh = true)
     }
 
-    fun loadHomeFeed() {
+    fun loadHomeFeed(forceRefresh: Boolean = false) {
         val extension = _currentMusicExtension.value ?: return
+        val extensionId = extension.metadata.id
+        
+        if (!forceRefresh && homeFeedShelvesCache.containsKey(extensionId)) {
+            val cachedShelves = homeFeedShelvesCache[extensionId]!!
+            _shelves.value = cachedShelves
+            extractSongsFromShelves(cachedShelves, extensionId)
+            return
+        }
+
         repositoryScope.launch {
             val client = extension.instance.value().getOrNull()
             if (client is HomeFeedClient) {
@@ -290,15 +305,33 @@ class ExtensionRepository @Inject constructor(
                     val feed = client.loadHomeFeed()
                     _homeFeed.value = feed
 
-                    val pagedData = feed.getPagedData(feed.tabs.firstOrNull())
-                    val firstPage = pagedData.pagedData.loadPage(null)
+                    // Try to find the best tab for home feed
+                    val tabs = feed.tabs
+                    val bestTab = tabs.find { it.title.lowercase().contains("home") }
+                        ?: tabs.find { it.title.lowercase().contains("for you") }
+                        ?: tabs.firstOrNull()
+
+                    val pagedData = feed.getPagedData(bestTab)
+                    var firstPage = pagedData.pagedData.loadPage(null)
+                    
+                    // Fallback: If best tab is empty, try the very first tab if different
+                    if (firstPage.data.isEmpty() && tabs.isNotEmpty() && bestTab != tabs.first()) {
+                        try {
+                            firstPage = feed.getPagedData(tabs.first()).pagedData.loadPage(null)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+
                     homeFeedContinuationToken = firstPage.continuation
 
                     val loadedShelves = firstPage.data
                     _shelves.value = loadedShelves
-                    extractSongsFromShelves(loadedShelves, extension.metadata.id)
+                    homeFeedShelvesCache[extensionId] = loadedShelves
+                    extractSongsFromShelves(loadedShelves, extensionId)
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    _errors.emit("Failed to load home feed: ${e.message}")
                 } finally {
                     _isLoadingFeed.value = false
                 }
@@ -308,6 +341,7 @@ class ExtensionRepository @Inject constructor(
                 homeFeedContinuationToken = null
                 _yourMixSongsFromExtension.value = emptyList()
                 _dailyMixSongsFromExtension.value = emptyList()
+                homeFeedShelvesCache.remove(extensionId)
             }
         }
     }
@@ -321,12 +355,19 @@ class ExtensionRepository @Inject constructor(
             if (client is HomeFeedClient) {
                 try {
                     val feed = _homeFeed.value ?: return@launch
-                    val pagedData = feed.getPagedData(feed.tabs.firstOrNull())
+                    val tabs = feed.tabs
+                    val bestTab = tabs.find { it.title.lowercase().contains("home") }
+                        ?: tabs.find { it.title.lowercase().contains("for you") }
+                        ?: tabs.firstOrNull()
+                        
+                    val pagedData = feed.getPagedData(bestTab)
                     val nextPage = pagedData.pagedData.loadPage(token)
                     homeFeedContinuationToken = nextPage.continuation
                     
                     val newShelves = nextPage.data
-                    _shelves.value = _shelves.value + newShelves
+                    val updatedShelves = _shelves.value + newShelves
+                    _shelves.value = updatedShelves
+                    homeFeedShelvesCache[extension.metadata.id] = updatedShelves
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -337,10 +378,6 @@ class ExtensionRepository @Inject constructor(
     suspend fun getPagedDataByType(type: com.theveloper.pixelplay.data.model.LibraryTabId): dev.brahmkshatriya.echo.common.helpers.PagedData<Shelf>? {
         val extension = _currentMusicExtension.value ?: return null
         val client = extension.instance.value().getOrNull()
-        
-        // Strategy: 
-        // 1. Try LibraryFeed for user content (Liked, Playlists)
-        // 2. Try SearchFeed with empty query for browse content (Albums, Artists, Global Trending)
         
         return if (type == com.theveloper.pixelplay.data.model.LibraryTabId.LIKED || type == com.theveloper.pixelplay.data.model.LibraryTabId.PLAYLISTS) {
             if (client is LibraryFeedClient) {
@@ -371,13 +408,11 @@ class ExtensionRepository @Inject constructor(
             else -> return null
         }
         
-        // Primary match: Tab label contains keyword
         tabs.find { tab ->
             val label = tab.title.lowercase()
             keywords.any { label.contains(it) }
         }?.let { return it }
 
-        // Secondary match: Tab ID contains keyword
         tabs.find { tab ->
             val id = tab.id.lowercase()
             keywords.any { id.contains(it) }
@@ -390,7 +425,6 @@ class ExtensionRepository @Inject constructor(
         val yourMixTracks = mutableListOf<com.theveloper.pixelplay.data.model.Song>()
         val dailyMixTracks = mutableListOf<com.theveloper.pixelplay.data.model.Song>()
 
-        // Find track-heavy shelves. We'll prioritize ones that mention 'Mix', 'Recommended', 'Trending', or 'Top'
         val sortedShelves = shelves.sortedByDescending { shelf ->
             val title = shelf.title.lowercase()
             when {
@@ -403,7 +437,7 @@ class ExtensionRepository @Inject constructor(
 
         val trackShelves = sortedShelves.filter { shelf ->
             when (shelf) {
-                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> true
+                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> shelf.list.isNotEmpty()
                 is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> {
                     shelf.list.any { it is dev.brahmkshatriya.echo.common.models.Track }
                 }
@@ -411,16 +445,21 @@ class ExtensionRepository @Inject constructor(
             }
         }
 
-        trackShelves.getOrNull(0)?.let { firstShelf ->
-            yourMixTracks.addAll(extractTracksFromShelf(firstShelf, extensionId))
+        if (trackShelves.isNotEmpty()) {
+            yourMixTracks.addAll(extractTracksFromShelf(trackShelves[0], extensionId))
+            
+            if (trackShelves.size > 1) {
+                dailyMixTracks.addAll(extractTracksFromShelf(trackShelves[1], extensionId))
+            } else {
+                if (yourMixTracks.size > 10) {
+                    val split = yourMixTracks.size / 2
+                    dailyMixTracks.addAll(yourMixTracks.subList(split, yourMixTracks.size))
+                }
+            }
         }
 
-        trackShelves.getOrNull(1)?.let { secondShelf ->
-            dailyMixTracks.addAll(extractTracksFromShelf(secondShelf, extensionId))
-        }
-
-        _yourMixSongsFromExtension.value = yourMixTracks.take(60)
-        _dailyMixSongsFromExtension.value = dailyMixTracks.take(30)
+        _yourMixSongsFromExtension.value = yourMixTracks.distinctBy { it.id }.take(60)
+        _dailyMixSongsFromExtension.value = dailyMixTracks.distinctBy { it.id }.take(30)
     }
 
     private fun extractTracksFromShelf(shelf: Shelf, extensionId: String): List<com.theveloper.pixelplay.data.model.Song> {
@@ -435,8 +474,15 @@ class ExtensionRepository @Inject constructor(
         }
     }
 
-    fun loadLibraryFeed() {
+    fun loadLibraryFeed(forceRefresh: Boolean = false) {
         val extension = _currentMusicExtension.value ?: return
+        val extensionId = extension.metadata.id
+
+        if (!forceRefresh && libraryFeedShelvesCache.containsKey(extensionId)) {
+            _libraryShelves.value = libraryFeedShelvesCache[extensionId]!!
+            return
+        }
+
         repositoryScope.launch {
             val client = extension.instance.value().getOrNull()
             if (client is LibraryFeedClient) {
@@ -444,7 +490,9 @@ class ExtensionRepository @Inject constructor(
                 try {
                     val feed = client.loadLibraryFeed()
                     _libraryFeed.value = feed
-                    _libraryShelves.value = feed.loadAll()
+                    val loadedShelves = feed.loadAll()
+                    _libraryShelves.value = loadedShelves
+                    libraryFeedShelvesCache[extensionId] = loadedShelves
                 } catch (e: Exception) {
                     e.printStackTrace()
                 } finally {
@@ -453,6 +501,7 @@ class ExtensionRepository @Inject constructor(
             } else {
                 _libraryFeed.value = null
                 _libraryShelves.value = emptyList()
+                libraryFeedShelvesCache.remove(extensionId)
             }
         }
     }

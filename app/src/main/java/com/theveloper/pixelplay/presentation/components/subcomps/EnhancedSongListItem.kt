@@ -54,6 +54,7 @@ import com.theveloper.pixelplay.presentation.components.ShimmerBox
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.SmartImage
+import com.theveloper.pixelplay.presentation.utils.bounceClick
 
 @Immutable
 private data class EnhancedSongAnimationTarget(
@@ -255,22 +256,15 @@ fun EnhancedSongListItem(
                         Modifier
                     }
                 )
-                .pointerInput(isSelectionMode) {
-                    detectTapGestures(
-                        onTap = { 
-                            if (isSelectionMode) {
-                                // In selection mode, tap toggles selection
-                                onLongPress()
-                            } else {
-                                onClick() 
-                            }
-                        },
-                        onLongPress = {
-                            // Long press always activates/toggles selection
+                .bounceClick(
+                    onClick = {
+                        if (isSelectionMode) {
                             onLongPress()
+                        } else {
+                            onClick()
                         }
-                    )
-                },
+                    }
+                ),
             shape = surfaceShape,
             color = containerColor,
         ) {
