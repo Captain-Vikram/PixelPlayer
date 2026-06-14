@@ -81,14 +81,14 @@ private fun DrawerContent(
             modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp)
         ) {
             Text(
-                text = stringResource(R.string.presentation_batch_g_app_name),
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.presentation_batch_g_app_tagline),
+                text = stringResource(R.string.app_tagline),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -105,12 +105,12 @@ private fun DrawerContent(
             icon = {
                 Icon(
                     imageVector = Icons.Rounded.Home,
-                    contentDescription = stringResource(R.string.tab_home)
+                    contentDescription = stringResource(R.string.settings_default_tab_home)
                 )
             },
             label = {
                 Text(
-                    text = stringResource(R.string.tab_home),
+                    text = stringResource(R.string.settings_default_tab_home),
                     style = MaterialTheme.typography.labelLarge
                 )
             },
@@ -166,12 +166,12 @@ private fun DrawerContent(
             icon = {
                 Icon(
                     imageVector = Icons.Rounded.Cloud,
-                    contentDescription = stringResource(R.string.presentation_batch_b_service_telegram)
+                    contentDescription = stringResource(R.string.auth_telegram_title)
                 )
             },
             label = {
                 Text(
-                    text = stringResource(R.string.presentation_batch_b_service_telegram),
+                    text = stringResource(R.string.auth_telegram_title),
                     style = MaterialTheme.typography.labelLarge
                 )
             },
@@ -220,12 +220,12 @@ private fun DrawerContent(
             icon = {
                 Icon(
                     painter = painterResource(R.drawable.rounded_settings_24),
-                    contentDescription = stringResource(R.string.settings_top_bar_title)
+                    contentDescription = stringResource(R.string.common_settings)
                 )
             },
             label = {
                 Text(
-                    text = stringResource(R.string.settings_top_bar_title),
+                    text = stringResource(R.string.common_settings),
                     style = MaterialTheme.typography.labelLarge
                 )
             },

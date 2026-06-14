@@ -26,6 +26,7 @@ import com.theveloper.pixelplay.data.database.SourceType
 import com.theveloper.pixelplay.data.database.TelegramDao // Added
 import com.theveloper.pixelplay.data.database.resolveAlbumArtUri
 import com.theveloper.pixelplay.data.database.serializeArtistRefs
+import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 import com.theveloper.pixelplay.data.diagnostics.PerformanceMetrics
 import com.theveloper.pixelplay.data.model.ArtistRef
 import com.theveloper.pixelplay.data.navidrome.NavidromeRepository
@@ -92,6 +93,18 @@ constructor(
                     val syncMode = SyncMode.valueOf(syncModeName)
                     val forceMetadata = inputData.getBoolean(INPUT_FORCE_METADATA, false)
                     val runMaintenance = inputData.getBoolean(INPUT_RUN_MAINTENANCE, true)
+                    val workerStartedAt = System.currentTimeMillis()
+                    AdvancedPerformanceDiagnostics.recordEventIfEnabled(
+                        type = AdvancedPerformanceDiagnostics.EventTypes.WORKER,
+                        name = "sync_worker_start"
+                    ) {
+                        mapOf(
+                            "mode" to syncMode.name,
+                            "forceMetadata" to forceMetadata.toString(),
+                            "runMaintenance" to runMaintenance.toString(),
+                            "attempt" to runAttemptCount.toString()
+                        )
+                    }
 
                     // Battery / thermal: defer background INCREMENTAL syncs while
                     // music is playing. FULL and REBUILD are skipped from this
@@ -107,12 +120,22 @@ constructor(
                         Timber.tag(TAG).d(
                             "SyncWorker deferring INCREMENTAL sync (playback active, attempt=$runAttemptCount)"
                         )
+                        AdvancedPerformanceDiagnostics.recordEventIfEnabled(
+                            type = AdvancedPerformanceDiagnostics.EventTypes.WORKER,
+                            name = "sync_worker_deferred"
+                        ) {
+                            mapOf(
+                                "mode" to syncMode.name,
+                                "reason" to "playback_active",
+                                "attempt" to runAttemptCount.toString()
+                            )
+                        }
                         return@withContext Result.retry()
                     }
 
                     Timber.tag(TAG)
                         .i("Starting MediaStore synchronization (Mode: $syncMode, ForceMetadata: $forceMetadata)...")
-                    val startTime = System.currentTimeMillis()
+                    val startTime = workerStartedAt
 
                     val artistDelimiters = userPreferencesRepository.artistDelimitersFlow.first()
                     val artistWordDelimiters = userPreferencesRepository.artistWordDelimitersFlow.first()
@@ -313,6 +336,17 @@ constructor(
                     val totalSongs = musicDao.getSongCount().first()
                     if (!runMaintenance) {
                         Timber.tag(TAG).d("Skipping library maintenance phases for local-only sync.")
+                        AdvancedPerformanceDiagnostics.recordEventIfEnabled(
+                            type = AdvancedPerformanceDiagnostics.EventTypes.WORKER,
+                            name = "sync_worker_success"
+                        ) {
+                            mapOf(
+                                "mode" to syncMode.name,
+                                "durationMs" to (endTime - startTime).toString(),
+                                "totalSongs" to totalSongs.toString(),
+                                "runMaintenance" to "false"
+                            )
+                        }
                         return@withContext Result.success(
                             workDataOf(OUTPUT_TOTAL_SONGS to totalSongs.toLong())
                         )
@@ -433,9 +467,26 @@ constructor(
                     // Recalculate total
                     val finalTotalSongs = musicDao.getSongCount().first()
 
+                    AdvancedPerformanceDiagnostics.recordEventIfEnabled(
+                        type = AdvancedPerformanceDiagnostics.EventTypes.WORKER,
+                        name = "sync_worker_success"
+                    ) {
+                        mapOf(
+                            "mode" to syncMode.name,
+                            "durationMs" to (System.currentTimeMillis() - startTime).toString(),
+                            "totalSongs" to finalTotalSongs.toString(),
+                            "runMaintenance" to runMaintenance.toString()
+                        )
+                    }
                     Result.success(workDataOf(OUTPUT_TOTAL_SONGS to finalTotalSongs.toLong()))
                 } catch (e: Exception) {
                     Log.e(TAG, "Error during MediaStore synchronization", e)
+                    AdvancedPerformanceDiagnostics.recordEventIfEnabled(
+                        type = AdvancedPerformanceDiagnostics.EventTypes.WORKER,
+                        name = "sync_worker_failure"
+                    ) {
+                        mapOf("error" to (e.message ?: e.javaClass.simpleName))
+                    }
                     Result.failure()
                 } finally {
                     Trace.endSection() // End SyncWorker.doWork

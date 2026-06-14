@@ -157,12 +157,12 @@ fun LibraryActionRow(
                         val text = if (isPlaylistTab) {
                             stringResource(R.string.library_action_new)
                         } else {
-                            stringResource(R.string.shortcut_shuffle_short)
+                            stringResource(R.string.common_shuffle)
                         }
                         val contentDesc = if (isPlaylistTab) {
-                            stringResource(R.string.cd_create_new_playlist)
+                            stringResource(R.string.library_cd_create_new_playlist)
                         } else {
-                            stringResource(R.string.cd_shuffle_play)
+                            stringResource(R.string.common_shuffle_play)
                         }
 
                         Row(
@@ -183,6 +183,73 @@ fun LibraryActionRow(
                             )
                         }
                     }
+<<<<<<< HEAD
+=======
+
+                    AnimatedVisibility(
+                        visible = shouldShowImport,
+                        enter = fadeIn() + expandHorizontally(
+                            expandFrom = Alignment.Start,
+                            clip = false, // <— evita el 「corte」 durante la expansión
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        ),
+                        exit = fadeOut() + shrinkHorizontally(
+                            shrinkTowards = Alignment.Start,
+                            clip = false, // <— evita el 「corte」 durante la expansión
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            )
+                        )
+                    ) {
+                        Row(modifier = Modifier.height(genHeight), verticalAlignment = Alignment.CenterVertically) {
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            FilledTonalButton(
+                                onClick = onImportM3uClick,
+                                shape = RoundedCornerShape(
+                                    topStart = importButtonStartCorner,
+                                    bottomStart = importButtonStartCorner,
+                                    topEnd = 26.dp,
+                                    bottomEnd = 26.dp
+                                ),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(
+                                    defaultElevation = 4.dp,
+                                    pressedElevation = 6.dp
+                                ),
+                                contentPadding = PaddingValues(
+                                    horizontal = 14.dp,
+                                    vertical = 10.dp
+                                ),
+                                modifier = Modifier.height(genHeight)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.rounded_upload_file_24),
+                                        contentDescription = stringResource(R.string.library_cd_import_m3u_playlist),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.common_import),
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+>>>>>>> upstream/master
                 }
             }
         }
@@ -235,7 +302,7 @@ fun LibraryActionRow(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.MyLocation,
-                            contentDescription = stringResource(R.string.cd_locate_current_song)
+                            contentDescription = stringResource(R.string.library_cd_locate_current_song)
                         )
                     }
                 }
@@ -328,7 +395,7 @@ fun LibraryActionRow(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.Sort,
-                        contentDescription = stringResource(R.string.cd_sort_options),
+                        contentDescription = stringResource(R.string.library_cd_sort_options),
                     )
                 }
             }
@@ -385,7 +452,7 @@ fun Breadcrumbs(
             modifier = Modifier.size(36.dp),
             enabled = currentFolder != null
         ) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.auth_cd_back))
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
         }
         Spacer(Modifier.width(8.dp))
 

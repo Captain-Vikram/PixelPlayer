@@ -99,6 +99,7 @@ class PlayerViewModelTest {
     private val mockThemeStateHolder: ThemeStateHolder = mockk(relaxed = true)
     private val mockMultiSelectionStateHolder: MultiSelectionStateHolder = mockk(relaxed = true)
     private val mockPlaylistSelectionStateHolder: PlaylistSelectionStateHolder = mockk(relaxed = true)
+    private val mockMediaMapper: com.theveloper.pixelplay.data.media.MediaMapper = mockk(relaxed = true)
     private lateinit var mockMediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory
 
     private val testDispatcher = StandardTestDispatcher()
@@ -123,6 +124,8 @@ class PlayerViewModelTest {
         MockKAnnotations.init(this)
 
         mockkStatic(ContextCompat::class)
+        mockkStatic(android.net.Uri::class)
+        every { android.net.Uri.parse(any()) } returns mockk(relaxed = true)
         val directExecutor = java.util.concurrent.Executor { it.run() }
         every { ContextCompat.getMainExecutor(any()) } returns directExecutor
         every { mockTelegramCacheManager.embeddedArtUpdated } returns kotlinx.coroutines.flow.MutableSharedFlow()
@@ -245,6 +248,41 @@ class PlayerViewModelTest {
         // Ensure manual executor for main thread to prevent RejectedExecutionException
         // We already mocked ContextCompat.getMainExecutor above.
         
+        // Real dispatch holder wired to the same mocks the ViewModel uses, so the
+        // existing end-to-end playback tests keep exercising the moved logic.
+        val playbackDispatchStateHolder = PlaybackDispatchStateHolder(
+            mockMusicRepository,
+            mockUserPreferencesRepository,
+            mockDualPlayerEngine,
+            mockAppShortcutManager,
+            mockSyncManager,
+            mockExternalMediaStateHolder,
+            mockPlaybackStateHolder,
+            mockQueueStateHolder,
+            mockLibraryStateHolder,
+            mockCastStateHolder,
+            mockCastTransferStateHolder,
+            mockConnectivityStateHolder,
+            mockThemeStateHolder,
+            mockContext
+        )
+        // Real controller-sync holder wired to the same mocks, so existing tests
+        // (e.g. the repeat-mode restore test) keep exercising the moved logic.
+        val mediaControllerSyncStateHolder = MediaControllerSyncStateHolder(
+            mockMusicRepository,
+            mockUserPreferencesRepository,
+            mockDualPlayerEngine,
+            mockMediaMapper,
+            mockPlaybackStateHolder,
+            mockLibraryStateHolder,
+            mockCastStateHolder,
+            mockConnectivityStateHolder,
+            mockThemeStateHolder,
+            mockLyricsStateHolder,
+            mockSleepTimerStateHolder,
+            playbackDispatchStateHolder,
+            mockContext
+        )
         playerViewModel = PlayerViewModel(
             mockContext,
             mockMusicRepository,
@@ -253,7 +291,6 @@ class PlayerViewModelTest {
             mockThemePreferencesRepository,
             mockSyncManager,
             mockDualPlayerEngine,
-            mockAppShortcutManager,
             mockTelegramCacheManagerProvider,
             mockListeningStatsTracker,
             mockDailyMixStateHolder,
@@ -274,10 +311,11 @@ class PlayerViewModelTest {
             mockCastTransferStateHolder,
             mockMetadataEditStateHolder,
             mockSongRemovalStateHolder,
-            mockExternalMediaStateHolder,
             mockThemeStateHolder,
             mockMultiSelectionStateHolder,
             mockPlaylistSelectionStateHolder,
+            playbackDispatchStateHolder,
+            mediaControllerSyncStateHolder,
             sessionToken,
             mockMediaControllerFactory
         )

@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
@@ -188,6 +189,8 @@ internal fun UnifiedPlayerSongInfoLayer(
 ) {
     selectedSongForInfo?.let { staticSong ->
         val context = LocalContext.current
+        val toastAddedToQueue = stringResource(R.string.library_toast_added_to_queue)
+        val toastPlayingNext = stringResource(R.string.library_toast_playing_next)
         var showPlaylistBottomSheet by remember(staticSong.id) { mutableStateOf(false) }
         val playlistViewModel: PlaylistViewModel = hiltViewModel()
         val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
@@ -216,17 +219,14 @@ internal fun UnifiedPlayerSongInfoLayer(
                         contextSongs = currentPlaybackQueueProvider(),
                         queueName = currentQueueSourceNameProvider()
                     )
-                    onDismissSongInfo()
                 },
                 onAddToQueue = {
                     playerViewModel.addSongToQueue(liveSong)
-                    onDismissSongInfo()
-                    Toast.makeText(context, context.getString(R.string.toast_added_to_queue), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, toastAddedToQueue, Toast.LENGTH_SHORT).show()
                 },
                 onAddNextToQueue = {
                     playerViewModel.addSongNextToQueue(liveSong)
-                    onDismissSongInfo()
-                    Toast.makeText(context, context.getString(R.string.toast_playing_next), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, toastPlayingNext, Toast.LENGTH_SHORT).show()
                 },
                 onAddToPlayList = {
                     showPlaylistBottomSheet = true

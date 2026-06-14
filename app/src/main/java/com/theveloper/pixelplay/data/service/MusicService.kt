@@ -924,9 +924,6 @@ class MusicService : MediaLibraryService() {
             }
         }
         return hasWearHints
-        // If hints identify a Wear/remote controller and it's not our app package,
-        // reject to avoid the default Wear system media player hijacking the session.
-        return true
     }
 
     private fun createSleepTimerPendingIntent(): PendingIntent {
@@ -1425,6 +1422,15 @@ class MusicService : MediaLibraryService() {
 
         override fun onPlayerError(error: PlaybackException) {
             Timber.tag(TAG).e(error, "Error en el reproductor: ")
+            serviceScope.launch {
+                val currentMediaItem = mediaSession?.player?.currentMediaItem
+                val trackTitle = currentMediaItem?.mediaMetadata?.title?.toString()
+                    ?: currentMediaItem?.mediaId
+                    ?: getString(R.string.common_unknown_track)
+                val errorMessage = error.localizedMessage ?: error.message ?: "Unknown error"
+                val toastMessage = getString(R.string.player_playback_error, "$trackTitle ($errorMessage)")
+                android.widget.Toast.makeText(this@MusicService, toastMessage, android.widget.Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -2326,7 +2332,9 @@ class MusicService : MediaLibraryService() {
     }
 
     private fun readBytesCapped(input: java.io.InputStream, maxBytes: Int): ByteArray? {
-        val output = ByteArrayOutputStream()
+        // Pre-size to 4× the read-buffer to reduce reallocation churn on typical album art
+        // (50–300 KB). Still far below the maxBytes cap enforced in the loop below.
+        val output = ByteArrayOutputStream(DEFAULT_STREAM_BUFFER_SIZE * 4)
         val buffer = ByteArray(DEFAULT_STREAM_BUFFER_SIZE)
         var totalRead = 0
         while (true) {
@@ -2689,9 +2697,13 @@ class MusicService : MediaLibraryService() {
         if (targetPackage.isBlank()) return
 
         val providerAuthority = "$packageName.provider"
+        val artworkAuthority = "$packageName.artwork"
         mediaItems.forEach { mediaItem ->
             val artworkUri = resolveArtworkUri(mediaItem.mediaMetadata) ?: return@forEach
-            if (artworkUri.scheme?.lowercase() != "content" || artworkUri.authority != providerAuthority) {
+            val authority = artworkUri.authority
+            if (artworkUri.scheme?.lowercase() != "content" ||
+                (authority != providerAuthority && authority != artworkAuthority)
+            ) {
                 return@forEach
             }
 
@@ -2869,13 +2881,6 @@ class MusicService : MediaLibraryService() {
             engine.masterPlayer.repeatMode = Player.REPEAT_MODE_OFF
         }
     }
-
-    /**
-     * Bridges a suspend block into a [ListenableFuture] for Media3 callback methods.
-     */
-    /**
-     * Bridges a suspend block into a [ListenableFuture] for Media3 callback methods.
-     */
 
     /**
      * Bridges a suspend block into a [ListenableFuture] for Media3 callback methods.

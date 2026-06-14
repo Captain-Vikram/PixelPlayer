@@ -69,6 +69,7 @@ import androidx.compose.ui.geometry.RoundRect
 
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
+<<<<<<< HEAD
 enum class PlaylistCreationMode {
     MANUAL, SMART
 }
@@ -84,6 +85,29 @@ fun smartPlaylistRuleTitle(rule: SmartPlaylistRule): String = when (rule) {
     SmartPlaylistRule.FORGOTTEN_FAVORITES -> "Forgotten Favorites"
     SmartPlaylistRule.NEW_GEMS -> "New Gems"
 }
+=======
+@Composable
+private fun smartPlaylistRuleTitle(rule: SmartPlaylistRule): String =
+    stringResource(
+        when (rule) {
+            SmartPlaylistRule.TOP_PLAYED -> R.string.playlist_creation_rule_top_played_title
+            SmartPlaylistRule.RECENTLY_PLAYED -> R.string.playlist_creation_rule_recently_played_title
+            SmartPlaylistRule.FORGOTTEN_FAVORITES -> R.string.playlist_creation_rule_forgotten_title
+            SmartPlaylistRule.NEW_GEMS -> R.string.playlist_creation_rule_new_gems_title
+        }
+    )
+
+@Composable
+private fun smartPlaylistRuleSubtitle(rule: SmartPlaylistRule): String =
+    stringResource(
+        when (rule) {
+            SmartPlaylistRule.TOP_PLAYED -> R.string.playlist_creation_rule_top_played_sub
+            SmartPlaylistRule.RECENTLY_PLAYED -> R.string.playlist_creation_rule_recently_played_sub
+            SmartPlaylistRule.FORGOTTEN_FAVORITES -> R.string.playlist_creation_rule_forgotten_sub
+            SmartPlaylistRule.NEW_GEMS -> R.string.playlist_creation_rule_new_gems_sub
+        }
+    )
+>>>>>>> upstream/master
 
 @Composable
 fun smartPlaylistRuleSubtitle(rule: SmartPlaylistRule): String = when (rule) {
@@ -209,6 +233,7 @@ private fun CreatePlaylistContent(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
+<<<<<<< HEAD
                     Text(
                         text = if (showCropUi) "Adjust Cover" else if (currentStep == 0) "New Playlist" else "Add Songs",
                         fontFamily = GoogleSansRounded,
@@ -218,15 +243,86 @@ private fun CreatePlaylistContent(
                 navigationIcon = {
                     IconButton(onClick = { if (showCropUi) showCropUi = false else if (currentStep == 1) currentStep = 0 else onDismiss() }) {
                         Icon(if (showCropUi || currentStep == 1) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Close, null)
+=======
+                    AnimatedContent(targetState = if (showCropUi) 2 else currentStep, label = "Title Animation") { displayStep ->
+                        Text(
+                            when (displayStep) {
+                                2 -> stringResource(R.string.playlist_creation_edit_cover)
+                                0 -> {
+                                    if (creationMode == PlaylistCreationMode.SMART) {
+                                        stringResource(R.string.playlist_creation_new_smart)
+                                    } else {
+                                        stringResource(R.string.playlist_creation_new)
+                                    }
+                                }
+                                else -> stringResource(R.string.playlist_creation_add_songs)
+                            },
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 24.sp,
+                                textGeometricTransform = TextGeometricTransform(scaleX = 1.2f),
+                            ),
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                navigationIcon = {
+                    FilledIconButton(
+                        modifier = Modifier.padding(start = 6.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        onClick = {
+                            when {
+                                showCropUi -> showCropUi = false
+                                currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL -> currentStep = 0
+                                else -> onDismiss()
+                            }
+                        }
+                    ) {
+                        Icon(
+                            if (showCropUi || (currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL)) {
+                                Icons.AutoMirrored.Rounded.ArrowBack
+                            } else {
+                                Icons.Rounded.Close
+                            },
+                            contentDescription = stringResource(R.string.playlist_creation_cd_back_or_cancel)
+                        )
+>>>>>>> upstream/master
                     }
                 }
             )
         },
         floatingActionButton = {
+<<<<<<< HEAD
             if (!showCropUi) {
                 ExtendedFloatingActionButton(
                     text = { Text(if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) "Next" else "Create") },
                     icon = { Icon(if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) Icons.AutoMirrored.Rounded.ArrowForward else Icons.Rounded.Check, null) },
+=======
+            if (!showCropUi && !(currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL)) {
+                MediumExtendedFloatingActionButton(
+                    text = {
+                        Text(
+                            if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) {
+                                stringResource(R.string.playlist_creation_next)
+                            } else {
+                                stringResource(R.string.playlist_creation_create)
+                            }
+                        )
+                    },
+                    icon = { 
+                        Icon(
+                            if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) {
+                                Icons.AutoMirrored.Rounded.ArrowForward
+                            } else {
+                                Icons.Rounded.Check
+                            }, 
+                            contentDescription = null
+                        ) 
+                    },
+>>>>>>> upstream/master
                     onClick = {
                         if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) {
                             if (playlistName.isNotBlank()) currentStep = 1
@@ -367,7 +463,7 @@ private fun CreatePlaylistContent(
                     ) {
                         Icon(
                             Icons.Rounded.Check,
-                            contentDescription = stringResource(R.string.presentation_batch_f_create),
+                            contentDescription = stringResource(R.string.playlist_creation_create),
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -436,8 +532,220 @@ fun EditPlaylistContent(
     onDismiss: () -> Unit,
     onSave: (String, String?, Int?, String?, Float, Float, Float, String?, Float?, Float?, Float?, Float?) -> Unit
 ) {
+<<<<<<< HEAD
     // Similar to CreatePlaylistContent but for editing
     Text("Edit Content Placeholder")
+=======
+    val context = LocalContext.current
+    
+    // Initial State Setup
+    var playlistName by remember { mutableStateOf(initialName) }
+    
+    // Determine initial tab
+    // 0=Default, 1=Image, 2=Icon
+    // Logic: If imageUri present -> Image. If Color/Icon present -> Icon. Else Default.
+    // NOTE: existing playlist usually has one of these.
+    var selectedTab by remember { 
+        mutableStateOf(
+            when {
+                // If it's a file path or content URI
+                initialImageUri != null -> 1 
+                // If it has specific color/icon (and not just defaults potentially, though defaults are allowed)
+                // We check if image is null. If image is null, do we have custom icon?
+                initialColor != null || initialIconName != null -> 2
+                else -> 0
+            }
+        )
+    }
+
+    var selectedImageUri by remember { mutableStateOf<Uri?>(initialImageUri?.let { Uri.parse(it) }) }
+    var showCropUi by remember { mutableStateOf(false) }
+    var imageBitmap by remember(selectedImageUri) { mutableStateOf<ImageBitmap?>(null) }
+    
+    // Crop: We don't store crop params in DB currently for playlist updates properly unless we re-save image.
+    // But assuming we start with scale 1f if editing.
+    var cropScale by remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
+    var cropOffset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+
+    val defaultColor = MaterialTheme.colorScheme.primaryContainer.toArgb()
+    var selectedColor by remember { mutableStateOf(initialColor ?: defaultColor) }
+    var selectedIconName by remember { mutableStateOf(initialIconName ?: "MusicNote") }
+
+    var selectedShapeType by remember { mutableStateOf(initialShapeType ?: PlaylistShapeType.Circle) }
+    
+    // Shape Params
+    var smoothRectCornerRadius by remember { androidx.compose.runtime.mutableFloatStateOf(initialShapeDetail1 ?: 20f) }
+    var smoothRectSmoothness by remember { androidx.compose.runtime.mutableFloatStateOf(initialShapeDetail2 ?: 60f) }
+    
+    var starCurve by remember { androidx.compose.runtime.mutableDoubleStateOf(initialShapeDetail1?.toDouble() ?: 0.15) }
+    var starRotation by remember { androidx.compose.runtime.mutableFloatStateOf(initialShapeDetail2 ?: 0f) }
+    var starScale by remember { androidx.compose.runtime.mutableFloatStateOf(initialShapeDetail3 ?: 1f) }
+    var starSides by remember { androidx.compose.runtime.mutableIntStateOf(initialShapeDetail4?.toInt() ?: 5) }
+
+    // Constants needed for Form
+    val searchQuery = "" // Not used in Edit
+
+    // Image Loader
+    LaunchedEffect(selectedImageUri) {
+         if (selectedImageUri != null) {
+             val loader = ImageLoader(context)
+             val request = ImageRequest.Builder(context)
+                 .data(selectedImageUri)
+                 .allowHardware(false)
+                 .build()
+             val result = loader.execute(request)
+             val drawable = result.drawable
+             if (drawable is android.graphics.drawable.BitmapDrawable) {
+                 imageBitmap = drawable.bitmap.asImageBitmap()
+             }
+         } else {
+             imageBitmap = null
+             cropScale = 1f
+             cropOffset = androidx.compose.ui.geometry.Offset.Zero
+         }
+    }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            selectedImageUri = it
+            cropScale = 1f
+            cropOffset = androidx.compose.ui.geometry.Offset.Zero
+            showCropUi = true
+            selectedTab = 1 // Force switch to image tab
+        }
+    }
+
+    BackHandler(enabled = showCropUi) {
+        showCropUi = false
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        stringResource(R.string.playlist_creation_edit),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 24.sp,
+                            textGeometricTransform = TextGeometricTransform(scaleX = 1.2f),
+                        ),
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    FilledIconButton(
+                        modifier = Modifier.padding(start = 6.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        onClick = {
+                            if (showCropUi) showCropUi = false else onDismiss()
+                        }
+                    ) {
+                        Icon(
+                            if (showCropUi) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Close,
+                            contentDescription = stringResource(if (showCropUi) R.string.playlist_creation_cd_back_or_cancel else R.string.common_close)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            )
+        },
+        floatingActionButton = {
+            if (!showCropUi) {
+                MediumExtendedFloatingActionButton(
+                    text = { Text(stringResource(R.string.common_save)) },
+                    icon = { Icon(Icons.Rounded.Check, contentDescription = null) },
+                    onClick = {
+                        val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
+                        val color = if(selectedTab == 2) selectedColor else null
+                        val icon = if(selectedTab == 2) selectedIconName else null
+                        
+                        val scale = if(selectedTab == 1) cropScale else 1f
+                        val panX = if(selectedTab == 1) cropOffset.x else 0f
+                        val panY = if(selectedTab == 1) cropOffset.y else 0f
+                        
+                        val shapeTypeForSave = if (selectedTab == 2) selectedShapeType.name else null
+                        val (d1, d2, d3, d4) = if (selectedTab == 2) {
+                            when (selectedShapeType) {
+                                PlaylistShapeType.SmoothRect -> Quadruple(smoothRectCornerRadius, smoothRectSmoothness, 0f, 0f)
+                                PlaylistShapeType.Star -> Quadruple(starCurve.toFloat(), starRotation, starScale, starSides.toFloat())
+                                else -> Quadruple(0f, 0f, 0f, 0f)
+                            }
+                        } else Quadruple(null, null, null, null)
+
+                        onSave(
+                            playlistName,
+                            imageUriString,
+                            color,
+                            icon,
+                            scale,
+                            panX,
+                            panY,
+                            shapeTypeForSave,
+                            d1, d2, d3, d4
+                        )
+                    },
+                    expanded = true,
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .padding(bottom = 8.dp, end = 8.dp)
+                        .height(56.dp),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    ) { paddingValues ->
+         PlaylistFormContent(
+             modifier = Modifier.padding(top = paddingValues.calculateTopPadding()),
+             playlistName = playlistName,
+             onNameChange = { playlistName = it },
+             selectedTab = selectedTab,
+             onTabChange = { selectedTab = it },
+             selectedImageUri = selectedImageUri,
+             showCropUi = showCropUi,
+             onShowCropUiChange = { showCropUi = it },
+             cropScale = cropScale,
+             onCropScaleChange = { cropScale = it },
+             cropOffset = cropOffset,
+             onCropOffsetChange = { cropOffset = it },
+             imageBitmap = imageBitmap,
+             imagePickerLauncher = imagePickerLauncher,
+             selectedColor = selectedColor,
+             onColorChange = { selectedColor = it },
+             selectedIconName = selectedIconName,
+             onIconChange = { selectedIconName = it },
+             selectedShapeType = selectedShapeType,
+             onShapeTypeChange = { selectedShapeType = it },
+             smoothRectCornerRadius = smoothRectCornerRadius,
+             onSmoothRectCornerRadiusChange = { smoothRectCornerRadius = it },
+             smoothRectSmoothness = smoothRectSmoothness,
+             onSmoothRectSmoothnessChange = { smoothRectSmoothness = it },
+             starSides = starSides,
+             onStarSidesChange = { starSides = it },
+             starCurve = starCurve,
+             onStarCurveChange = { starCurve = it },
+             starRotation = starRotation,
+             onStarRotationChange = { starRotation = it },
+             starScale = starScale,
+             onStarScaleChange = { starScale = it },
+             showCreationModeSelector = false,
+             creationMode = PlaylistCreationMode.MANUAL,
+             onCreationModeChange = { },
+             selectedSmartRule = SmartPlaylistRule.TOP_PLAYED,
+             onSmartRuleChange = { },
+             onImageUriChange = { selectedImageUri = it }
+         )
+    }
+>>>>>>> upstream/master
 }
 
 @Composable
@@ -482,9 +790,560 @@ private fun PlaylistFormContent(
     onGenerateClick: (() -> Unit)? = null,
     onImageUriChange: (Uri?) -> Unit
 ) {
+<<<<<<< HEAD
     Column(modifier = modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
         OutlinedTextField(value = playlistName, onValueChange = onNameChange, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
         // Rest of the form
+=======
+    if (showCropUi) {
+         // Fullscreen Crop UI overrides normal content
+         Box(
+             modifier = modifier
+                 .fillMaxSize()
+                 .padding(16.dp)
+                 .clip(RoundedCornerShape(24.dp))
+                 .background(MaterialTheme.colorScheme.surface)
+         ) {
+             if (imageBitmap != null) {
+                 Column(
+                     modifier = Modifier.fillMaxSize(),
+                     horizontalAlignment = Alignment.CenterHorizontally
+                 ) {
+                     Spacer(Modifier.height(32.dp))
+                     Text(
+                         text = stringResource(R.string.playlist_creation_adjust_cover_title),
+                         style = MaterialTheme.typography.headlineSmall,
+                         textAlign = TextAlign.Center,
+                         modifier = Modifier.padding(horizontal = 24.dp)
+                     )
+                     Spacer(Modifier.height(8.dp))
+                     Text(
+                         text = stringResource(R.string.playlist_creation_adjust_cover_hint),
+                         style = MaterialTheme.typography.bodySmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                         textAlign = TextAlign.Center,
+                         modifier = Modifier.padding(horizontal = 32.dp)
+                     )
+                     Spacer(Modifier.weight(1f))
+                     Box(
+                         modifier = Modifier
+                             .fillMaxWidth()
+                             .aspectRatio(1f)
+                             .padding(16.dp)
+                             .clip(RoundedCornerShape(32.dp))
+                     ) {
+                         ImageCropView(
+                             imageBitmap = imageBitmap,
+                             modifier = Modifier.fillMaxSize(),
+                             scale = cropScale,
+                             pan = cropOffset,
+                             enabled = true,
+                             onCrop = { scale, pan -> 
+                                 onCropScaleChange(scale)
+                                 onCropOffsetChange(pan)
+                             }
+                         )
+                     }
+                     Spacer(Modifier.weight(1f))
+                     Button(
+                        onClick = { onShowCropUiChange(false) },
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .padding(24.dp)
+                            .height(56.dp),
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Rounded.Check, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.common_done))
+                    }
+                 }
+             } else {
+                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+             }
+         }
+         return
+    }
+
+    Column(modifier = modifier
+        .fillMaxSize()
+        .imePadding()) {
+        
+         // PREVIEW SECTION
+        AnimatedContent(
+             targetState = selectedTab,
+             transitionSpec = {
+                 fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(220))
+             },
+             label = "preview_transition",
+             modifier = Modifier
+                 .fillMaxWidth()
+                 .padding(top = 8.dp, bottom = 4.dp)
+        ) { targetTab ->
+             Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(240.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                when (targetTab) {
+                    0 -> { // Default
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(180.dp)
+                                    .clip(RoundedCornerShape(32.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                 Icon(
+                                    Icons.Rounded.GridView,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(80.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                )
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                stringResource(R.string.playlist_creation_auto_collage),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    1 -> { // Image
+                         // Image Preview
+                         if (imageBitmap != null) {
+                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                 Box(
+                                    modifier = Modifier
+                                        .size(180.dp)
+                                        .clip(RoundedCornerShape(32.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                 ) {
+                                     ImageCropView(
+                                         imageBitmap = imageBitmap,
+                                         modifier = Modifier.fillMaxSize(),
+                                         scale = cropScale,
+                                         pan = cropOffset,
+                                         enabled = false,
+                                         onCrop = { _, _ -> }
+                                     )
+                                 }
+                                 Spacer(Modifier.height(12.dp))
+                                 Row(
+                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                     modifier = Modifier.padding(horizontal = 16.dp)
+                                 ) {
+                                     FilledTonalButton(
+                                         onClick = { imagePickerLauncher.launch("image/*") },
+                                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                         modifier = Modifier.height(40.dp).weight(1f)
+                                     ) {
+                                         Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                                         Spacer(Modifier.width(8.dp))
+                                         Text(stringResource(R.string.playlist_creation_change), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                     }
+                                     Button(
+                                         onClick = { onImageUriChange(null) },
+                                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                         modifier = Modifier.height(40.dp).weight(1f),
+                                         colors = ButtonDefaults.buttonColors(
+                                             containerColor = MaterialTheme.colorScheme.error,
+                                             contentColor = MaterialTheme.colorScheme.onError
+                                         )
+                                     ) {
+                                         Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                         Spacer(Modifier.width(8.dp))
+                                         Text(stringResource(R.string.playlist_creation_remove), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                     }
+                                 }
+                             }
+                         } else {
+                             Box(
+                                modifier = Modifier
+                                    .size(180.dp)
+                                    .clip(RoundedCornerShape(32.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                    .clickable { imagePickerLauncher.launch("image/*") },
+                                contentAlignment = Alignment.Center
+                             ) {
+                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                     Icon(
+                                         Icons.Rounded.AddPhotoAlternate,
+                                         contentDescription = stringResource(R.string.playlist_creation_cd_add_photo),
+                                         modifier = Modifier.size(56.dp),
+                                         tint = MaterialTheme.colorScheme.primary
+                                     )
+                                     Spacer(Modifier.height(12.dp))
+                                     Text(stringResource(R.string.playlist_creation_pick_image), style = MaterialTheme.typography.titleSmall)
+                                 }
+                             }
+                         }
+                    }
+                    2 -> { // Icon / Custom Shape
+                         AnimatedContent(
+                             targetState = selectedShapeType,
+                             transitionSpec = {
+                                 fadeIn(animationSpec = tween(300)) + scaleIn(initialScale = 0.8f) togetherWith 
+                                 fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.8f)
+                             },
+                             label = "shape_transition"
+                         ) { currentShapeType ->
+                             val currentShape: Shape = when(currentShapeType) {
+                                 PlaylistShapeType.Circle -> CircleShape
+                                 PlaylistShapeType.SmoothRect -> AbsoluteSmoothCornerShape(
+                                     cornerRadiusTL = smoothRectCornerRadius.dp,
+                                     smoothnessAsPercentTR = smoothRectSmoothness.toInt(),
+                                     cornerRadiusTR = smoothRectCornerRadius.dp,
+                                     smoothnessAsPercentTL = smoothRectSmoothness.toInt(),
+                                     cornerRadiusBR = smoothRectCornerRadius.dp,
+                                     smoothnessAsPercentBR = smoothRectSmoothness.toInt(),
+                                     cornerRadiusBL = smoothRectCornerRadius.dp,
+                                     smoothnessAsPercentBL = smoothRectSmoothness.toInt(),
+                                 )
+                                 PlaylistShapeType.RotatedPill -> {
+                                     androidx.compose.foundation.shape.GenericShape { size, _ ->
+                                         val w = size.width
+                                         val h = size.height
+                                         val pillW = w * 0.75f
+                                         val offset = (w - pillW) / 2
+                                         addRoundRect(RoundRect(offset, 0f, offset + pillW, h, CornerRadius(pillW/2, pillW/2)))
+                                     }
+                                 }
+                                 PlaylistShapeType.Star -> RoundedStarShape(
+                                     sides = starSides,
+                                     curve = starCurve,
+                                     rotation = starRotation
+                                 )
+                             }
+                             
+                             val shapeMod = if(currentShapeType == PlaylistShapeType.RotatedPill) Modifier.graphicsLayer(rotationZ = 45f) else Modifier
+                             val iconMod = if(currentShapeType == PlaylistShapeType.RotatedPill) Modifier.graphicsLayer(rotationZ = -45f) else Modifier
+                             val scaleMod = if(currentShapeType == PlaylistShapeType.Star) Modifier.graphicsLayer(scaleX = starScale, scaleY = starScale) else Modifier
+
+                             Box(
+                                 modifier = Modifier
+                                     .size(180.dp)
+                                     .then(scaleMod)
+                                     .then(shapeMod)
+                                     .clip(currentShape)
+                                     .background(selectedColor?.let { Color(it) }
+                                         ?: MaterialTheme.colorScheme.primaryContainer),
+                                 contentAlignment = Alignment.Center
+                             ) {
+                                 if (selectedIconName != null) {
+                                     val icon = getIconByName(selectedIconName) ?: Icons.Rounded.MusicNote
+                                     Icon(
+                                         imageVector = icon,
+                                         contentDescription = null,
+                                         modifier = Modifier
+                                             .size(80.dp)
+                                             .then(iconMod),
+                                         tint = selectedColor?.let { getThemeContentColor(it, MaterialTheme.colorScheme) } 
+                                               ?: MaterialTheme.colorScheme.onPrimaryContainer
+                                     )
+                                 }
+                             }
+                         }
+                    }
+                }
+            }
+        }
+
+        // CONTROL SECTION
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            
+            OutlinedTextField(
+                                value = playlistName,
+                                onValueChange = onNameChange,
+                                label = { Text(stringResource(R.string.playlist_creation_name_label)) },
+                                placeholder = { Text(stringResource(R.string.playlist_creation_name_placeholder)) },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (showCreationModeSelector) {
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp)
+                ) {
+                    SegmentedButton(
+                        selected = creationMode == PlaylistCreationMode.MANUAL,
+                        onClick = { onCreationModeChange(PlaylistCreationMode.MANUAL) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    ) {
+                        Text(stringResource(R.string.playlist_creation_mode_manual))
+                    }
+                    SegmentedButton(
+                        selected = creationMode == PlaylistCreationMode.SMART,
+                        onClick = { onCreationModeChange(PlaylistCreationMode.SMART) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    ) {
+                        Text(stringResource(R.string.playlist_creation_mode_smart))
+                    }
+                }
+            }
+
+            AnimatedVisibility(visible = creationMode == PlaylistCreationMode.SMART) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.playlist_creation_smart_rule),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SmartPlaylistRule.entries.forEach { rule ->
+                            FilterChip(
+                                selected = selectedSmartRule == rule,
+                                onClick = { onSmartRuleChange(rule) },
+                                label = { Text(smartPlaylistRuleTitle(rule)) },
+                                shape = CircleShape
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = smartPlaylistRuleSubtitle(selectedSmartRule),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            val tabs = listOf(
+                stringResource(R.string.playlist_creation_tab_default),
+                stringResource(R.string.playlist_creation_tab_image),
+                stringResource(R.string.playlist_creation_tab_icon)
+            )
+            ExpressiveButtonGroup(
+                items = tabs,
+                selectedIndex = selectedTab,
+                onItemClick = onTabChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp)
+            )
+        
+            AnimatedVisibility(visible = selectedTab == 2) {
+                 Column(
+                     modifier = Modifier.padding(top = 14.dp),
+                     verticalArrangement = Arrangement.spacedBy(16.dp)
+                 ) {
+                     // Colors
+                     Text(
+                         modifier = Modifier.padding(start = 22.dp),
+                         text = stringResource(R.string.playlist_creation_bg_color),
+                         style = MaterialTheme.typography.titleSmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                     )
+                     
+                     val colors = listOf( 
+                         MaterialTheme.colorScheme.primary.toArgb(),
+                         MaterialTheme.colorScheme.primaryContainer.toArgb(),
+                         MaterialTheme.colorScheme.secondary.toArgb(),
+                         MaterialTheme.colorScheme.secondaryContainer.toArgb(),
+                         MaterialTheme.colorScheme.tertiary.toArgb(),
+                         MaterialTheme.colorScheme.tertiaryContainer.toArgb(),
+                         MaterialTheme.colorScheme.error.toArgb(),
+                         MaterialTheme.colorScheme.errorContainer.toArgb(),
+                         MaterialTheme.colorScheme.surfaceContainerHigh.toArgb(),
+                         MaterialTheme.colorScheme.inverseSurface.toArgb()
+                     )
+                     
+                     FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp)
+                     ) {
+                         colors.forEach { color ->
+                             val isSelected = selectedColor == color
+                             val cornerRadius by animateDpAsState(targetValue = if (isSelected) 12.dp else 24.dp, label = "CornerRadius")
+                             
+                             Box(
+                                 modifier = Modifier
+                                     .size(52.dp)
+                                    .clip(RoundedCornerShape(cornerRadius))
+                                     .background(if (isSelected) Color(color) else Color.Transparent)
+                                    .border(
+                                        width = if (isSelected) 3.dp else 0.dp,
+                                        color = if (isSelected) Color(color) else Color.Transparent,
+                                        shape = RoundedCornerShape(cornerRadius)
+                                    ),
+                                 contentAlignment = Alignment.Center
+                             ) {
+                                  Box(
+                                     modifier = Modifier
+                                         .size(if (isSelected) 42.dp else 48.dp)
+                                        .clip(RoundedCornerShape(if (isSelected) 8.dp else cornerRadius))
+                                        .background(Color(color))
+                                         .clickable { onColorChange(color) }
+                                  )
+                             }
+                         }
+                     }
+                     
+                     Spacer(Modifier.height(8.dp))
+
+                     // Icons
+                     Text(
+                         modifier = Modifier.padding(start = 22.dp),
+                         text = stringResource(R.string.playlist_creation_icon_symbol),
+                         style = MaterialTheme.typography.titleSmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                     )
+
+                     val icons = listOf(
+                        "MusicNote", "Headphones", "Album", "Mic", "Speaker", "Favorite", "Piano", "Queue"
+                     )
+                     
+                     FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp)
+                     ) {
+                         icons.forEach { iconName ->
+                             val isSelected = selectedIconName == iconName
+                             val cornerRadius by animateDpAsState(targetValue = if (isSelected) 12.dp else 24.dp, label = "CornerRadius")
+
+                             Box(
+                                 modifier = Modifier
+                                     .size(52.dp)
+                                     .clip(RoundedCornerShape(cornerRadius))
+                                     .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer)
+                                     .clickable { onIconChange(iconName) },
+                                 contentAlignment = Alignment.Center
+                             ) {
+                                 Icon(
+                                     imageVector = getIconByName(iconName) ?: Icons.Rounded.MusicNote,
+                                     contentDescription = null,
+                                     tint = if(isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                 )
+                             }
+                         }
+                     }
+
+                     Spacer(Modifier.height(16.dp))
+
+                     // Shapes
+                     Text(
+                         modifier = Modifier.padding(start = 22.dp),
+                         text = stringResource(R.string.playlist_creation_shape_style),
+                         style = MaterialTheme.typography.titleSmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                     )
+
+                     LazyRow(
+                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                         horizontalArrangement = Arrangement.spacedBy(2.dp),
+                         contentPadding = PaddingValues(horizontal = 16.dp)
+                     ) {
+                         item {
+                             PlaylistShapeType.entries.forEach { shapeType ->
+                                 val isSelected = selectedShapeType == shapeType
+                                 val previewShape = when(shapeType) {
+                                     PlaylistShapeType.Circle -> CircleShape
+                                     PlaylistShapeType.SmoothRect -> AbsoluteSmoothCornerShape(12.dp, 60, 12.dp, 60, 12.dp, 60, 12.dp, 60)
+                                     PlaylistShapeType.RotatedPill -> androidx.compose.foundation.shape.GenericShape { size, _ ->
+                                         val w = size.width
+                                         val h = size.height
+                                         val pillW = w * 0.75f
+                                         val offset = (w - pillW) / 2
+                                         addRoundRect(RoundRect(offset, 0f, offset + pillW, h, CornerRadius(pillW/2, pillW/2)))
+                                     }
+                                     PlaylistShapeType.Star -> RoundedStarShape(5, 0.15, 0f)
+                                 }
+
+                                 val rotationM = if(shapeType == PlaylistShapeType.RotatedPill) Modifier.graphicsLayer(rotationZ = 45f) else Modifier
+                                 val cornerRadius by animateDpAsState(targetValue = if (isSelected) 12.dp else 24.dp, label = "CornerRadius")
+
+                                 Row(modifier = Modifier.padding(2.dp)) {
+                                     Spacer(Modifier.width(2.dp))
+                                     Column(
+                                         horizontalAlignment = Alignment.CenterHorizontally,
+                                         modifier = Modifier
+                                             .clip(RoundedCornerShape(cornerRadius))
+                                             .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer)
+                                             .clickable { onShapeTypeChange(shapeType) }
+                                             .padding(12.dp)
+                                     ) {
+                                         Box(
+                                             modifier = Modifier
+                                                 .size(50.dp)
+                                                 .then(rotationM)
+                                                 .clip(previewShape)
+                                                 .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant),
+                                             contentAlignment = Alignment.Center
+                                         ) {}
+                                     }
+                                     Spacer(Modifier.width(2.dp))
+                                 }
+                             }
+                         }
+                     }
+                     
+                     // Params
+                     AnimatedVisibility(visible = selectedShapeType == PlaylistShapeType.SmoothRect) {
+                         Column(
+                             modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp),
+                             verticalArrangement = Arrangement.spacedBy(16.dp)
+                         ) {
+                             Text(stringResource(R.string.playlist_creation_shape_params), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                             ShapeParameterCard(stringResource(R.string.playlist_creation_corner_radius), smoothRectCornerRadius, 0f..50f, onSmoothRectCornerRadiusChange, { it.toInt().toString() })
+                             ShapeParameterCard(stringResource(R.string.playlist_creation_smoothness), smoothRectSmoothness, 0f..100f, onSmoothRectSmoothnessChange, { "${it.toInt()}%" })
+                         }
+                     }
+                     
+                     AnimatedVisibility(visible = selectedShapeType == PlaylistShapeType.Star) {
+                         Column(
+                             modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp),
+                             verticalArrangement = Arrangement.spacedBy(16.dp)
+                         ) {
+                             Text(stringResource(R.string.playlist_creation_shape_params), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                             ShapeParameterCard(stringResource(R.string.playlist_creation_sides), starSides.toFloat(), 3f..20f, { onStarSidesChange(it.toInt()) }, { it.toInt().toString() }, steps = 17)
+                             ShapeParameterCard(stringResource(R.string.playlist_creation_curve), starCurve.toFloat(), 0f..0.5f, { onStarCurveChange(it.toDouble()) }, { String.format("%.2f", it) })
+                             ShapeParameterCard(stringResource(R.string.playlist_creation_rotation), starRotation, 0f..360f, onStarRotationChange, { "${it.toInt()}°" })
+                             ShapeParameterCard(stringResource(R.string.playlist_creation_scale), starScale, 0.5f..1.5f, onStarScaleChange, { String.format("%.1fx", it) })
+                         }
+                     }
+                 }
+            }
+            Spacer(Modifier.height(100.dp))
+        }
+>>>>>>> upstream/master
     }
 }
 

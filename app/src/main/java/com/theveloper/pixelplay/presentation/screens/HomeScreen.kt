@@ -382,8 +382,13 @@ fun HomeScreen(
                         showChangelogBottomSheet = true
                     },
                     onBetaLogoClick = {
-                        // Logic to show BetaInfo can be added here, usually showBetaInfoBottomSheet = true
-                        // Since showChangelogBottomSheet is available, I'll assume a similar state is needed if not present
+                        showBetaInfoBottomSheet = true
+                    },
+                    onTelegramClick = {
+                        navController.navigateSafely(Screen.Accounts.route)
+                    },
+                    onOpenSidebar = {
+                        scope.launch { drawerState.open() }
                     },
                     activeExtensionName = activeExtName,
                     isSourceSelectionEnabled = installedExts.isNotEmpty(),
@@ -941,7 +946,7 @@ fun YourMixHeader(
         ) {
             Icon(
                 painter = painterResource(R.drawable.rounded_shuffle_24),
-                contentDescription = stringResource(R.string.cd_shuffle_play),
+                contentDescription = stringResource(R.string.common_shuffle_play),
                 modifier = Modifier.size(36.dp)
             )
         }
@@ -987,7 +992,7 @@ fun SongListItemFavs(
             ) {
                 SmartImage(
                     model = albumArtUrl,
-                    contentDescription = stringResource(R.string.cd_album_art_for_title, title),
+                    contentDescription = stringResource(R.string.common_album_art_for_title, title),
                     contentScale = ContentScale.Crop,
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.size(48.dp)

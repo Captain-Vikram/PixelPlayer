@@ -86,7 +86,7 @@ fun GenreGradientTopBar(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = stringResource(R.string.auth_cd_back),
+                    contentDescription = stringResource(R.string.common_back),
                     tint = startColor
                 )
             }
@@ -108,6 +108,8 @@ fun HomeGradientTopBar(
     onStoreClick: () -> Unit,
     onChangelogClick: () -> Unit,
     onBetaLogoClick: () -> Unit,
+    onTelegramClick: () -> Unit,
+    onOpenSidebar: () -> Unit,
     activeExtensionName: String?,
     isSourceSelectionEnabled: Boolean,
     isScrolled: Boolean = false,
@@ -130,14 +132,31 @@ fun HomeGradientTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(start = 8.dp)
             ) {
-                // Beta Logo
-                IconButton(onClick = onBetaLogoClick) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_launcher_foreground),
-                        contentDescription = "Beta Info",
-                        modifier = Modifier.size(32.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                FilledTonalButton(
+                    modifier = Modifier.padding(start = 4.dp),
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    onClick = onBetaLogoClick
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.topbar_beta_letter),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = stringResource(R.string.topbar_beta_label),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         },
@@ -147,11 +166,29 @@ fun HomeGradientTopBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(end = 8.dp)
             ) {
-                // Changelog Button
-                IconButton(onClick = onChangelogClick) {
+                FilledIconButton(
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    onClick = onTelegramClick
+                ) {
+                    Icon(
+                         imageVector = Icons.Rounded.Cloud,
+                         contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
+                    )
+                }
+                
+                FilledIconButton(
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    onClick = onChangelogClick
+                ) {
                     Icon(
                         painter = painterResource(R.drawable.round_newspaper_24),
-                        contentDescription = "Changelog"
+                        contentDescription = stringResource(R.string.topbar_cd_changelog)
                     )
                 }
 
@@ -168,7 +205,7 @@ fun HomeGradientTopBar(
                     },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Rounded.Cloud,
+                            imageVector = Icons.Rounded.AutoAwesome,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
@@ -186,6 +223,19 @@ fun HomeGradientTopBar(
                     ),
                     border = null
                 )
+
+                FilledIconButton(
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    onClick = onOpenSidebar
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_settings_24),
+                        contentDescription = stringResource(R.string.common_settings)
+                    )
+                }
             }
         },
         colors = topAppBarColors(

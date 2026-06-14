@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.preferences.sanitizeNavBarCornerRadius
 import com.theveloper.pixelplay.presentation.components.scoped.PlayerAlbumNavigationEffect
@@ -338,6 +339,20 @@ fun UnifiedPlayerSheetV2(
             showPlayerContentArea &&
                 previousSheetState == PlayerSheetState.EXPANDED &&
                 currentSheetContentState == PlayerSheetState.COLLAPSED
+        if (previousSheetState != currentSheetContentState) {
+            val fromState = previousSheetState
+            val toState = currentSheetContentState
+            AdvancedPerformanceDiagnostics.recordEventIfEnabled(
+                type = AdvancedPerformanceDiagnostics.EventTypes.UI,
+                name = "player_sheet_state_changed"
+            ) {
+                mapOf(
+                    "from" to fromState.name,
+                    "to" to toState.name,
+                    "showPlayerContentArea" to showPlayerContentArea.toString()
+                )
+            }
+        }
         previousSheetState = currentSheetContentState
         scope.launch {
             animatePlayerSheet(targetExpanded = targetExpanded)

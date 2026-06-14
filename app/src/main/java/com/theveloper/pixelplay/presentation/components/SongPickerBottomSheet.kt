@@ -43,6 +43,7 @@ import com.theveloper.pixelplay.presentation.screens.TabAnimation
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import com.theveloper.pixelplay.ui.theme.LocalShowScrollbar
 import com.theveloper.pixelplay.ui.theme.ShapeCache
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.map
@@ -188,7 +189,7 @@ fun SongPickerContent(
                     ) {
                         Icon(
                             Icons.Rounded.Check,
-                            contentDescription = stringResource(R.string.cd_confirm_add_songs),
+                            contentDescription = stringResource(R.string.song_picker_cd_confirm_add_songs),
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -421,7 +422,7 @@ fun SongPickerPagingList(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Button(onClick = { pagedSongs.retry() }) {
-                        Text(stringResource(R.string.library_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.library_action_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -454,6 +455,34 @@ fun SongPickerPagingList(
                             modifier = Modifier.padding(horizontal = 16.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         )
+                    }
+                }
+
+                if (pagedSongs.loadState.append is LoadState.Loading) {
+                    item(key = "song_picker_append_loading") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                }
+
+                if (pagedSongs.loadState.append is LoadState.Error) {
+                    item(key = "song_picker_append_error") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Button(onClick = { pagedSongs.retry() }) {
+                                Text(stringResource(R.string.song_picker_load_more), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
                     }
                 }
             }

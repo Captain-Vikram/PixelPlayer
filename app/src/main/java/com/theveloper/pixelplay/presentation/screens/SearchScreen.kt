@@ -1,63 +1,77 @@
 package com.theveloper.pixelplay.presentation.screens
 
-import com.theveloper.pixelplay.presentation.navigation.navigateSafely
-import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
-
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import android.app.Activity
+import android.util.Log
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.util.UnstableApi
+import androidx.navigation.NavHostController
 import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.data.model.SearchFilterType
-import com.theveloper.pixelplay.data.model.Song
-import com.theveloper.pixelplay.presentation.components.ExtensionShelvesSection
-import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
+import com.theveloper.pixelplay.data.model.*
+import com.theveloper.pixelplay.extensions.core.toSong
+import com.theveloper.pixelplay.presentation.components.*
+import com.theveloper.pixelplay.presentation.components.subcomps.EnhancedSongListItem
+import com.theveloper.pixelplay.presentation.components.subcomps.SelectionActionRow
+import com.theveloper.pixelplay.presentation.components.subcomps.SelectionCountPill
 import com.theveloper.pixelplay.presentation.navigation.Screen
+import com.theveloper.pixelplay.presentation.navigation.navigateSafely
+import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
 import com.theveloper.pixelplay.presentation.screens.search.components.GenreCategoriesGrid
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
+import com.theveloper.pixelplay.ui.theme.LocalPixelPlayDarkTheme
+import com.theveloper.pixelplay.utils.Formats.formatSongCount
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
 import dev.brahmkshatriya.echo.common.models.Shelf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.stringResource
-import androidx.media3.common.util.UnstableApi
-import androidx.navigation.NavHostController
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.theveloper.pixelplay.extensions.core.toSong
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import timber.log.Timber
+
+private const val MAX_ALBUM_MULTI_SELECTION = 6
 
 private data class SearchUiSlice(
     val selectedSearchFilter: SearchFilterType = SearchFilterType.ALL,
@@ -65,11 +79,11 @@ private data class SearchUiSlice(
     val searchFeedShelves: ImmutableList<Shelf> = persistentListOf(),
     val isLoadingSearch: Boolean = false,
     val isLoadingSearchFeed: Boolean = false,
-    val currentSourceScope: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
+    val currentSourceScope: SourceScope = SourceScope.Local
 )
 
 @androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(
     paddingValues: PaddingValues,
@@ -80,7 +94,60 @@ fun SearchScreen(
 ) {
     var searchQuery by rememberSaveable { mutableStateOf(playerViewModel.searchQuery) }
     val statusBarTopInset = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
+    val systemNavBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
     
+    val bottomBarHeightDp = resolveNavBarOccupiedHeight(systemNavBarInset, navBarCompactMode)
+    val bottomGradientHeight = resolveMainScreenBottomGradientHeight(navBarCompactMode)
+    val bottomGradientBrush = resolveMainScreenBottomGradientBrush()
+    
+    var showPlaylistBottomSheet by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val searchInputFocusRequester = remember { FocusRequester() }
+
+    // Multi-selection state for songs
+    val multiSelectionState = playerViewModel.multiSelectionStateHolder
+    val selectedSongs by multiSelectionState.selectedSongs.collectAsStateWithLifecycle()
+    val isSongSelectionMode by multiSelectionState.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedSongIds by multiSelectionState.selectedSongIds.collectAsStateWithLifecycle()
+    var showMultiSelectionSheet by remember { mutableStateOf(false) }
+
+    // Multi-selection state for albums
+    var selectedAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
+    val selectedAlbumIds = remember(selectedAlbums) { selectedAlbums.map { it.id }.toSet() }
+    val isAlbumSelectionMode = selectedAlbums.isNotEmpty()
+    var showAlbumMultiSelectionSheet by remember { mutableStateOf(false) }
+
+    // Multi-selection state for playlists
+    val playlistSelectionState = playerViewModel.playlistSelectionStateHolder
+    val selectedPlaylists by playlistSelectionState.selectedPlaylists.collectAsStateWithLifecycle()
+    val isPlaylistSelectionMode by playlistSelectionState.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedPlaylistIds by playlistSelectionState.selectedPlaylistIds.collectAsStateWithLifecycle()
+    var showPlaylistMultiSelectionSheet by remember { mutableStateOf(false) }
+
+    // Multi-selection state for genres
+    var selectedGenres by remember { mutableStateOf<List<Genre>>(emptyList()) }
+    val selectedGenreIds = remember(selectedGenres) { selectedGenres.map { it.id }.toSet() }
+    val isGenreSelectionMode = selectedGenres.isNotEmpty()
+    var showGenreMultiSelectionSheet by remember { mutableStateOf(false) }
+
+    // Playlist bottom sheet songs helper state
+    var playlistSheetSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+
+    // Any selection mode check
+    val anySelectionMode = isSongSelectionMode || isPlaylistSelectionMode || isAlbumSelectionMode || isGenreSelectionMode
+
+    // BackHandler to clear selections
+    BackHandler(enabled = anySelectionMode) {
+        multiSelectionState.clearSelection()
+        playlistSelectionState.clearSelection()
+        selectedAlbums = emptyList()
+        selectedGenres = emptyList()
+    }
+
     val searchUiState by remember(playerViewModel) {
         playerViewModel.playerUiState.map { uiState ->
             SearchUiSlice(
@@ -100,9 +167,6 @@ fun SearchScreen(
     val isLoadingSearch = searchUiState.isLoadingSearch
     val isLoadingSearchFeed = searchUiState.isLoadingSearchFeed
 
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusRequester = remember { FocusRequester() }
-
     LaunchedEffect(searchQuery, currentFilter) {
         playerViewModel.performSearch(searchQuery)
     }
@@ -110,6 +174,14 @@ fun SearchScreen(
     LaunchedEffect(Unit) {
         onSearchBarActiveChange(false)
     }
+
+    val handleSongMoreOptionsClick: (Song) -> Unit = { song ->
+        playerViewModel.selectSongForInfo(song)
+    }
+
+    val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
+    val favoriteSongIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle()
+    val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -120,99 +192,200 @@ fun SearchScreen(
                     .background(MaterialTheme.colorScheme.background)
                     .padding(top = statusBarTopInset)
             ) {
-                // Search Bar
-                OutlinedTextField(
+                // Search Bar Row
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp)
-                        .focusRequester(focusRequester),
-                    value = searchQuery,
-                    onValueChange = { 
-                        searchQuery = it
-                        playerViewModel.updateSearchQuery(it)
-                    },
-                    placeholder = { Text("Search songs, artists, albums...") },
-                    leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.primary) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { 
-                                searchQuery = ""
-                                playerViewModel.updateSearchQuery("")
-                            }) {
-                                Icon(Icons.Rounded.Close, null)
-                            }
-                        }
-                    },
-                    shape = CircleShape,
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        imeAction = androidx.compose.ui.text.input.ImeAction.Search
-                    ),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                        onSearch = { keyboardController?.hide() }
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedBorderColor = Color.Transparent
-                    )
-                )
-
-                // Filters
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val currentMusicExtension = playerViewModel.currentMusicExtension
-                    val currentScope = searchUiState.currentSourceScope
-                    
-                    // Source Selector
-                    item {
-                        SearchSourceScopeChip(
-                            scope = com.theveloper.pixelplay.data.model.SourceScope.All,
-                            currentScope = currentScope,
-                            extensionName = null,
-                            onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
+                    val searchBarInputFieldColors = SearchBarDefaults.inputFieldColors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        cursorColor = MaterialTheme.colorScheme.primary
+                    )
+
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .background(color = Color.Transparent)
+                    ) {
+                        DockedSearchBar(
+                            inputField = {
+                                SearchBarDefaults.InputField(
+                                    modifier = Modifier.focusRequester(searchInputFocusRequester),
+                                    query = searchQuery,
+                                    onQueryChange = {
+                                        searchQuery = it
+                                        playerViewModel.updateSearchQuery(it)
+                                    },
+                                    onSearch = { query ->
+                                        if (query.isNotBlank()) {
+                                            playerViewModel.onSearchQuerySubmitted(query)
+                                        }
+                                        keyboardController?.hide()
+                                    },
+                                    expanded = false,
+                                    onExpandedChange = {},
+                                    placeholder = {
+                                        Text(
+                                            stringResource(R.string.search_placeholder),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Search,
+                                            contentDescription = stringResource(R.string.search_cd_search_icon),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        if (searchQuery.isNotBlank()) {
+                                            IconButton(
+                                                onClick = {
+                                                    searchQuery = ""
+                                                    playerViewModel.updateSearchQuery("")
+                                                },
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                                                    )
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Close,
+                                                    contentDescription = stringResource(R.string.search_cd_clear_search_query),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                    },
+                                    colors = searchBarInputFieldColors
+                                )
+                            },
+                            expanded = false,
+                            onExpandedChange = {},
+                            modifier = Modifier
+                                .clip(CircleShape),
+                            colors = SearchBarDefaults.colors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                dividerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                inputFieldColors = searchBarInputFieldColors
+                            ),
+                            content = {}
                         )
                     }
-                    item {
-                        SearchSourceScopeChip(
-                            scope = com.theveloper.pixelplay.data.model.SourceScope.Local,
-                            currentScope = currentScope,
-                            extensionName = null,
-                            onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
+
+                    FilledIconButton(
+                        modifier = Modifier.padding(bottom = 2.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        onClick = { navController.navigateSafely(Screen.Settings.route) }
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_settings_24),
+                            contentDescription = stringResource(R.string.library_cd_open_settings)
                         )
                     }
-                    item {
-                        val activeExtension by currentMusicExtension.collectAsStateWithLifecycle()
-                        activeExtension?.let { ext ->
+                }
+
+                // Scope & Filter Row
+                if (anySelectionMode) {
+                    val count = when {
+                        isSongSelectionMode -> selectedSongs.size
+                        isPlaylistSelectionMode -> selectedPlaylists.size
+                        isAlbumSelectionMode -> selectedAlbums.size
+                        else -> 0
+                    }
+                    SelectionActionRow(
+                        selectedCount = count,
+                        onSelectAll = {
+                            // Simplified for results list
+                            multiSelectionState.clearSelection()
+                        },
+                        onDeselect = {
+                            multiSelectionState.clearSelection()
+                            playlistSelectionState.clearSelection()
+                            selectedAlbums = emptyList()
+                            selectedGenres = emptyList()
+                        },
+                        onOptionsClick = {
+                            when {
+                                isSongSelectionMode -> showMultiSelectionSheet = true
+                                isPlaylistSelectionMode -> showPlaylistMultiSelectionSheet = true
+                                isAlbumSelectionMode -> showAlbumMultiSelectionSheet = true
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp, horizontal = 16.dp)
+                    )
+                } else {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val currentMusicExtension = playerViewModel.currentMusicExtension
+                        val currentScope = searchUiState.currentSourceScope
+
+                        // Source Selector
+                        item {
                             SearchSourceScopeChip(
-                                scope = com.theveloper.pixelplay.data.model.SourceScope.Extension(ext.metadata.id),
+                                scope = SourceScope.All,
                                 currentScope = currentScope,
-                                extensionName = ext.metadata.name,
+                                extensionName = null,
                                 onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
                             )
                         }
-                    }
+                        item {
+                            SearchSourceScopeChip(
+                                scope = SourceScope.Local,
+                                currentScope = currentScope,
+                                extensionName = null,
+                                onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
+                            )
+                        }
+                        item {
+                            val activeExtension by currentMusicExtension.collectAsStateWithLifecycle()
+                            activeExtension?.let { ext ->
+                                SearchSourceScopeChip(
+                                    scope = SourceScope.Extension(ext.metadata.id),
+                                    currentScope = currentScope,
+                                    extensionName = ext.metadata.name,
+                                    onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
+                                )
+                            }
+                        }
 
-                    item { 
-                        VerticalDivider(
-                            modifier = Modifier.height(24.dp).padding(horizontal = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    }
+                        item {
+                            VerticalDivider(
+                                modifier = Modifier
+                                    .height(24.dp)
+                                    .padding(horizontal = 4.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
 
-                    // Type Filters
-                    item { SearchFilterChip(SearchFilterType.ALL, currentFilter, playerViewModel) }
-                    item { SearchFilterChip(SearchFilterType.SONGS, currentFilter, playerViewModel) }
-                    item { SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel) }
-                    item { SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel) }
-                    item { SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel) }
+                        // Type Filters
+                        item { SearchFilterChip(SearchFilterType.ALL, currentFilter, playerViewModel) }
+                        item { SearchFilterChip(SearchFilterType.SONGS, currentFilter, playerViewModel) }
+                        item { SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel) }
+                        item { SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel) }
+                        item { SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel) }
+                    }
                 }
             }
         }
@@ -244,7 +417,129 @@ fun SearchScreen(
                     activeExtensionId = activeExtensionId
                 )
             }
+
+            // Bottom Gradient
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .height(bottomGradientHeight)
+                    .background(brush = bottomGradientBrush)
+            )
         }
+    }
+
+    if (showSongInfoBottomSheet && selectedSongForInfo != null) {
+        val currentSong = selectedSongForInfo!!
+        val isFavorite = remember(currentSong.id, favoriteSongIds) {
+            favoriteSongIds.contains(currentSong.id)
+        }
+        
+        SongInfoBottomSheet(
+            song = currentSong,
+            isFavorite = isFavorite,
+            removeFromListTrigger = { searchQuery = "$searchQuery " },
+            onToggleFavorite = { playerViewModel.toggleFavoriteSpecificSong(currentSong) },
+            onDismiss = { showSongInfoBottomSheet = false },
+            onPlaySong = { playerViewModel.showAndPlaySong(currentSong) },
+            onAddToQueue = { playerViewModel.addSongToQueue(currentSong) },
+            onAddNextToQueue = { playerViewModel.addSongNextToQueue(currentSong) },
+            onAddToPlayList = { 
+                playlistSheetSongs = listOf(currentSong)
+                showPlaylistBottomSheet = true 
+            },
+            onDeleteFromDevice = playerViewModel::deleteFromDevice,
+            onNavigateToAlbum = {
+                navController.navigateSafelyReplacing(
+                    route = Screen.AlbumDetail.createRoute(currentSong.albumId),
+                    patternToPop = Screen.AlbumDetail.route
+                )
+                showSongInfoBottomSheet = false
+            },
+            onNavigateToArtist = {
+                navController.navigateSafelyReplacing(
+                    route = Screen.ArtistDetail.createRoute(currentSong.artistId),
+                    patternToPop = Screen.ArtistDetail.route
+                )
+                showSongInfoBottomSheet = false
+            },
+            onNavigateToArtistById = { artistId ->
+                navController.navigateSafelyReplacing(
+                    route = Screen.ArtistDetail.createRoute(artistId),
+                    patternToPop = Screen.ArtistDetail.route
+                )
+                showSongInfoBottomSheet = false
+            },
+            onNavigateToGenre = {
+                currentSong.genre?.let {
+                    navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(it, "UTF-8")))
+                }
+                showSongInfoBottomSheet = false
+            },
+            onEditSong = { title, artist, album, albumArtist, composer, genre, lyrics, trackNumber, discNumber, trackGain, albumGain, art ->
+                playerViewModel.editSongMetadata(currentSong, title, artist, album, albumArtist, composer, genre, lyrics, trackNumber, discNumber, trackGain, albumGain, art)
+            },
+            generateAiMetadata = { fields -> playerViewModel.generateAiMetadata(currentSong, fields) },
+        )
+    }
+
+    // Bottom Sheets (Multi-selection, etc.)
+    if (showMultiSelectionSheet && selectedSongs.isNotEmpty()) {
+        val activity = context as? Activity
+        MultiSelectionBottomSheet(
+            selectedSongs = selectedSongs,
+            favoriteSongIds = favoriteSongIds,
+            onDismiss = { showMultiSelectionSheet = false },
+            onPlayAll = {
+                playerViewModel.playSelectedSongs(selectedSongs)
+                showMultiSelectionSheet = false
+            },
+            onAddToQueue = {
+                playerViewModel.addSelectedToQueue(selectedSongs)
+                showMultiSelectionSheet = false
+            },
+            onPlayNext = {
+                playerViewModel.addSelectedAsNext(selectedSongs)
+                showMultiSelectionSheet = false
+            },
+            onAddToPlaylist = {
+                playlistSheetSongs = selectedSongs
+                showMultiSelectionSheet = false
+                showPlaylistBottomSheet = true
+            },
+            onToggleLikeAll = { shouldLike ->
+                if (shouldLike) playerViewModel.likeSelectedSongs(selectedSongs)
+                else playerViewModel.unlikeSelectedSongs(selectedSongs)
+                showMultiSelectionSheet = false
+            },
+            onShareAll = {
+                playerViewModel.shareSelectedAsZip(selectedSongs)
+                showMultiSelectionSheet = false
+            },
+            onDeleteAll = { _, onComplete ->
+                activity?.let {
+                    playerViewModel.deleteSelectedFromDevice(it, selectedSongs) {
+                        showMultiSelectionSheet = false
+                        onComplete(true)
+                    }
+                }
+            },
+            onBatchEdit = { showMultiSelectionSheet = false }
+        )
+    }
+
+    if (showPlaylistBottomSheet) {
+        val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
+        PlaylistBottomSheet(
+            playlistUiState = playlistUiState,
+            songs = playlistSheetSongs,
+            onDismiss = {
+                showPlaylistBottomSheet = false
+                playlistSheetSongs = emptyList()
+            },
+            bottomBarHeight = bottomBarHeightDp,
+            playerViewModel = playerViewModel,
+        )
     }
 }
 
@@ -360,7 +655,7 @@ private fun SearchResults(
 ) {
     if (isLoading && shelves.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(strokeCap = androidx.compose.ui.graphics.StrokeCap.Round)
+            CircularProgressIndicator(strokeCap = StrokeCap.Round)
         }
     } else if (shelves.isEmpty()) {
         EmptySearchResults(searchQuery, MaterialTheme.colorScheme)
@@ -450,7 +745,7 @@ private fun SearchShelf(
                         LibraryPlaybackAwareSongItem(
                             song = song,
                             playerViewModel = playerViewModel,
-                            onMoreOptionsClick = { /* Handle more options */ },
+                            onMoreOptionsClick = { playerViewModel.selectSongForInfo(it) },
                             onClick = {
                                 val allSongs = items.filterIsInstance<dev.brahmkshatriya.echo.common.models.Track>()
                                     .mapNotNull { it.toSong(extensionId ?: "") }
@@ -493,8 +788,8 @@ private fun handleEchoItemClick(
             val song = if (extensionId != null) {
                 item.toSong(extensionId)
             } else {
-                // Local resolve: The ID is already the local song ID
-                playerViewModel.songs.value.find { it.id == item.id }
+                // Local resolve
+                playerViewModel.allSongsFlow.value.find { it.id == item.id }
             }
             song?.let { playerViewModel.showAndPlaySong(it, listOf(it), "Search Result") }
         }
@@ -522,26 +817,48 @@ fun EmptySearchResults(searchQuery: String, colorScheme: ColorScheme) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Rounded.Search, null, modifier = Modifier.size(80.dp), tint = colorScheme.primary.copy(0.4f))
-        Spacer(Modifier.height(16.dp))
-        Text("No results for \"$searchQuery\"", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Try checking your spelling or source", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
+        Icon(
+            imageVector = Icons.Rounded.Search,
+            contentDescription = stringResource(R.string.search_no_results_for, searchQuery),
+            modifier = Modifier.size(80.dp).padding(bottom = 16.dp),
+            tint = colorScheme.primary.copy(alpha = 0.6f)
+        )
+
+        Text(
+            text = if (searchQuery.isNotBlank()) {
+                stringResource(R.string.search_no_results_for, searchQuery)
+            } else {
+                "No searches found"
+            },
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Try checking your spelling or changing the source filter.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
     }
 }
 
 @Composable
 fun SearchSourceScopeChip(
-    scope: com.theveloper.pixelplay.data.model.SourceScope,
-    currentScope: com.theveloper.pixelplay.data.model.SourceScope,
+    scope: SourceScope,
+    currentScope: SourceScope,
     extensionName: String?,
-    onScopeSelected: (com.theveloper.pixelplay.data.model.SourceScope) -> Unit,
+    onScopeSelected: (SourceScope) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val selected = scope == currentScope
     val label = when (scope) {
-        com.theveloper.pixelplay.data.model.SourceScope.All -> "All Sources"
-        com.theveloper.pixelplay.data.model.SourceScope.Local -> "Local Files"
-        is com.theveloper.pixelplay.data.model.SourceScope.Extension -> extensionName ?: "Extension"
+        SourceScope.All -> "All Sources"
+        SourceScope.Local -> "Local Files"
+        is SourceScope.Extension -> extensionName ?: "Extension"
     }
 
     FilterChip(
@@ -559,8 +876,8 @@ fun SearchSourceScopeChip(
         leadingIcon = {
             Icon(
                 imageVector = when (scope) {
-                    com.theveloper.pixelplay.data.model.SourceScope.All -> Icons.Rounded.Public
-                    com.theveloper.pixelplay.data.model.SourceScope.Local -> Icons.Rounded.Storage
+                    SourceScope.All -> Icons.Rounded.Public
+                    SourceScope.Local -> Icons.Rounded.Storage
                     else -> Icons.Rounded.Cloud
                 },
                 contentDescription = null,
@@ -570,6 +887,7 @@ fun SearchSourceScopeChip(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchFilterChip(
     filterType: SearchFilterType,
@@ -578,10 +896,19 @@ fun SearchFilterChip(
     modifier: Modifier = Modifier
 ) {
     val selected = filterType == currentFilter
+
+    val labelResId = when (filterType) {
+        SearchFilterType.ALL -> R.string.common_all
+        SearchFilterType.SONGS -> R.string.library_tab_songs
+        SearchFilterType.ALBUMS -> R.string.library_tab_albums
+        SearchFilterType.ARTISTS -> R.string.library_tab_artists
+        SearchFilterType.PLAYLISTS -> R.string.library_tab_playlists
+    }
+
     FilterChip(
         selected = selected,
         onClick = { playerViewModel.updateSearchFilter(filterType) },
-        label = { Text(filterType.name.lowercase().replaceFirstChar { it.titlecase() }) },
+        label = { Text(stringResource(labelResId)) },
         modifier = modifier,
         shape = CircleShape,
         colors = FilterChipDefaults.filterChipColors(
