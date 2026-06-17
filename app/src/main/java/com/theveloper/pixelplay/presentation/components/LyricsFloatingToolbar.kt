@@ -163,7 +163,7 @@ fun LyricsFloatingToolbar(
         ) {
             Icon(
                 painter = painterResource(R.drawable.rounded_manage_search_24),
-                contentDescription = stringResource(R.string.lyrics_search_title),
+                contentDescription = stringResource(R.string.search_placeholder),
                 tint = onBackgroundColor
             )
         }

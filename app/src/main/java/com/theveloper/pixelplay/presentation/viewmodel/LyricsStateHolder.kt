@@ -17,6 +17,7 @@ import com.theveloper.pixelplay.utils.LyricsImportSecurity
 import com.theveloper.pixelplay.utils.LyricsImportValidationResult
 import com.theveloper.pixelplay.utils.LyricsUtils
 import com.theveloper.pixelplay.utils.ValidatedLyricsImport
+import com.theveloper.pixelplay.extensions.core.toAppLyrics
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -50,8 +51,6 @@ class LyricsTranslationCallbacks(
     val getString: (Int) -> String,
     val getErrorString: (String) -> String
 )
-
-import com.theveloper.pixelplay.extensions.core.toAppLyrics
 
 @Singleton
 class LyricsStateHolder @Inject constructor(
@@ -326,9 +325,7 @@ class LyricsStateHolder @Inject constructor(
     }
 
     fun selectLyricsSource(song: Song, extensionId: String?) {
-        val availableExtensions = extensionLoader.all.value.filter {
-            it.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.LyricsClient
-        }
+        val availableExtensions = extensionLoader.lyrics.value
         
         loadingJob?.cancel()
         loadingJob = scope?.launch {

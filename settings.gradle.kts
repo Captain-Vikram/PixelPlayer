@@ -39,4 +39,4 @@ include(":baselineprofile")
 // project includes for local app assemble until their Gradle setup is aligned.
 
 include(":common")
-project(":common").projectDir = File(rootDir, "../echo/common")
+project(":common").projectDir = File(rootDir, "common")

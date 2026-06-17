@@ -122,6 +122,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.presentation.components.SmartImage
 import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 import com.theveloper.pixelplay.data.model.Artist
 import com.theveloper.pixelplay.data.model.Song
@@ -1516,6 +1517,7 @@ private fun FullPlayerPortraitContent(
     albumCoverSection: @Composable (Modifier) -> Unit,
     songMetadataSection: @Composable () -> Unit,
     playerProgressSection: @Composable () -> Unit,
+    lyricsPreviewSection: @Composable () -> Unit,
     controlsSection: @Composable () -> Unit
 ) {
     Column(
@@ -1539,6 +1541,7 @@ private fun FullPlayerPortraitContent(
                 songMetadataSection()
             }
             playerProgressSection()
+            lyricsPreviewSection()
         }
 
         controlsSection()
@@ -1551,6 +1554,7 @@ private fun FullPlayerLandscapeContent(
     albumCoverSection: @Composable (Modifier) -> Unit,
     songMetadataSection: @Composable () -> Unit,
     playerProgressSection: @Composable () -> Unit,
+    lyricsPreviewSection: @Composable () -> Unit,
     controlsSection: @Composable () -> Unit
 ) {
     Row(
@@ -1582,6 +1586,7 @@ private fun FullPlayerLandscapeContent(
         ) {
             songMetadataSection()
             playerProgressSection()
+            lyricsPreviewSection()
             controlsSection()
         }
     }
