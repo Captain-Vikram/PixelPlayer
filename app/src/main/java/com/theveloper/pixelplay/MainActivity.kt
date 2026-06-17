@@ -2,13 +2,13 @@ package com.theveloper.pixelplay
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 
-// import androidx.compose.ui.platform.LocalView // No longer needed for this
-// import androidx.core.view.WindowInsetsCompat // No longer needed for this
 import android.Manifest
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.ComponentName
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.graphics.RenderEffect as AndroidRenderEffect
 import android.graphics.Shader as AndroidShader
@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.os.Trace
 import android.provider.Settings
 import android.util.Log
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -54,6 +55,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -87,7 +89,13 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerSheetState
+import com.theveloper.pixelplay.presentation.viewmodel.PlayerUiState
+import com.theveloper.pixelplay.data.model.Song
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -100,7 +108,6 @@ import androidx.media3.session.SessionToken
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import kotlinx.collections.immutable.toImmutableList
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.common.util.concurrent.ListenableFuture
@@ -109,17 +116,17 @@ import com.theveloper.pixelplay.data.github.GitHubAnnouncementPropertiesService
 import com.theveloper.pixelplay.data.github.PlayStoreAnnouncementRemoteConfig
 import com.theveloper.pixelplay.data.preferences.AppThemeMode
 import com.theveloper.pixelplay.data.preferences.NavBarStyle
-import com.theveloper.pixelplay.data.preferences.sanitizeNavBarCornerRadius
+import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository.Companion.sanitizeNavBarCornerRadius
 import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.service.MusicService
 import com.theveloper.pixelplay.data.worker.SyncManager
 import com.theveloper.pixelplay.data.worker.SyncProgress
-import com.theveloper.pixelplay.presentation.components.AllFilesAccessDialog
 import com.theveloper.pixelplay.presentation.components.AppSidebarDrawer
 import com.theveloper.pixelplay.presentation.components.CrashReportDialog
 import com.theveloper.pixelplay.presentation.components.DismissUndoBar
 import com.theveloper.pixelplay.presentation.components.DrawerDestination
+import com.theveloper.pixelplay.presentation.components.ExtensionWebViewHandler
 import com.theveloper.pixelplay.presentation.components.MiniPlayerBottomSpacer
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.components.PlayerInternalNavigationBar
@@ -139,27 +146,25 @@ import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.ui.theme.PixelPlayTheme
 import com.theveloper.pixelplay.ui.theme.LocalShowScrollbar
 import com.theveloper.pixelplay.utils.CrashHandler
+import com.theveloper.pixelplay.utils.CrashLogData
 import com.theveloper.pixelplay.utils.AppLocaleManager
 import com.theveloper.pixelplay.utils.LogUtils
+import com.theveloper.pixelplay.presentation.utils.*
+import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.roundToInt
-
-import com.theveloper.pixelplay.presentation.components.ExtensionWebViewHandler
-import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
-import com.theveloper.pixelplay.presentation.utils.AppHapticsConfig
-import com.theveloper.pixelplay.presentation.utils.LocalAppHapticsConfig
-import com.theveloper.pixelplay.presentation.utils.NoOpHapticFeedback
-import com.theveloper.pixelplay.utils.CrashLogData
-import javax.annotation.concurrent.Immutable
+import com.theveloper.pixelplay.ui.theme.PixelPlayStatusBarStyle
+import androidx.compose.animation.core.Spring
+import androidx.compose.ui.graphics.CompositingStrategy
+import com.theveloper.pixelplay.presentation.components.LocalMaterialTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
-
-@Immutable
+@androidx.compose.runtime.Immutable
 data class BottomNavItem(
     val label: String,
     @StringRes val labelResId: Int,
@@ -182,19 +187,17 @@ class MainActivity : ComponentActivity() {
     private var isUIVisiblyReady = false
     private var mediaControllerFuture: ListenableFuture<MediaController>? = null
     @Inject
-    lateinit var userPreferencesRepository: UserPreferencesRepository // Inject here
+    lateinit var userPreferencesRepository: UserPreferencesRepository
     @Inject
     lateinit var themePreferencesRepository: ThemePreferencesRepository
     @Inject
     lateinit var syncManager: SyncManager
     @Inject
     lateinit var extensionWebViewManager: com.theveloper.pixelplay.extensions.webview.ExtensionWebViewManager
-    // For handling shortcut navigation - using StateFlow so composables can observe changes
+
     private val _pendingPlaylistNavigation = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
-    private val _pendingShuffleAll = kotlinx.coroutines.flow.MutableStateFlow(false)
 
     private val requestAllFilesAccessLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
-        // Handle the result in onResume
     }
 
     @CallSuper
@@ -221,22 +224,15 @@ class MainActivity : ComponentActivity() {
         }
         super.onCreate(savedInstanceState)
 
-        // MD3 Optimization: Release Splash Screen immediately to render UI skeleton.
-        // Data loading is handled via optimistic UI and smooth transitions.
         splashScreen.setKeepOnScreenCondition { false }
 
-        // LEER SEÑAL DE BENCHMARK
         val isBenchmarkMode = intent.getBooleanExtra("is_benchmark", false)
         val shouldBenchmarkRebuildDatabase =
             isBenchmarkMode && intent.getBooleanExtra("benchmark_rebuild_database", false)
-        Log.i(
-            "PixelPlayBenchmark",
-            "onCreate benchmark=$isBenchmarkMode rebuildDatabase=$shouldBenchmarkRebuildDatabase"
-        )
+        
         if (shouldBenchmarkRebuildDatabase) {
             lifecycleScope.launch {
                 userPreferencesRepository.setInitialSetupDone(true)
-                Log.i("PixelPlayBenchmark", "Enqueueing benchmark database rebuild")
                 syncManager.rebuildDatabase()
                 delay(1_500L)
                 playerViewModel.prepareBenchmarkPlayerFromLibrary()
@@ -254,19 +250,15 @@ class MainActivity : ComponentActivity() {
             }
             val isSetupComplete by mainViewModel.isSetupComplete.collectAsStateWithLifecycle()
             
-            // Crash report dialog state
             var showCrashReportDialog by remember { mutableStateOf(false) }
-            var crashLogData by remember { mutableStateOf<CrashLogData?>(null) }
+            var crashLogDataState by remember { mutableStateOf<CrashLogData?>(null) }
             
-            // Permissions Logic
             val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 listOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
             } else {
                 listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
-            @OptIn(ExperimentalPermissionsApi::class)
             val permissionState = rememberMultiplePermissionsState(permissions = permissions)
-            // Determine if we need to show Setup based on completion OR missing permissions
             val permissionsValid = permissionState.allPermissionsGranted
             val showSetupScreen = remember(isSetupComplete, permissionsValid, isBenchmarkMode) {
                 when {
@@ -276,18 +268,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Sync Trigger: When we are NOT showing setup (meaning permissions are good and setup is done)
             LaunchedEffect(showSetupScreen) {
                 if (showSetupScreen == false) {
-                     LogUtils.i(this, "Setup complete/skipped and permissions valid. Starting sync.")
                      mainViewModel.startSync()
                 }
             }
 
-            // Check for crash log when app starts
             LaunchedEffect(Unit) {
                 if (!isBenchmarkMode && CrashHandler.hasCrashLog()) {
-                    crashLogData = CrashHandler.getCrashLog()
+                    crashLogDataState = CrashHandler.getCrashLog()
                     showCrashReportDialog = true
                 }
             }
@@ -304,29 +293,11 @@ class MainActivity : ComponentActivity() {
                     )
 
                     LaunchedEffect(Unit) {
-                        // Delay slightly to ensure first frame layout is done behind Splash
                         delay(100)
                         contentVisible = true
                     }
 
                     ExtensionWebViewHandler(extensionWebViewManager)
-
-                    Surface(
-                        modifier = Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }, 
-                        color = MaterialTheme.colorScheme.background
-                ) {
-                    var contentVisible by remember { mutableStateOf(false) }
-                    val contentAlpha by animateFloatAsState(
-                        targetValue = if (contentVisible) 1f else 0f,
-                        animationSpec = tween(600, easing = LinearOutSlowInEasing),
-                        label = "AppContentAlpha"
-                    )
-
-                    LaunchedEffect(Unit) {
-                        // Delay slightly to ensure first frame layout is done behind Splash
-                        delay(100)
-                        contentVisible = true
-                    }
 
                     Surface(
                         modifier = Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }, 
@@ -339,10 +310,8 @@ class MainActivity : ComponentActivity() {
                                 targetState = showSetupScreen,
                                 transitionSpec = {
                                     if (targetState) {
-                                        // Transition to Setup
                                         fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
                                     } else {
-                                        // Transition from Setup to Main App
                                         scaleIn(initialScale = 0.95f, animationSpec = tween(450)) + fadeIn(animationSpec = tween(450)) togetherWith
                                                 slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(450)) + fadeOut(animationSpec = tween(450))
                                     }
@@ -351,7 +320,6 @@ class MainActivity : ComponentActivity() {
                             ) { shouldShowSetup ->
                                 if (shouldShowSetup) {
                                     SetupScreen(onSetupComplete = {
-                                        // Repository-backed setup completion updates the gate automatically.
                                     })
                                 } else {
                                     MainAppContent(playerViewModel, mainViewModel)
@@ -359,13 +327,12 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // Show crash report dialog if needed
-                        if (showCrashReportDialog && crashLogData != null) {
+                        if (showCrashReportDialog && crashLogDataState != null) {
                             CrashReportDialog(
-                                crashLog = crashLogData!!,
+                                crashLog = crashLogDataState!!,
                                 onDismiss = {
                                     CrashHandler.clearCrashLog()
-                                    crashLogData = null
+                                    crashLogDataState = null
                                     showCrashReportDialog = false
                                 }
                             )
@@ -386,14 +353,11 @@ class MainActivity : ComponentActivity() {
         if (intent == null) return
 
         when {
-            // Handle shuffle all shortcut / tile
             intent.action == MainActivityIntentContract.ACTION_SHUFFLE_ALL -> {
-                android.util.Log.d("TileDebug", "handleIntent: ACTION_SHUFFLE_ALL received")
                 playerViewModel.triggerShuffleAllFromTile()
-                intent.action = null // Clear action to prevent re-triggering
+                intent.action = null
             }
             
-            // Handle playlist shortcut
             intent.action == MainActivityIntentContract.ACTION_OPEN_PLAYLIST -> {
                 intent.getStringExtra(MainActivityIntentContract.EXTRA_PLAYLIST_ID)?.let { playlistId ->
                     _pendingPlaylistNavigation.value = playlistId
@@ -423,95 +387,16 @@ class MainActivity : ComponentActivity() {
             
             intent.action == "com.theveloper.pixelplay.ACTION_PLAY_SONG" -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                     intent.getParcelableExtra("song", com.theveloper.pixelplay.data.model.Song::class.java)?.let { song ->
-                         playerViewModel.playSong(song)
-                     }
+                     val song = intent.getParcelableExtra("song", com.theveloper.pixelplay.data.model.Song::class.java)
+                     if (song != null) playerViewModel.playSong(song)
                 } else {
                      @Suppress("DEPRECATION")
-                     intent.getParcelableExtra<com.theveloper.pixelplay.data.model.Song>("song")?.let { song ->
-                         playerViewModel.playSong(song)
-                     }
+                     val song = intent.getParcelableExtra<com.theveloper.pixelplay.data.model.Song>("song")
+                     if (song != null) playerViewModel.playSong(song)
                 }
                 intent.action = null
             }
         }
-    }
-    
-    private fun resolveStreamUri(intent: Intent): android.net.Uri? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableExtra(android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)?.let { return it }
-        } else {
-            @Suppress("DEPRECATION")
-            val legacyUri = intent.getParcelableExtra<android.net.Uri>(android.content.Intent.EXTRA_STREAM)
-            if (legacyUri != null) return legacyUri
-        }
-
-        intent.clipData?.let { clipData ->
-            if (clipData.itemCount > 0) {
-                return clipData.getItemAt(0).uri
-            }
-        }
-
-        return intent.data
-    }
-
-    private fun persistUriPermissionIfNeeded(intent: Intent, uri: android.net.Uri) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            val hasPersistablePermission = intent.flags and android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
-            if (hasPersistablePermission) {
-                val takeFlags = intent.flags and (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                if (takeFlags != 0) {
-                    try {
-                        contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    } catch (securityException: SecurityException) {
-                        android.util.Log.w("MainActivity", "Unable to persist URI permission for $uri", securityException)
-                    } catch (illegalArgumentException: IllegalArgumentException) {
-                        android.util.Log.w("MainActivity", "Persistable URI permission not granted for $uri", illegalArgumentException)
-                    }
-                }
-            }
-        }
-    }
-
-    private fun clearExternalIntentPayload(intent: Intent) {
-        intent.data = null
-        intent.clipData = null
-        intent.removeExtra(android.content.Intent.EXTRA_STREAM)
-    }
-
-    private fun openExternalUrl(url: String) {
-        // Defense in depth: the announcement URL is fetched from a remote
-        // properties file on GitHub. If that file is ever tampered with, we
-        // must not let it launch arbitrary intents (`intent://...`,
-        // `javascript:`, custom schemes, etc.). Allow only the Play Store host.
-        val parsed = runCatching { url.toUri() }.getOrNull()
-        val scheme = parsed?.scheme?.lowercase()
-        val host = parsed?.host?.lowercase()
-        val isPlayStore = scheme == "https" &&
-            (host == "play.google.com" || host == "market.android.com")
-        if (!isPlayStore) {
-            LogUtils.w(this, "Refusing to open non-Play-Store announcement URL: $url")
-            return
-        }
-        val intent = Intent(Intent.ACTION_VIEW, parsed)
-        try {
-            startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
-            LogUtils.w(this, "No activity available to open URL: $url")
-        }
-    }
-
-    private fun PlayStoreAnnouncementRemoteConfig.toUiModel(context: Context): PlayStoreAnnouncementUiModel {
-        val fallback = PlayStoreAnnouncementDefaults.localizedTemplate(context)
-        return fallback.copy(
-            enabled = enabled,
-            playStoreUrl = playStoreUrl ?: fallback.playStoreUrl,
-            title = title ?: fallback.title,
-            body = body ?: fallback.body,
-            primaryActionLabel = primaryActionLabel ?: fallback.primaryActionLabel,
-            dismissActionLabel = dismissActionLabel ?: fallback.dismissActionLabel,
-            linkPendingMessage = linkPendingMessage ?: fallback.linkPendingMessage,
-        )
     }
 
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -529,7 +414,7 @@ class MainActivity : ComponentActivity() {
                 CircularWavyProgressIndicator()
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(
-                    text = "Preparing setup…",
+                    text = "Preparing setup\u2026",
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center
                 )
@@ -546,17 +431,12 @@ class MainActivity : ComponentActivity() {
         val isLibraryEmpty by mainViewModel.isLibraryEmpty.collectAsStateWithLifecycle()
         val hasCompletedInitialSync by mainViewModel.hasCompletedInitialSync.collectAsStateWithLifecycle()
         val syncProgress by mainViewModel.syncProgress.collectAsStateWithLifecycle()
-        
-        // isMediaControllerReady used below for playlist navigation gate
         val isMediaControllerReady by playerViewModel.isMediaControllerReady.collectAsStateWithLifecycle()
-        
-        // Observe pending playlist navigation
         val pendingPlaylistNav by _pendingPlaylistNavigation.collectAsStateWithLifecycle()
         var processedPlaylistId by remember { mutableStateOf<String?>(null) }
         
         LaunchedEffect(pendingPlaylistNav, isMediaControllerReady) {
             val playlistId = pendingPlaylistNav
-            // Only process if we have a new playlist ID that hasn't been processed yet
             if (playlistId != null && playlistId != processedPlaylistId && isMediaControllerReady) {
                 processedPlaylistId = playlistId
                 try {
@@ -568,32 +448,24 @@ class MainActivity : ComponentActivity() {
                     LogUtils.w("MainActivity", "Failed to navigate to playlist: $playlistId")
                 }
             } else if (playlistId == null) {
-                // Reset so the same playlist can be opened again
                 processedPlaylistId = null
             }
         }
 
-        // Estado para controlar si el indicador de carga puede mostrarse después de un delay
         var canShowLoadingIndicator by remember { mutableStateOf(false) }
-        // Track when the loading indicator was first shown for minimum display time
         var loadingShownTimestamp by remember { mutableStateOf(0L) }
-        val minimumDisplayDuration = 1500L // Show loading for at least 1.5 seconds
+        val minimumDisplayDuration = 1500L
 
         val shouldPotentiallyShowLoading = isSyncing && isLibraryEmpty && !hasCompletedInitialSync
 
         LaunchedEffect(shouldPotentiallyShowLoading) {
             if (shouldPotentiallyShowLoading) {
-                // Espera un breve período antes de permitir que se muestre el indicador de carga
-                // Ajusta este valor según sea necesario (por ejemplo, 300-500 ms)
                 delay(300L)
-                // Vuelve a verificar la condición después del delay,
-                // ya que el estado podría haber cambiado.
                 if (mainViewModel.isSyncing.value && mainViewModel.isLibraryEmpty.value) {
                     canShowLoadingIndicator = true
                     loadingShownTimestamp = System.currentTimeMillis()
                 }
             } else {
-                // Ensure minimum display time before hiding
                 if (canShowLoadingIndicator && loadingShownTimestamp > 0) {
                     val elapsed = System.currentTimeMillis() - loadingShownTimestamp
                     val remaining = minimumDisplayDuration - elapsed
@@ -608,13 +480,11 @@ class MainActivity : ComponentActivity() {
 
         Box(modifier = Modifier.fillMaxSize()) {
             MainUI(playerViewModel, navController)
-
-            // Muestra el LoadingOverlay solo si las condiciones se cumplen Y el delay ha pasado
             if (canShowLoadingIndicator) {
                 LoadingOverlay(mainViewModel.syncProgress)
             }
         }
-        Trace.endSection() // End MainActivity.MainAppContent
+        Trace.endSection()
     }
 
     @androidx.annotation.OptIn(UnstableApi::class)
@@ -762,12 +632,6 @@ class MainActivity : ComponentActivity() {
         var showPlayStoreAnnouncement by remember { mutableStateOf(false) }
 
         LaunchedEffect(Unit) {
-            if (PlayStoreAnnouncementDefaults.LOCAL_PREVIEW_ENABLED) {
-                playStoreAnnouncement = PlayStoreAnnouncementDefaults.hardcodedPreview(this@MainActivity)
-                showPlayStoreAnnouncement = true
-                return@LaunchedEffect
-            }
-
             announcementService.fetchPlayStoreAnnouncement()
                 .onSuccess { remoteConfig ->
                     val resolvedAnnouncement = remoteConfig.toUiModel(this@MainActivity)
@@ -785,6 +649,8 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(userPreferencesRepository) {
             userPreferencesRepository.clearDeprecatedPlayerSheetPreference()
         }
+
+        val blurEffectCache = remember { BlurEffectCache() }
 
         CompositionLocalProvider(
             LocalAppHapticsConfig provides appHapticsConfig,
@@ -808,8 +674,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-        ) {
-
+            ) {
                 Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 bottomBar = {
@@ -829,14 +694,10 @@ class MainActivity : ComponentActivity() {
                         )
 
                         val animatedDefaultTopCornerRadius = animateDpAsState(
-                            targetValue = if (showPlayerContentArea && !isMiniPlayerDismissing) 10.dp else navBarCornerRadius.dp,
+                            targetValue = if (showPlayerContentArea && !isMiniPlayerDismissing) 0.dp else navBarCornerRadius.dp,
                             animationSpec = tween(400),
                             label = "NavBarDefaultTopCornerRadius"
                         )
-
-                        // Shape is now resolved per quantized radius in the draw phase
-                        // (see the Surface graphicsLayer below) instead of being
-                        // re-remembered every animation frame.
 
                         var componentHeightPx by remember { mutableStateOf(0) }
                         val density = LocalDensity.current
@@ -868,9 +729,6 @@ class MainActivity : ComponentActivity() {
                                     .padding(bottom = bottomBarPadding)
                                     .onSizeChanged { componentHeightPx = it.height }
                                     .graphicsLayer {
-                                        // Slide-down hide: covers both the player-expansion
-                                        // hide and the route-based hide as a pure translation,
-                                        // so child items never resize or get clipped/squished.
                                         val expansionHide = if (showPlayerContentArea) {
                                             playerViewModel.playerContentExpansionFraction.value.coerceIn(0f, 1f)
                                         } else {
@@ -884,9 +742,6 @@ class MainActivity : ComponentActivity() {
                                     .height(navBarHeight)
                                     .padding(horizontal = horizontalPadding)
                                     .graphicsLayer {
-                                        // Animated corner shape resolved in the draw phase:
-                                        // animating the radius re-clips this layer only — no
-                                        // recomposition and no layout pass for the bar.
                                         val fraction = playerViewModel.playerContentExpansionFraction.value
                                         val safeFraction = fraction.coerceIn(0f, 1f)
                                         val topDp = when {
@@ -969,9 +824,6 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             val expansion = expansionFractionProvider()
                                             val fraction = (expansion * (1f - predictiveBackCollapseFraction)).coerceIn(0f, 1f)
-                                            // Quantize to 2px steps: rebuild the RenderEffect only
-                                            // when the blur crosses a step, reuse the cached object
-                                            // every other frame.
                                             val quantizedBlurPx = (fraction * 120f / 2f).roundToInt() * 2f
                                             renderEffect = blurEffectCache.get(quantizedBlurPx)
                                         }
@@ -1084,7 +936,6 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun LoadingOverlay(syncProgressFlow: kotlinx.coroutines.flow.StateFlow<SyncProgress>) {
         val syncProgress by syncProgressFlow.collectAsStateWithLifecycle()
-        // Animate progress smoothly instead of jumping in steps
         val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
             targetValue = syncProgress.progress,
             animationSpec = androidx.compose.animation.core.spring(
@@ -1101,6 +952,7 @@ class MainActivity : ComponentActivity() {
                 .clickable(enabled = false, onClick = {}),
             contentAlignment = Alignment.Center
         ) {
+            val syncProgressValue = syncProgress
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(horizontal = 32.dp)
@@ -1113,7 +965,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 
-                if (syncProgress.hasProgress) {
+                if (syncProgressValue.hasProgress) {
                     Spacer(modifier = Modifier.height(16.dp))
                     androidx.compose.material3.LinearWavyProgressIndicator(
                         progress = { animatedProgress },
@@ -1121,7 +973,7 @@ class MainActivity : ComponentActivity() {
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Scanned ${syncProgress.currentCount} of ${syncProgress.totalCount} songs",
+                        text = "Scanned ${syncProgressValue.currentCount} of ${syncProgressValue.totalCount} songs",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1136,10 +988,6 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         LogUtils.d(this, "onStart")
         playerViewModel.onMainActivityStart()
-
-        if (intent.getBooleanExtra("is_benchmark", false)) {
-            // Benchmark mode no longer loads dummy data - uses real library data instead
-        }
 
         val sessionToken = SessionToken(this, ComponentName(this, MusicService::class.java))
         mediaControllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
@@ -1159,15 +1007,78 @@ class MainActivity : ComponentActivity() {
         super.onResume()
     }
 
+    private fun persistUriPermissionIfNeeded(intent: Intent, uri: Uri) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            val hasPersistablePermission = intent.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
+            if (hasPersistablePermission) {
+                val takeFlags = intent.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                if (takeFlags != 0) {
+                    runCatching { contentResolver.takePersistableUriPermission(uri, takeFlags) }
+                }
+            }
+        }
+    }
+
+    private fun clearExternalIntentPayload(intent: Intent) {
+        intent.data = null
+        intent.clipData = null
+        intent.removeExtra(android.content.Intent.EXTRA_STREAM)
+    }
+
+    private fun resolveStreamUri(intent: Intent): Uri? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(android.content.Intent.EXTRA_STREAM, Uri::class.java)?.let { return it }
+        } else {
+            @Suppress("DEPRECATION")
+            val legacyUri = intent.getParcelableExtra<Uri>(android.content.Intent.EXTRA_STREAM)
+            if (legacyUri != null) return legacyUri
+        }
+
+        intent.clipData?.let { clipData ->
+            if (clipData.itemCount > 0) {
+                return clipData.getItemAt(0).uri
+            }
+        }
+
+        return intent.data
+    }
+
+    private fun UserPreferencesRepository.clearDeprecatedPlayerSheetPreference() {
+    }
+
+    private fun openExternalUrl(url: String) {
+        val parsed = runCatching { url.toUri() }.getOrNull()
+        val scheme = parsed?.scheme?.lowercase()
+        val host = parsed?.host?.lowercase()
+        val isPlayStore = scheme == "https" &&
+            (host == "play.google.com" || host == "market.android.com")
+        if (!isPlayStore) {
+            LogUtils.w(this, "Refusing to open non-Play-Store announcement URL: $url")
+            return
+        }
+        val intent = Intent(Intent.ACTION_VIEW, parsed)
+        try {
+            startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            LogUtils.w(this, "No activity available to open URL: $url")
+        }
+    }
+
+    private fun PlayStoreAnnouncementRemoteConfig.toUiModel(context: Context): PlayStoreAnnouncementUiModel {
+        val fallback = PlayStoreAnnouncementDefaults.localizedTemplate(context)
+        return PlayStoreAnnouncementUiModel(
+            enabled = enabled ?: fallback.enabled,
+            title = title ?: fallback.title,
+            body = body ?: fallback.body,
+            playStoreUrl = playStoreUrl ?: fallback.playStoreUrl,
+            primaryActionLabel = primaryActionLabel ?: fallback.primaryActionLabel,
+            dismissActionLabel = dismissActionLabel ?: fallback.dismissActionLabel,
+            linkPendingMessage = linkPendingMessage ?: fallback.linkPendingMessage,
+        )
+    }
 
 }
 
-/**
- * Returns a cached Shape instance for a quantized (top, bottom) radius pair.
- * Because the instance identity is stable while the radii don't move past a
- * sub-pixel threshold, the graphics layer reuses its cached Outline between
- * frames and only re-clips when the radius actually changes.
- */
 private class NavBarShapeCache {
     private var lastTopPx: Float = Float.NaN
     private var lastBottomPx: Float = Float.NaN
@@ -1201,13 +1112,6 @@ private class NavBarShapeCache {
     }
 }
 
-/**
- * Fixed-radius corner shape. Swaps AbsoluteSmoothCornerShape for a plain
- * RoundedCornerShape when smooth corners are disabled in settings. The radius
- * values are identical in both branches, so the animated radius behavior is
- * unchanged regardless of which delegate is active. The resulting Outline is
- * cached per (size, layoutDirection) so repeated draws are cheap.
- */
 private class DynamicSmoothCornerShape(
     private val useSmoothCorners: Boolean,
     private val topRadius: androidx.compose.ui.unit.Dp,
@@ -1253,5 +1157,25 @@ private class DynamicSmoothCornerShape(
             cachedLayoutDirection = layoutDirection
             cachedOutline = it
         }
+    }
+}
+
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
+private class BlurEffectCache {
+    private var lastBlurPx: Float = Float.NaN
+    private var cachedEffect: androidx.compose.ui.graphics.RenderEffect? = null
+
+    fun get(blurPx: Float): androidx.compose.ui.graphics.RenderEffect? {
+        if (blurPx <= 0.01f) return null
+        if (blurPx == lastBlurPx) return cachedEffect
+
+        lastBlurPx = blurPx
+        cachedEffect = AndroidRenderEffect.createBlurEffect(
+            blurPx,
+            blurPx,
+            AndroidShader.TileMode.CLAMP
+        ).asComposeRenderEffect()
+        
+        return cachedEffect
     }
 }

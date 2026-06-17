@@ -301,15 +301,15 @@ fun RecentlyPlayedScreen(
                 },
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
-                    navController.navigateSafely(Screen.AlbumDetail.createRoute(song.albumId))
+                    navController.navigateSafely(Screen.AlbumDetail.createRoute(song.albumId.toString()))
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {
-                    navController.navigateSafely(Screen.ArtistDetail.createRoute(song.artistId))
+                    navController.navigateSafely(Screen.ArtistDetail.createRoute(song.artistId.toString()))
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtistById = { artistId ->
-                    navController.navigateSafely(Screen.ArtistDetail.createRoute(artistId))
+                    navController.navigateSafely(Screen.ArtistDetail.createRoute(artistId.toString()))
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToGenre = {

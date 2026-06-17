@@ -83,16 +83,12 @@ class ArtistDetailViewModel @Inject constructor(
                     if (idString.startsWith("extension:")) {
                         loadExtensionArtist(idString)
                     } else {
-<<<<<<< HEAD
                         val localId = idString.toLongOrNull()
                         if (localId != null) {
                             loadArtistData(localId)
                         } else {
                             _uiState.update { it.copy(error = context.getString(R.string.invalid_artist_id), isLoading = false) }
                         }
-=======
-                        _uiState.update { it.copy(error = context.getString(R.string.artist_detail_invalid_id), isLoading = false) }
->>>>>>> upstream/master
                     }
                 } else {
                     _uiState.update { it.copy(error = context.getString(R.string.artist_detail_id_not_found), isLoading = false) }

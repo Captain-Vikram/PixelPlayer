@@ -44,16 +44,12 @@ class AlbumDetailViewModel @Inject constructor(
             if (albumId.startsWith("extension:")) {
                 loadExtensionAlbum(albumId)
             } else {
-<<<<<<< HEAD
                 val localId = albumId.toLongOrNull()
                 if (localId != null) {
                     loadAlbumData(localId)
                 } else {
                     _uiState.update { it.copy(error = context.getString(R.string.invalid_album_id), isLoading = false) }
                 }
-=======
-                _uiState.update { it.copy(error = context.getString(R.string.album_detail_invalid_id), isLoading = false) }
->>>>>>> upstream/master
             }
         } else {
             _uiState.update { it.copy(error = context.getString(R.string.album_detail_id_not_found), isLoading = false) }

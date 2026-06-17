@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.CollapsibleCommonTopBar
@@ -46,6 +47,7 @@ import kotlin.math.roundToInt
 fun ExtensionsScreen(
     onBack: () -> Unit,
     onOpenExtensionSettings: (String) -> Unit,
+    onOpenExtensionLogin: (String) -> Unit,
     paddingValues: PaddingValues = PaddingValues(),
     viewModel: ExtensionsViewModel = hiltViewModel()
 ) {
@@ -275,7 +277,7 @@ fun ExtensionsScreen(
                             },
                             onActionClick = {
                                 if (extension is MusicExtension && caps.isLoginNeeded) {
-                                    viewModel.login(extension)
+                                    onOpenExtensionLogin(extension.metadata.id)
                                 }
                             },
                             onSettingsClick = {

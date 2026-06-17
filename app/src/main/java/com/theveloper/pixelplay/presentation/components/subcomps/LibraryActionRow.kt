@@ -102,6 +102,10 @@ fun LibraryActionRow(
     onFolderClick: (String) -> Unit,
     onNavigateBack: () -> Unit,
     isShuffleEnabled: Boolean = false,
+    // Import M3U
+    shouldShowImport: Boolean = false,
+    onImportM3uClick: () -> Unit = {},
+    importButtonStartCorner: androidx.compose.ui.unit.Dp = 8.dp,
     // Source Scope
     showSourceScopeButton: Boolean = false,
     currentSourceScope: SourceScope = SourceScope.All,
@@ -138,119 +142,116 @@ fun LibraryActionRow(
                     onNavigateBack = onNavigateBack
                 )
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val buttonContainerColor = MaterialTheme.colorScheme.tertiaryContainer
-                    val buttonContentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                    
-                    FilledTonalButton(
-                        onClick = onMainActionClick,
-                        shape = RoundedCornerShape(26.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = buttonContainerColor,
-                            contentColor = buttonContentColor
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 6.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                        modifier = Modifier.height(genHeight)
-                    ) {
-                        val icon = if (isPlaylistTab) Icons.AutoMirrored.Rounded.PlaylistAdd else Icons.Rounded.Shuffle
-                        val text = if (isPlaylistTab) {
-                            stringResource(R.string.library_action_new)
-                        } else {
-                            stringResource(R.string.common_shuffle)
-                        }
-                        val contentDesc = if (isPlaylistTab) {
-                            stringResource(R.string.library_cd_create_new_playlist)
-                        } else {
-                            stringResource(R.string.common_shuffle_play)
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val buttonContainerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        val buttonContentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        
+                        FilledTonalButton(
+                            onClick = onMainActionClick,
+                            shape = RoundedCornerShape(26.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = buttonContainerColor,
+                                contentColor = buttonContentColor
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 6.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                            modifier = Modifier.height(genHeight)
                         ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = contentDesc,
-                                modifier = Modifier.size(20.dp).rotate(iconRotation)
-                            )
-                            Text(
-                                modifier = Modifier.animateContentSize(),
-                                text = text,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-<<<<<<< HEAD
-=======
+                            val icon = if (isPlaylistTab) Icons.AutoMirrored.Rounded.PlaylistAdd else Icons.Rounded.Shuffle
+                            val text = if (isPlaylistTab) {
+                                stringResource(R.string.library_action_new)
+                            } else {
+                                stringResource(R.string.common_shuffle)
+                            }
+                            val contentDesc = if (isPlaylistTab) {
+                                stringResource(R.string.library_cd_create_new_playlist)
+                            } else {
+                                stringResource(R.string.common_shuffle_play)
+                            }
 
-                    AnimatedVisibility(
-                        visible = shouldShowImport,
-                        enter = fadeIn() + expandHorizontally(
-                            expandFrom = Alignment.Start,
-                            clip = false, // <— evita el 「corte」 durante la expansión
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow
-                            )
-                        ),
-                        exit = fadeOut() + shrinkHorizontally(
-                            shrinkTowards = Alignment.Start,
-                            clip = false, // <— evita el 「corte」 durante la expansión
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                stiffness = Spring.StiffnessMedium
-                            )
-                        )
-                    ) {
-                        Row(modifier = Modifier.height(genHeight), verticalAlignment = Alignment.CenterVertically) {
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            FilledTonalButton(
-                                onClick = onImportM3uClick,
-                                shape = RoundedCornerShape(
-                                    topStart = importButtonStartCorner,
-                                    bottomStart = importButtonStartCorner,
-                                    topEnd = 26.dp,
-                                    bottomEnd = 26.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                ),
-                                elevation = ButtonDefaults.buttonElevation(
-                                    defaultElevation = 4.dp,
-                                    pressedElevation = 6.dp
-                                ),
-                                contentPadding = PaddingValues(
-                                    horizontal = 14.dp,
-                                    vertical = 10.dp
-                                ),
-                                modifier = Modifier.height(genHeight)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = contentDesc,
+                                    modifier = Modifier.size(20.dp).rotate(iconRotation)
+                                )
+                                Text(
+                                    modifier = Modifier.animateContentSize(),
+                                    text = text,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        AnimatedVisibility(
+                            visible = shouldShowImport,
+                            enter = fadeIn() + expandHorizontally(
+                                expandFrom = Alignment.Start,
+                                clip = false,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            ),
+                            exit = fadeOut() + shrinkHorizontally(
+                                shrinkTowards = Alignment.Start,
+                                clip = false,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                )
+                            )
+                        ) {
+                            Row(modifier = Modifier.height(genHeight), verticalAlignment = Alignment.CenterVertically) {
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                FilledTonalButton(
+                                    onClick = onImportM3uClick,
+                                    shape = RoundedCornerShape(
+                                        topStart = importButtonStartCorner,
+                                        bottomStart = importButtonStartCorner,
+                                        topEnd = 26.dp,
+                                        bottomEnd = 26.dp
+                                    ),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    ),
+                                    elevation = ButtonDefaults.buttonElevation(
+                                        defaultElevation = 4.dp,
+                                        pressedElevation = 6.dp
+                                    ),
+                                    contentPadding = PaddingValues(
+                                        horizontal = 14.dp,
+                                        vertical = 10.dp
+                                    ),
+                                    modifier = Modifier.height(genHeight)
                                 ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.rounded_upload_file_24),
-                                        contentDescription = stringResource(R.string.library_cd_import_m3u_playlist),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.common_import),
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.rounded_upload_file_24),
+                                            contentDescription = stringResource(R.string.library_cd_import_m3u_playlist),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.common_import),
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
->>>>>>> upstream/master
-                }
             }
         }
 
@@ -332,7 +333,7 @@ fun LibraryActionRow(
                         },
                         state = tooltipState
                     ) {
-                        FilledTonalButton(
+                        FilledTonalIconButton(
                             onClick = onSourceScopeClick,
                             shape = RoundedCornerShape(
                                 topStart = filterStartCorner,
@@ -340,41 +341,26 @@ fun LibraryActionRow(
                                 topEnd = filterEndCorner,
                                 bottomEnd = filterEndCorner
                             ),
-                            contentPadding = PaddingValues(horizontal = 12.dp),
-                            modifier = Modifier.height(genHeight).animateContentSize()
+                            modifier = Modifier.size(genHeight)
                         ) {
-                             Row(
-                                 verticalAlignment = Alignment.CenterVertically,
-                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
-                             ) {
-                                 if (currentSourceScope is SourceScope.Extension && sourceIconPainter != null) {
-                                     Icon(
-                                         painter = sourceIconPainter,
-                                         contentDescription = null,
-                                         tint = Color.Unspecified,
-                                         modifier = Modifier.size(20.dp)
-                                     )
-                                 } else {
-                                     val icon = when(currentSourceScope) {
-                                         SourceScope.All -> Icons.Rounded.Dataset
-                                         SourceScope.Local -> Icons.Rounded.PhoneAndroid
-                                         else -> Icons.Rounded.Cloud
-                                     }
-                                     Icon(
-                                         imageVector = icon,
-                                         contentDescription = null,
-                                         modifier = Modifier.size(20.dp)
-                                     )
+                             if (currentSourceScope is SourceScope.Extension && sourceIconPainter != null) {
+                                 Icon(
+                                     painter = sourceIconPainter,
+                                     contentDescription = null,
+                                     tint = Color.Unspecified,
+                                     modifier = Modifier.size(20.dp)
+                                 )
+                             } else {
+                                 val icon = when(currentSourceScope) {
+                                     SourceScope.All -> Icons.Rounded.Dataset
+                                     SourceScope.Local -> Icons.Rounded.PhoneAndroid
+                                     else -> Icons.Rounded.Cloud
                                  }
-                                 
-                                 AnimatedVisibility(visible = currentSourceScope !is SourceScope.All) {
-                                     Text(
-                                         text = label,
-                                         style = MaterialTheme.typography.labelLarge,
-                                         maxLines = 1,
-                                         overflow = TextOverflow.Ellipsis
-                                     )
-                                 }
+                                 Icon(
+                                     imageVector = icon,
+                                     contentDescription = null,
+                                     modifier = Modifier.size(20.dp)
+                                 )
                              }
                         }
                     }

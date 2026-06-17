@@ -38,6 +38,50 @@ import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import com.theveloper.pixelplay.presentation.components.subcomps.PlayingEqIcon
+import androidx.media3.common.util.UnstableApi
+import androidx.navigation.NavHostController
+import com.theveloper.pixelplay.presentation.navigation.Screen
+import com.theveloper.pixelplay.presentation.navigation.navigateSafely
+import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
+import com.theveloper.pixelplay.extensions.core.toSong
+
+@androidx.annotation.OptIn(UnstableApi::class)
+fun handleEchoItemClick(
+    item: EchoMediaItem,
+    playerViewModel: PlayerViewModel,
+    navController: NavHostController,
+    activeExtensionId: String?
+) {
+    val idParts = item.id.split(":")
+    val isExtension = idParts.getOrNull(0) == "extension"
+    val extensionId = if (isExtension) idParts.getOrNull(1) else activeExtensionId
+
+    when (item) {
+        is Track -> {
+            val song = if (extensionId != null) {
+                item.toSong(extensionId)
+            } else {
+                playerViewModel.allSongsFlow.value.find { it.id == item.id }
+            }
+            song?.let { playerViewModel.showAndPlaySong(it, listOf(it), "Extension Source") }
+        }
+        is Album -> {
+            val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:album:${item.id}"
+            navController.navigateSafely(Screen.AlbumDetail.createRoute(mediaId))
+        }
+        is Artist -> {
+            val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:artist:${item.id}"
+            navController.navigateSafely(Screen.ArtistDetail.createRoute(mediaId))
+        }
+        is Playlist -> {
+            val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:playlist:${item.id}"
+            navController.navigateSafely(Screen.PlaylistDetail.createRoute(mediaId))
+        }
+        is dev.brahmkshatriya.echo.common.models.Radio -> {
+            // Handle Radio
+        }
+    }
+}
 
 @Composable
 fun ExtensionShelvesSection(

@@ -59,7 +59,7 @@ import com.theveloper.pixelplay.presentation.screens.search.components.GenreCate
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
 import com.theveloper.pixelplay.ui.theme.LocalPixelPlayDarkTheme
-import com.theveloper.pixelplay.utils.Formats.formatSongCount
+import com.theveloper.pixelplay.utils.formatSongCount
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
 import dev.brahmkshatriya.echo.common.models.Shelf
 import kotlinx.collections.immutable.ImmutableList
@@ -70,6 +70,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import timber.log.Timber
+import androidx.compose.ui.graphics.StrokeCap
 
 private const val MAX_ALBUM_MULTI_SELECTION = 6
 
@@ -101,6 +102,7 @@ fun SearchScreen(
     val bottomGradientHeight = resolveMainScreenBottomGradientHeight(navBarCompactMode)
     val bottomGradientBrush = resolveMainScreenBottomGradientBrush()
     
+    var showSongInfoBottomSheet by remember { mutableStateOf(false) }
     var showPlaylistBottomSheet by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -451,21 +453,21 @@ fun SearchScreen(
             onDeleteFromDevice = playerViewModel::deleteFromDevice,
             onNavigateToAlbum = {
                 navController.navigateSafelyReplacing(
-                    route = Screen.AlbumDetail.createRoute(currentSong.albumId),
+                    route = Screen.AlbumDetail.createRoute(currentSong.albumId.toString()),
                     patternToPop = Screen.AlbumDetail.route
                 )
                 showSongInfoBottomSheet = false
             },
             onNavigateToArtist = {
                 navController.navigateSafelyReplacing(
-                    route = Screen.ArtistDetail.createRoute(currentSong.artistId),
+                    route = Screen.ArtistDetail.createRoute(currentSong.artistId.toString()),
                     patternToPop = Screen.ArtistDetail.route
                 )
                 showSongInfoBottomSheet = false
             },
             onNavigateToArtistById = { artistId ->
                 navController.navigateSafelyReplacing(
-                    route = Screen.ArtistDetail.createRoute(artistId),
+                    route = Screen.ArtistDetail.createRoute(artistId.toString()),
                     patternToPop = Screen.ArtistDetail.route
                 )
                 showSongInfoBottomSheet = false
@@ -589,7 +591,8 @@ private fun DiscoveryFeed(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(searchHistory) { historyItem ->
-                            SuggestionChip(
+                            InputChip(
+                                selected = false,
                                 onClick = { 
                                     playerViewModel.updateSearchQuery(historyItem.query)
                                     playerViewModel.performSearch(historyItem.query)
@@ -819,14 +822,14 @@ fun EmptySearchResults(searchQuery: String, colorScheme: ColorScheme) {
     ) {
         Icon(
             imageVector = Icons.Rounded.Search,
-            contentDescription = stringResource(R.string.search_no_results_for, searchQuery),
+            contentDescription = stringResource(R.string.search_no_results_for_query, searchQuery),
             modifier = Modifier.size(80.dp).padding(bottom = 16.dp),
             tint = colorScheme.primary.copy(alpha = 0.6f)
         )
 
         Text(
             text = if (searchQuery.isNotBlank()) {
-                stringResource(R.string.search_no_results_for, searchQuery)
+                stringResource(R.string.search_no_results_for_query, searchQuery)
             } else {
                 "No searches found"
             },
@@ -855,36 +858,33 @@ fun SearchSourceScopeChip(
     modifier: Modifier = Modifier
 ) {
     val selected = scope == currentScope
-    val label = when (scope) {
-        SourceScope.All -> "All Sources"
-        SourceScope.Local -> "Local Files"
-        is SourceScope.Extension -> extensionName ?: "Extension"
-    }
 
-    FilterChip(
-        selected = selected,
-        onClick = { onScopeSelected(scope) },
-        label = { Text(label) },
-        modifier = modifier,
+    androidx.compose.material3.FilledIconToggleButton(
+        checked = selected,
+        onCheckedChange = { onScopeSelected(scope) },
+        modifier = modifier.size(42.dp),
         shape = CircleShape,
-        colors = FilterChipDefaults.filterChipColors(
+        colors = androidx.compose.material3.IconButtonDefaults.filledIconToggleButtonColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            selectedContainerColor = MaterialTheme.colorScheme.secondary,
-            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
-        ),
-        border = null,
-        leadingIcon = {
-            Icon(
-                imageVector = when (scope) {
-                    SourceScope.All -> Icons.Rounded.Public
-                    SourceScope.Local -> Icons.Rounded.Storage
-                    else -> Icons.Rounded.Cloud
-                },
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-    )
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            checkedContainerColor = MaterialTheme.colorScheme.secondary,
+            checkedContentColor = MaterialTheme.colorScheme.onSecondary
+        )
+    ) {
+        Icon(
+            imageVector = when (scope) {
+                SourceScope.All -> Icons.Rounded.Public
+                SourceScope.Local -> Icons.Rounded.Storage
+                else -> Icons.Rounded.Cloud
+            },
+            contentDescription = when (scope) {
+                SourceScope.All -> "All Sources"
+                SourceScope.Local -> "Local Files"
+                is SourceScope.Extension -> extensionName ?: "Extension"
+            },
+            modifier = Modifier.size(20.dp)
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

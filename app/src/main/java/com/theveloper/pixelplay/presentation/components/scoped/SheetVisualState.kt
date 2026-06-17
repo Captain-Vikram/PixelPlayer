@@ -168,7 +168,7 @@ internal fun rememberSheetVisualState(
             val collapsedRadius = if (isNavBarHidden) {
                 32.dp
             } else if (navBarStyle == NavBarStyle.DEFAULT) {
-                10.dp
+                0.dp
             } else if (navBarStyle == NavBarStyle.FULL_WIDTH) {
                 32.dp
             } else {

@@ -474,6 +474,66 @@ class ExtensionRepository @Inject constructor(
         }
     }
 
+    suspend fun listExtensionPlaylists(song: com.theveloper.pixelplay.data.model.Song): List<com.theveloper.pixelplay.data.model.Playlist> {
+        val extensionId = song.extensionId ?: return emptyList()
+        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return emptyList()
+        
+        return try {
+            val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
+                id = song.id.substringAfter(":track:"),
+                title = song.title
+            )
+            extension.getAs<PlaylistEditClient, List<Pair<dev.brahmkshatriya.echo.common.models.Playlist, Boolean>>> {
+                listEditablePlaylists(echoTrack)
+            }.getOrNull()?.map { (playlist, _) -> playlist.toAppPlaylist(extensionId) } ?: emptyList()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    suspend fun addTracksToExtensionPlaylist(playlistId: String, trackIds: List<String>) {
+        val parts = playlistId.split(":")
+        if (parts.size < 4 || parts[0] != "extension") return
+        val extensionId = parts[1]
+        val itemId = parts.drop(3).joinToString(":")
+
+        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return
+        try {
+            extension.getAs<PlaylistEditClient, Unit> {
+                val echoPlaylist = dev.brahmkshatriya.echo.common.models.Playlist(itemId, "", true)
+                val echoTracks = trackIds.map { 
+                    dev.brahmkshatriya.echo.common.models.Track(it.substringAfter(":track:"), "") 
+                }
+                addTracksToPlaylist(echoPlaylist, emptyList(), 0, echoTracks)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _errors.emit("Failed to add tracks to extension playlist")
+        }
+    }
+
+    suspend fun removeTracksFromExtensionPlaylist(playlistId: String, trackIds: List<String>) {
+        val parts = playlistId.split(":")
+        if (parts.size < 4 || parts[0] != "extension") return
+        val extensionId = parts[1]
+        val itemId = parts.drop(3).joinToString(":")
+
+        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return
+        try {
+            extension.getAs<PlaylistEditClient, Unit> {
+                val echoPlaylist = dev.brahmkshatriya.echo.common.models.Playlist(itemId, "", true)
+                val echoTracks = trackIds.map { 
+                    dev.brahmkshatriya.echo.common.models.Track(it.substringAfter(":track:"), "") 
+                }
+                removeTracksFromPlaylist(echoPlaylist, emptyList(), emptyList()) // Cannot remove by ID without indexes in this API
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _errors.emit("Failed to remove tracks from extension playlist")
+        }
+    }
+
     fun loadLibraryFeed(forceRefresh: Boolean = false) {
         val extension = _currentMusicExtension.value ?: return
         val extensionId = extension.metadata.id

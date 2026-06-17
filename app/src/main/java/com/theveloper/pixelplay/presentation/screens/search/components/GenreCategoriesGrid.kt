@@ -140,36 +140,12 @@ fun GenreCategoriesGrid(
                 ),
                 shape = RoundedCornerShape(shape.value.dp)
             ) {
-<<<<<<< HEAD
-=======
-                Text(
-                    text = stringResource(R.string.browse_by_genre),
-                    style = MaterialTheme.typography.titleLarge
-                )
-                
-                // Toggle Button with persistence and styling
-                // Animate between rounded corners in list mode and circular appearance in grid mode.
-                val animatedCornerRadius = animateDpAsState(
-                    targetValue = if (!isGridView) 12.dp else 50.dp,
-                    label = "shapeAnimation"
-                )
-
-                androidx.compose.material3.FilledIconButton(
-                    onClick = { playerViewModel.toggleGenreViewMode() },
-                    colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ),
-                    shape = RoundedCornerShape(animatedCornerRadius.value)
-                ) {
->>>>>>> upstream/master
                 androidx.compose.material3.Icon(
                     imageVector = if (isGridView) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView,
                     contentDescription = "Toggle Grid/List View"
                 )
             }
         }
-<<<<<<< HEAD
 
         val chunkedGenres = remember(genres, isGridView) {
             genres.chunked(if (isGridView) 2 else 1)
@@ -188,7 +164,12 @@ fun GenreCategoriesGrid(
                             genre = genre,
                             customIcons = customGenreIcons,
                             onClick = { onGenreClick(genre) },
-                            isGridView = isGridView
+                            isGridView = isGridView,
+                            isSelectionMode = isSelectionMode,
+                            isSelected = selectedGenreIds.contains(genre.id),
+                            selectionIndex = getSelectionIndex(genre.id),
+                            onLongPress = { onGenreLongPress(genre) },
+                            onSelectionToggle = { onGenreSelectionToggle(genre) }
                         )
                     }
                 }
@@ -198,20 +179,6 @@ fun GenreCategoriesGrid(
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
-=======
-        items(genres, key = { it.id }) { genre ->
-            GenreCard(
-                genre = genre,
-                customIcons = customGenreIcons,
-                onClick = { onGenreClick(genre) },
-                isGridView = isGridView,
-                isSelectionMode = isSelectionMode,
-                isSelected = selectedGenreIds.contains(genre.id),
-                selectionIndex = getSelectionIndex(genre.id),
-                onLongPress = { onGenreLongPress(genre) },
-                onSelectionToggle = { onGenreSelectionToggle(genre) }
-            )
->>>>>>> upstream/master
         }
     }
 }
@@ -219,7 +186,7 @@ fun GenreCategoriesGrid(
 @Composable
 private fun GenreCard(
     genre: Genre,
-    customIcons: Map<String, Int>,
+    customIcons: Map<String, String>,
     onClick: () -> Unit,
     isGridView: Boolean,
     isSelectionMode: Boolean = false,

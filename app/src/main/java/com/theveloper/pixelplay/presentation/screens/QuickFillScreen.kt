@@ -49,7 +49,7 @@ fun QuickFillDialog(
     visible: Boolean,
     songs: List<Song>, // Initial list of songs (from Unknown genre)
     customGenres: Set<String>,
-    customGenreIcons: Map<String, Int>,
+    customGenreIcons: Map<String, String>,
     onDismiss: () -> Unit,
     onApply: (List<Song>, String) -> Unit,
     onAddCustomGenre: (String, Int) -> Unit
@@ -75,7 +75,7 @@ fun QuickFillDialog(
 fun QuickFillContent(
     songs: List<Song>,
     customGenres: Set<String>,
-    customGenreIcons: Map<String, Int>,
+    customGenreIcons: Map<String, String>,
     onDismiss: () -> Unit,
     onApply: (List<Song>, String) -> Unit,
     onAddCustomGenre: (String, Int) -> Unit
@@ -306,7 +306,7 @@ fun QuickFillContent(
 fun GenreValidatorContent(
     selectedGenre: String?,
     customGenres: Set<String>,
-    customGenreIcons: Map<String, Int>,
+    customGenreIcons: Map<String, String>,
     onGenreSelected: (String) -> Unit,
     onAddCustomGenre: (String, Int) -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp)

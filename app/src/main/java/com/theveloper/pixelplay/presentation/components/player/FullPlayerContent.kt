@@ -1,6 +1,15 @@
 package com.theveloper.pixelplay.presentation.components.player
 
 import android.annotation.SuppressLint
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.DisposableEffect
 import android.content.Context
 import android.content.res.Configuration
 import android.net.Uri
@@ -185,25 +194,18 @@ private suspend fun validateLyricsImport(
     } ?: LyricsImportValidationResult.Invalid(LyricsImportFailureReason.EMPTY_CONTENT)
 }
 
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
-
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.text.style.TextAlign
-import com.theveloper.pixelplay.data.model.Lyrics
-
 @Composable
 private fun SyncedSubtitlesOverlay(
-    lyrics: Lyrics?,
-    currentPosition: Long,
-    expansionFraction: Float,
+    lyricsProvider: () -> Lyrics?,
+    currentPositionProvider: () -> Long,
+    expansionFractionProvider: () -> Float,
     modifier: Modifier = Modifier
 ) {
+    val expansionFraction = expansionFractionProvider()
+    val lyrics = lyricsProvider()
     if (lyrics == null || lyrics.synced.isNullOrEmpty() || expansionFraction < 0.1f) return
 
+    val currentPosition = currentPositionProvider()
     val currentLine = remember(lyrics, currentPosition) {
         lyrics.synced.findLast { it.time <= currentPosition }?.line ?: ""
     }
@@ -221,14 +223,17 @@ private fun SyncedSubtitlesOverlay(
     ) {
         Text(
             text = currentLine,
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                shadow = Shadow(
+                    color = Color.Black,
+                    offset = Offset(2f, 2f),
+                    blurRadius = 4f
+                )
+            ),
             color = Color.White,
             textAlign = TextAlign.Center,
-            shadow = Shadow(
-                color = Color.Black,
-                offset = Offset(2f, 2f),
-                blurRadius = 4f
-            )
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -296,6 +301,7 @@ private fun VideoLoopCanvas(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun FullPlayerContent(
+    userPreferencesRepository: com.theveloper.pixelplay.data.preferences.UserPreferencesRepository,
     currentSong: Song?,
     currentPlaybackQueue: ImmutableList<Song>,
     currentQueueSourceName: String,
@@ -350,6 +356,11 @@ fun FullPlayerContent(
     var showArtistPicker by rememberSaveable { mutableStateOf(false) }
     
     val lyricsSearchUiState by playerViewModel.lyricsSearchUiState.collectAsStateWithLifecycle()
+
+    val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
+    val lyricsExtensions = remember(allExtensions) {
+        allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.LyricsExtension>()
+    }
 
     // Single subscription — replaces 11 independent collectAsStateWithLifecycle calls.
     // distinctUntilChanged in the ViewModel ensures this only emits when something
@@ -676,6 +687,15 @@ fun FullPlayerContent(
             onShuffleToggle = onShuffleToggle,
             onRepeatToggle = onRepeatToggle,
             onFavoriteToggle = onFavoriteToggle
+        )
+    }
+
+    val lyricsPreviewSection: @Composable () -> Unit = {
+        SyncedSubtitlesOverlay(
+            lyricsProvider = lyricsProvider,
+            currentPositionProvider = currentPositionProvider,
+            expansionFractionProvider = expansionFractionProvider,
+            modifier = Modifier.padding(top = 8.dp)
         )
     }
 
@@ -1023,27 +1043,13 @@ fun FullPlayerContent(
                 .fillMaxSize()
                 .graphicsLayer { alpha = contentAlpha }
         ) {
-            VideoLoopCanvas(
-                videoUri = song.backgroundUriString,
-                isPlaying = isPlayingProvider(),
-                expansionFraction = expansionFractionProvider()
-            )
-
-            SyncedSubtitlesOverlay(
-                lyrics = lyricsProvider(),
-                currentPosition = currentPositionProvider(),
-                expansionFraction = expansionFractionProvider(),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = if (isLandscape) 40.dp else 240.dp)
-            )
-
             if (isLandscape) {
                 FullPlayerLandscapeContent(
                     paddingValues = paddingValues,
                     albumCoverSection = albumCoverSection,
                     songMetadataSection = landscapeSongMetadataSection,
                     playerProgressSection = playerProgressSection,
+                    lyricsPreviewSection = lyricsPreviewSection,
                     controlsSection = controlsSection
                 )
             } else {
@@ -1052,6 +1058,7 @@ fun FullPlayerContent(
                     albumCoverSection = albumCoverSection,
                     songMetadataSection = portraitSongMetadataSection,
                     playerProgressSection = playerProgressSection,
+                    lyricsPreviewSection = lyricsPreviewSection,
                     controlsSection = controlsSection
                 )
             }
@@ -1069,6 +1076,7 @@ fun FullPlayerContent(
         ) + fadeOut(animationSpec = tween(durationMillis = 120))
     ) {
         LyricsSheet(
+            userPreferencesRepository = userPreferencesRepository,
             stablePlayerStateFlow = playerViewModel.stablePlayerState,
             playbackPositionFlow = playerViewModel.currentPlaybackPosition,
             lyricsSearchUiState = lyricsSearchUiState,
@@ -1081,6 +1089,8 @@ fun FullPlayerContent(
             onManualSearch = { title, artist -> playerViewModel.searchLyricsManually(title, artist) },
             onImportLyrics = { filePickerLauncher.launch(com.theveloper.pixelplay.utils.LyricsImportSecurity.pickerMimeTypes()) },
             onDismissLyricsSearch = { playerViewModel.resetLyricsSearchState() },
+            onSelectSource = { playerViewModel.selectLyricsSource(it) },
+            lyricsExtensions = lyricsExtensions,
             lyricsSyncOffset = lyricsSyncOffset,
             onLyricsSyncOffsetChange = { currentSong?.id?.let { songId -> playerViewModel.setLyricsSyncOffset(songId, it) } },
             lyricsTextStyle = MaterialTheme.typography.titleLarge,
@@ -1610,6 +1620,7 @@ private fun SongMetadataDisplaySection(
                 artist = currentSong.displayArtist,
                 artistId = currentSong.artistId,
                 artists = currentSongArtists,
+                extensionId = currentSong.extensionId,
                 expansionFractionProvider = expansionFractionProvider,
                 textColor = textColor,
                 artistTextColor = artistTextColor,
@@ -2265,6 +2276,7 @@ private fun PlayerSongInfo(
     artist: String,
     artistId: Long,
     artists: List<Artist>,
+    extensionId: String?,
     expansionFractionProvider: () -> Float,
     textColor: Color,
     artistTextColor: Color,
@@ -2301,20 +2313,41 @@ private fun PlayerSongInfo(
                 translationY = (1f - fraction) * 24f
             }
     ) {
-        // We pass 1f to AutoScrollingTextOnDemand because the alpha/translation is now handled by the parent Column graphicsLayer
-        // and we want it "fully rendered" but hidden/moved by the layer.
-        // Actually, AutoScrollingTextOnDemand uses expansionFraction to start scrolling only when fully expanded?
-        // Let's check AutoScrollingTextOnDemand. Assuming it uses it for scrolling trigger.
-        // If we want to avoid recomposition, we might need to pass the provider or just 1f if scrolling logic handles itself.
-        // For now, let's pass the current value from provider for logic correctness, but ideally this component should be optimized too.
-        AutoScrollingTextOnDemand(
-            text = title,
-            style = titleStyle,
-            gradientEdgeColor = gradientEdgeColor,
-            expansionFractionProvider = expansionFractionProvider,
-            modifier = Modifier.fillMaxWidth(),
-            canScroll = isPlayingProvider()
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AutoScrollingTextOnDemand(
+                text = title,
+                style = titleStyle,
+                gradientEdgeColor = gradientEdgeColor,
+                expansionFractionProvider = expansionFractionProvider,
+                modifier = Modifier.weight(1f, fill = false),
+                canScroll = isPlayingProvider()
+            )
+
+            if (extensionId != null) {
+                val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
+                val extension = remember(allExtensions, extensionId) {
+                    allExtensions.find { it.metadata.id == extensionId }
+                }
+                extension?.let { ext ->
+                    val iconModel = when (val icon = ext.metadata.icon) {
+                        is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
+                        is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
+                        else -> null
+                    }
+                    if (iconModel != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        SmartImage(
+                            model = iconModel,
+                            contentDescription = ext.metadata.name,
+                            modifier = Modifier.size(20.dp).clip(CircleShape)
+                        )
+                    }
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(2.dp))
 
 

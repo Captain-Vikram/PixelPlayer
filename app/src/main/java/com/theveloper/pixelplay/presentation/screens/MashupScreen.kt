@@ -48,13 +48,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun MashupScreen(
     onNavigateBack: () -> Unit,
-    viewModel: MashupViewModel = hiltViewModel(),
+    mashupViewModel: MashupViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val deck1Progress by viewModel.deck1Progress.collectAsStateWithLifecycle()
-    val deck2Progress by viewModel.deck2Progress.collectAsStateWithLifecycle()
-    val allSongs by viewModel.uiState.map { it.allSongs }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val uiState by mashupViewModel.uiState.collectAsStateWithLifecycle()
+    val deck1Progress by mashupViewModel.deck1Progress.collectAsStateWithLifecycle()
+    val deck2Progress by mashupViewModel.deck2Progress.collectAsStateWithLifecycle()
+    val allSongs by mashupViewModel.uiState.map { it.allSongs }.collectAsStateWithLifecycle(initialValue = emptyList())
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
 
@@ -65,14 +65,13 @@ fun MashupScreen(
 
     Scaffold(
         topBar = {
-<<<<<<< HEAD
             CenterAlignedTopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.AutoAwesome, null, modifier = Modifier.size(24.dp))
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            stringResource(R.string.presentation_batch_d_mashup_title),
+                            stringResource(R.string.mashup_title),
                             fontFamily = GoogleSansRounded,
                             fontWeight = FontWeight.Bold
                         )
@@ -82,12 +81,10 @@ fun MashupScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, null)
                     }
-                }
-=======
-            TopAppBar(
-                title = { Text(stringResource(R.string.mashup_title)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
->>>>>>> upstream/master
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                )
             )
         }
     ) { paddingValues ->
@@ -123,15 +120,6 @@ fun MashupScreen(
                         deckState = uiState.deck1,
                         progressProvider = { deck1Progress },
                         isLoading = isLoading1,
-<<<<<<< HEAD
-                        loadingMessage = stringResource(R.string.presentation_batch_d_loading),
-                        onPlayPause = { viewModel.playPause(1) },
-                        onVolumeChange = { viewModel.setVolume(1, it) },
-                        onSelectSong = { viewModel.openSongPicker(1) },
-                        onSeek = { progress -> viewModel.seek(1, progress) },
-                        onSpeedChange = { speed -> viewModel.setSpeed(1, speed) },
-                        onNudge = { amount -> viewModel.nudge(1, amount) }
-=======
                         loadingMessage = stringResource(R.string.mashup_loading),
                         onPlayPause = { mashupViewModel.playPause(1) },
                         onVolumeChange = { mashupViewModel.setVolume(1, it) },
@@ -139,7 +127,6 @@ fun MashupScreen(
                         onSeek = { progress -> mashupViewModel.seek(1, progress) },
                         onSpeedChange = { speed -> mashupViewModel.setSpeed(1, speed) },
                         onNudge = { amount -> mashupViewModel.nudge(1, amount) }
->>>>>>> upstream/master
                     )
                     
                     DeckUi(
@@ -147,15 +134,6 @@ fun MashupScreen(
                         deckState = uiState.deck2,
                         progressProvider = { deck2Progress },
                         isLoading = isLoading2,
-<<<<<<< HEAD
-                        loadingMessage = stringResource(R.string.presentation_batch_d_loading),
-                        onPlayPause = { viewModel.playPause(2) },
-                        onVolumeChange = { viewModel.setVolume(2, it) },
-                        onSelectSong = { viewModel.openSongPicker(2) },
-                        onSeek = { progress -> viewModel.seek(2, progress) },
-                        onSpeedChange = { speed -> viewModel.setSpeed(2, speed) },
-                        onNudge = { amount -> viewModel.nudge(2, amount) }
-=======
                         loadingMessage = stringResource(R.string.mashup_loading),
                         onPlayPause = { mashupViewModel.playPause(2) },
                         onVolumeChange = { mashupViewModel.setVolume(2, it) },
@@ -163,13 +141,12 @@ fun MashupScreen(
                         onSeek = { progress -> mashupViewModel.seek(2, progress) },
                         onSpeedChange = { speed -> mashupViewModel.setSpeed(2, speed) },
                         onNudge = { amount -> mashupViewModel.nudge(2, amount) }
->>>>>>> upstream/master
                     )
                 }
 
                 Crossfader(
                     value = uiState.crossfaderValue,
-                    onValueChange = { viewModel.onCrossfaderChange(it) },
+                    onValueChange = { mashupViewModel.onCrossfaderChange(it) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -178,7 +155,7 @@ fun MashupScreen(
 
             if (uiState.showSongPickerForDeck != null) {
                 ModalBottomSheet(
-                    onDismissRequest = { viewModel.closeSongPicker() },
+                    onDismissRequest = { mashupViewModel.closeSongPicker() },
                     sheetState = sheetState
                 ) {
                     SongPickerSheet(
@@ -186,7 +163,7 @@ fun MashupScreen(
                         onSongSelected = { song ->
                             scope.launch {
                                 val deck = uiState.showSongPickerForDeck ?: return@launch
-                                viewModel.loadSong(deck, song)
+                                mashupViewModel.loadSong(deck, song)
                             }
                         },
                         playerViewModel = playerViewModel
@@ -223,13 +200,8 @@ private fun DeckUi(
         Box(contentAlignment = Alignment.Center) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-<<<<<<< HEAD
-                    text = stringResource(R.string.presentation_batch_d_mashup_deck_n, deckNumber),
-                    style = MaterialTheme.typography.labelLarge,
-=======
                     text = stringResource(R.string.mashup_deck_n, deckNumber),
                     style = MaterialTheme.typography.titleMedium,
->>>>>>> upstream/master
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -261,25 +233,20 @@ private fun DeckUi(
                         }
                     }
                     Column(modifier = Modifier.weight(1f)) {
-<<<<<<< HEAD
                         Text(
-                            deckState.song?.title ?: stringResource(R.string.presentation_batch_d_mashup_no_song_loaded), 
+                            deckState.song?.title ?: stringResource(R.string.mashup_no_song_loaded), 
                             style = MaterialTheme.typography.titleMedium, 
                             fontWeight = FontWeight.Bold, 
                             maxLines = 1, 
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            deckState.song?.artist ?: stringResource(R.string.presentation_batch_d_mashup_artist_placeholder), 
+                            deckState.song?.artist ?: stringResource(R.string.mashup_artist_placeholder), 
                             style = MaterialTheme.typography.bodyMedium, 
                             maxLines = 1, 
                             overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-=======
-                        Text(deckState.song?.title ?: stringResource(R.string.mashup_no_song_loaded), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(deckState.song?.artist ?: stringResource(R.string.mashup_artist_placeholder), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
->>>>>>> upstream/master
                         Spacer(Modifier.height(8.dp))
                         Slider(
                             value = progressProvider(),
@@ -301,15 +268,11 @@ private fun DeckUi(
                             .padding(12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-<<<<<<< HEAD
                         Text(
-                            stringResource(R.string.presentation_batch_d_mashup_stem_separation_unavailable), 
+                            stringResource(R.string.mashup_stem_separation_unavailable), 
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-=======
-                        Text(stringResource(R.string.mashup_stem_separation_unavailable), style = MaterialTheme.typography.bodyMedium)
->>>>>>> upstream/master
                     }
                 }
 
@@ -350,17 +313,16 @@ private fun DeckUi(
                     }
                 }
 
-<<<<<<< HEAD
                 Column(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SliderControl(
-                        label = stringResource(R.string.presentation_batch_d_mashup_volume), 
+                        label = stringResource(R.string.mashup_volume), 
                         value = deckState.volume, 
                         onValueChange = onVolumeChange, 
                         valueRange = 0f..1f, 
                         enabled = deckState.song != null
                     )
                     SliderControl(
-                        label = stringResource(R.string.presentation_batch_d_mashup_speed), 
+                        label = stringResource(R.string.mashup_speed), 
                         value = deckState.speed, 
                         onValueChange = onSpeedChange, 
                         valueRange = 0.5f..2f, 
@@ -368,16 +330,10 @@ private fun DeckUi(
                         enabled = deckState.song != null
                     ) {
                         Text(
-                            text = stringResource(R.string.presentation_batch_h_mashup_speed_multiplier, deckState.speed), 
+                            text = stringResource(R.string.mashup_speed_multiplier, deckState.speed), 
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold
                         )
-=======
-                Column(modifier = Modifier.padding(top = 8.dp)) {
-                    SliderControl(label = stringResource(R.string.mashup_volume), value = deckState.volume, onValueChange = onVolumeChange, valueRange = 0f..1f, enabled = deckState.song != null)
-                    SliderControl(label = stringResource(R.string.mashup_speed), value = deckState.speed, onValueChange = onSpeedChange, valueRange = 0.5f..2f, steps = 14, enabled = deckState.song != null) {
-                        Text(text = stringResource(R.string.mashup_speed_multiplier, deckState.speed), style = MaterialTheme.typography.labelSmall)
->>>>>>> upstream/master
                     }
                 }
             }
@@ -427,7 +383,6 @@ private fun SliderControl(
 
 @Composable
 private fun Crossfader(value: Float, onValueChange: (Float) -> Unit, modifier: Modifier = Modifier) {
-<<<<<<< HEAD
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(24.dp),
@@ -438,8 +393,8 @@ private fun Crossfader(value: Float, onValueChange: (Float) -> Unit, modifier: M
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                stringResource(R.string.presentation_batch_d_mashup_crossfader), 
-                style = MaterialTheme.typography.labelLarge,
+                stringResource(R.string.mashup_crossfader), 
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -450,7 +405,7 @@ private fun Crossfader(value: Float, onValueChange: (Float) -> Unit, modifier: M
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    stringResource(R.string.presentation_batch_d_mashup_deck_1), 
+                    stringResource(R.string.mashup_deck_1), 
                     style = MaterialTheme.typography.labelMedium
                 )
                 Slider(
@@ -462,26 +417,15 @@ private fun Crossfader(value: Float, onValueChange: (Float) -> Unit, modifier: M
                         .padding(horizontal = 12.dp)
                 )
                 Text(
-                    stringResource(R.string.presentation_batch_d_mashup_deck_2), 
+                    stringResource(R.string.mashup_deck_2), 
                     style = MaterialTheme.typography.labelMedium
                 )
             }
-=======
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(stringResource(R.string.mashup_crossfader), style = MaterialTheme.typography.titleMedium)
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.mashup_deck_1), style = MaterialTheme.typography.bodyMedium)
-            Slider(value = value, onValueChange = onValueChange, valueRange = -1f..1f, modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp))
-            Text(stringResource(R.string.mashup_deck_2), style = MaterialTheme.typography.bodyMedium)
->>>>>>> upstream/master
         }
     }
 }
 
 @Composable
-<<<<<<< HEAD
 private fun SongPickerSheet(
     songs: List<Song>,
     onSongSelected: (Song) -> Unit,
@@ -500,7 +444,7 @@ private fun SongPickerSheet(
 
     Column(modifier = Modifier.navigationBarsPadding().fillMaxHeight(0.85f)) {
         Text(
-            text = stringResource(R.string.presentation_batch_d_mashup_select_song_title),
+            text = stringResource(R.string.mashup_select_song_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             textAlign = TextAlign.Center,
@@ -537,17 +481,6 @@ private fun SongPickerSheet(
                 .padding(horizontal = 8.dp)
         ) {
             items(filteredSongs, key = { it.id }) { song ->
-=======
-private fun SongPickerSheet(songs: List<Song>, onSongSelected: (Song) -> Unit) {
-    Column(modifier = Modifier.navigationBarsPadding()) {
-        Text(stringResource(R.string.mashup_select_song_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp), textAlign = TextAlign.Center)
-        LazyColumn(modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp)) {
-            items(songs, key = { it.id }) { song ->
->>>>>>> upstream/master
                 SongPickerItem(song = song, onClick = { onSongSelected(song) })
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
             }
@@ -557,18 +490,13 @@ private fun SongPickerSheet(songs: List<Song>, onSongSelected: (Song) -> Unit) {
 
 @Composable
 private fun SongPickerItem(song: Song, onClick: () -> Unit) {
-<<<<<<< HEAD
     ListItem(
         modifier = Modifier.clickable { onClick() },
         leadingContent = {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(song.albumArtUriString)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = null,
-                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
+            SmartImage(
+                model = song.albumArtUriString,
+                contentDescription = stringResource(R.string.mashup_cd_song_cover),
+                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp))
             )
         },
         headlineContent = { 
@@ -581,7 +509,7 @@ private fun SongPickerItem(song: Song, onClick: () -> Unit) {
         },
         supportingContent = { 
             Text(
-                song.artist, 
+                song.displayArtist, 
                 maxLines = 1, 
                 overflow = TextOverflow.Ellipsis, 
                 style = MaterialTheme.typography.bodyMedium
@@ -598,24 +526,4 @@ private fun SongPickerItem(song: Song, onClick: () -> Unit) {
             }
         } else null
     )
-=======
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        SmartImage(
-            model = song.albumArtUriString,
-            contentDescription = stringResource(R.string.mashup_cd_song_cover),
-            modifier = Modifier.size(40.dp)
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold)
-            Text(text = song.displayArtist, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-        }
-    }
->>>>>>> upstream/master
 }

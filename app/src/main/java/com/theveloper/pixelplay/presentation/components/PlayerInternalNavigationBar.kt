@@ -35,6 +35,9 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+
 internal val NavBarContentHeight = 90.dp // Altura del contenido de la barra de navegación
 internal val NavBarCompactContentHeight = 64.dp
 internal val NavBarContentHeightFullWidth = NavBarContentHeight // Altura del contenido de la barra de navegación en modo completo
@@ -42,7 +45,7 @@ private val MainScreenBottomGradientExtraHeight = MiniPlayerHeight + MiniPlayerB
 // Some OEM freeform/floating-window modes can report a bottom inset close to the whole window height.
 internal val MaxNavigationBarBottomInset = 96.dp
 
-internal fun sanitizeNavigationBarBottomInset(systemNavBarInset: Dp): Dp {
+fun sanitizeNavigationBarBottomInset(systemNavBarInset: Dp): Dp {
     if (!systemNavBarInset.value.isFinite()) return 0.dp
     return systemNavBarInset.coerceIn(0.dp, MaxNavigationBarBottomInset)
 }
@@ -66,8 +69,20 @@ internal fun calculatePlayerSheetCollapsedTargetY(
 internal fun resolveNavBarContentHeight(compactMode: Boolean): Dp =
     if (compactMode) NavBarCompactContentHeight else NavBarContentHeight
 
-internal fun resolveMainScreenBottomGradientHeight(compactMode: Boolean): Dp =
+fun resolveMainScreenBottomGradientHeight(compactMode: Boolean): Dp =
     resolveNavBarContentHeight(compactMode) + MainScreenBottomGradientExtraHeight
+
+@Composable
+fun resolveMainScreenBottomGradientBrush(): Brush {
+    return Brush.verticalGradient(
+        colorStops = arrayOf(
+            0.0f to Color.Transparent,
+            0.2f to Color.Transparent,
+            0.8f to MaterialTheme.colorScheme.surfaceContainerLowest,
+            1.0f to MaterialTheme.colorScheme.surfaceContainerLowest
+        )
+    )
+}
 
 internal fun resolveNavBarSurfaceHeight(
     navBarStyle: String,
@@ -82,7 +97,7 @@ internal fun resolveNavBarSurfaceHeight(
     }
 }
 
-internal fun resolveNavBarOccupiedHeight(
+fun resolveNavBarOccupiedHeight(
     systemNavBarInset: Dp,
     compactMode: Boolean
 ): Dp = resolveNavBarContentHeight(compactMode) + systemNavBarInset

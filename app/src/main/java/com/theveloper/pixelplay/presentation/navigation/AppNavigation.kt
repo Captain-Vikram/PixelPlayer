@@ -13,6 +13,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
 import androidx.compose.ui.unit.IntOffset
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -201,7 +204,10 @@ fun AppNavigation(
                 },
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
-                    LibraryScreen(navController = navController, playerViewModel = playerViewModel)
+                    LibraryScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel
+                    )
                 }
             }
             composable(
@@ -327,13 +333,8 @@ fun AppNavigation(
             composable(
                 Screen.DJSpace.route,
             ) {
-<<<<<<< HEAD
-                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
-                    MashupScreen(onNavigateBack = { navController.popBackStack() })
-=======
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
-                    MashupScreen()
->>>>>>> upstream/master
+                    MashupScreen(onNavigateBack = { navController.popBackStack() })
                 }
             }
             composable(
@@ -499,72 +500,48 @@ fun AppNavigation(
                     )
                 }
             }
-            composable(
-                Screen.Extensions.route,
-                enterTransition = { enterTransition() },
-                exitTransition = { exitTransition() },
-                popEnterTransition = { popEnterTransition() },
-                popExitTransition = { popExitTransition() },
-            ) {
-                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+
+            composable(Screen.Extensions.route) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     com.theveloper.pixelplay.presentation.screens.ExtensionsScreen(
                         onBack = { navController.popBackStack() },
                         onOpenExtensionSettings = { extensionId ->
                             navController.navigate(Screen.ExtensionSettings.createRoute(extensionId))
                         },
+                        onOpenExtensionLogin = { extensionId ->
+                            navController.navigate(Screen.ExtensionLogin.createRoute(extensionId))
+                        },
                         paddingValues = paddingValues
                     )
                 }
             }
+
             composable(
-                route = Screen.ExtensionSettings.route,
-                arguments = listOf(navArgument("extensionId") { type = NavType.StringType }),
-                enterTransition = { enterTransition() },
-                exitTransition = { exitTransition() },
-                popEnterTransition = { popEnterTransition() },
-                popExitTransition = { popExitTransition() },
+                Screen.ExtensionSettings.route,
+                arguments = listOf(navArgument("extensionId") { type = NavType.StringType })
             ) { backStackEntry ->
-                val extensionId = backStackEntry.arguments?.getString("extensionId")
-                if (extensionId != null) {
-                    ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
-                        com.theveloper.pixelplay.presentation.screens.ExtensionSettingsScreen(
-                            extensionId = extensionId,
-                            onBack = { navController.popBackStack() }
-                        )
-                    }
-                }
-            }
-            composable(
-                route = Screen.ExtensionLogin.route,
-                arguments = listOf(navArgument("extensionId") { type = NavType.StringType }),
-                enterTransition = { enterTransition() },
-                exitTransition = { exitTransition() },
-                popEnterTransition = { popEnterTransition() },
-                popExitTransition = { popExitTransition() },
-            ) { backStackEntry ->
-                val extensionId = backStackEntry.arguments?.getString("extensionId")
-                if (extensionId != null) {
-                    ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
-                        com.theveloper.pixelplay.presentation.screens.ExtensionLoginScreen(
-                            onNavigateUp = { navController.popBackStack() },
-                            webViewManager = playerViewModel.extensionWebViewManager
-                        )
-                    }
-                }
-            }
-            composable(
-                Screen.Downloads.route,
-                enterTransition = { enterTransition() },
-                exitTransition = { exitTransition() },
-                popEnterTransition = { popEnterTransition() },
-                popExitTransition = { popExitTransition() },
-            ) {
-                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
-                    com.theveloper.pixelplay.presentation.screens.DownloadsManagerScreen(
+                val extensionId = backStackEntry.arguments?.getString("extensionId") ?: return@composable
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.ExtensionSettingsScreen(
+                        extensionId = extensionId,
                         onBack = { navController.popBackStack() }
                     )
                 }
             }
+
+            composable(
+                Screen.ExtensionLogin.route,
+                arguments = listOf(navArgument("extensionId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val extensionId = backStackEntry.arguments?.getString("extensionId") ?: return@composable
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.ExtensionLoginScreen(
+                        onNavigateUp = { navController.popBackStack() },
+                        webViewManager = playerViewModel.extensionWebViewManager
+                    )
+                }
+            }
+
         }
     }
 }
@@ -580,8 +557,8 @@ private enum class MainRootDirection {
     BACKWARD
 }
 
-// Base duration for bottom-nav switches at 1x — at 0.5x system scale = ~125 ms.
-private const val BOTTOM_NAV_TRANSITION_DURATION = 250
+// Base duration for bottom-nav switches at 1x — at 0.5x system scale = ~190 ms.
+private const val BOTTOM_NAV_TRANSITION_DURATION = 380
 
 // MD3 Expressive easing for bottom-nav switches
 private val BottomNavEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
@@ -596,8 +573,8 @@ private fun mainRootDirection(
     fromRoute: String?,
     toRoute: String?
 ): MainRootDirection? {
-    val fromIndex = mainRootRouteIndex(fromRoute) ?: return null
-    val toIndex = mainRootRouteIndex(toRoute) ?: return null
+    val fromIndex: Int = mainRootRouteIndex(fromRoute) ?: return null
+    val toIndex: Int = mainRootRouteIndex(toRoute) ?: return null
     if (fromIndex == toIndex) return null
     return if (toIndex > fromIndex) MainRootDirection.FORWARD else MainRootDirection.BACKWARD
 }

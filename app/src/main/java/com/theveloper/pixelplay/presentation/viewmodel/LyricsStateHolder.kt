@@ -1,5 +1,7 @@
 package com.theveloper.pixelplay.presentation.viewmodel
 
+import android.net.Uri
+import android.util.Log
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.media.AudioMetadataReader
 import com.theveloper.pixelplay.data.media.CoverArtUpdate
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import dev.brahmkshatriya.echo.common.models.Feed.Companion.loadAll
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -33,7 +36,6 @@ import kotlinx.coroutines.withContext
 
 /**
  * Callback interface for lyrics loading results.
- * Used to update StablePlayerState in PlayerViewModel.
  */
 interface LyricsLoadCallback {
     fun onLoadingStarted(songId: String)
@@ -41,13 +43,7 @@ interface LyricsLoadCallback {
 }
 
 /**
- * Callbacks supplied by [PlayerViewModel] so the AI-translation flow can reach the AI layer and
- * resolve localized strings without [LyricsStateHolder] depending on AiStateHolder or a Context.
- * Mirrors the callback-lambda pattern used elsewhere (e.g. [LyricsStateHolder.fetchLyricsForSong]).
- *
- * @param translate Delegates the raw lyrics to the AI translator (AiStateHolder.translateLyrics).
- * @param getString Resolves a no-arg string resource.
- * @param getErrorString Resolves the generic AI error string (R.string.ai_error_generic) with a detail.
+ * Callbacks supplied by [PlayerViewModel] so the AI-translation flow can reach the AI layer.
  */
 class LyricsTranslationCallbacks(
     val translate: suspend (String) -> Result<String>,
@@ -55,13 +51,12 @@ class LyricsTranslationCallbacks(
     val getErrorString: (String) -> String
 )
 
-/**
- * Manages lyrics loading, search state, and sync offset.
- * Extracted from PlayerViewModel to improve modularity.
- */
+import com.theveloper.pixelplay.extensions.core.toAppLyrics
+
 @Singleton
 class LyricsStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
+    private val lyricsRepository: com.theveloper.pixelplay.data.repository.LyricsRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val songMetadataEditor: SongMetadataEditor,
     private val extensionLoader: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
@@ -70,31 +65,24 @@ class LyricsStateHolder @Inject constructor(
     private var loadingJob: Job? = null
     private var loadCallback: LyricsLoadCallback? = null
 
-    // Sync offset per song in milliseconds
     private val _currentSongSyncOffset = MutableStateFlow(0)
     val currentSongSyncOffset: StateFlow<Int> = _currentSongSyncOffset.asStateFlow()
 
-    // Lyrics search UI state
     private val _searchUiState = MutableStateFlow<LyricsSearchUiState>(LyricsSearchUiState.Idle)
     val searchUiState: StateFlow<LyricsSearchUiState> = _searchUiState.asStateFlow()
 
-    // Event to notify ViewModel of song updates (e.g. lyrics added)
     private val _songUpdates = kotlinx.coroutines.flow.MutableSharedFlow<Pair<Song, Lyrics?>>(
         extraBufferCapacity = 1,
         onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
     )
     val songUpdates = _songUpdates.asSharedFlow()
 
-    // Event for Toasts
     private val _messageEvents = kotlinx.coroutines.flow.MutableSharedFlow<String>(
         extraBufferCapacity = 1,
         onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
     )
     val messageEvents = _messageEvents.asSharedFlow()
 
-    /**
-     * Initialize with coroutine scope and callback from ViewModel.
-     */
     fun initialize(
         coroutineScope: CoroutineScope,
         callback: LyricsLoadCallback,
@@ -115,11 +103,6 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    /**
-     * Load lyrics for a song.
-     * @param song The song to load lyrics for
-     * @param sourcePreference The preferred source for lyrics
-     */
     fun loadLyricsForSong(song: Song, sourcePreference: LyricsSourcePreference) {
         loadingJob?.cancel()
         val targetSongId = song.id
@@ -144,16 +127,10 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    /**
-     * Cancel any ongoing lyrics loading.
-     */
     fun cancelLoading() {
         loadingJob?.cancel()
     }
 
-    /**
-     * Set sync offset for a song.
-     */
     fun setSyncOffset(songId: String, offsetMs: Int) {
         scope?.launch {
             userPreferencesRepository.setLyricsSyncOffset(songId, offsetMs)
@@ -161,38 +138,26 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    /**
-     * Update sync offset from song ID (called when song changes).
-     */
     suspend fun updateSyncOffsetForSong(songId: String) {
         val offset = userPreferencesRepository.getLyricsSyncOffset(songId)
         _currentSongSyncOffset.value = offset
     }
 
-    /**
-     * Set the lyrics search UI state.
-     */
     fun setSearchState(state: LyricsSearchUiState) {
         _searchUiState.value = state
     }
 
-    /**
-     * Reset the lyrics search state to idle.
-     */
     fun resetSearchState() {
         _searchUiState.value = LyricsSearchUiState.Idle
     }
 
-    /**
-     * Fetch subtitles from an extension-provided URL.
-     */
     fun fetchExtensionSubtitles(song: Song, subtitleUrl: String) {
         loadingJob?.cancel()
         loadingJob = scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Loading
             
             val fetchedLyrics = withContext(Dispatchers.IO) {
-                musicRepository.lyricsRepository.fetchFromUrl(subtitleUrl)
+                lyricsRepository.fetchFromUrl(subtitleUrl)
             }
             
             if (fetchedLyrics != null) {
@@ -204,9 +169,6 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    /**
-     * Fetch lyrics for the given song, respecting the user's source preference.
-     */
     fun fetchLyricsForSong(
         song: Song,
         forcePickResults: Boolean,
@@ -234,10 +196,6 @@ class LyricsStateHolder @Inject constructor(
                 }
             }
 
-            // Build ordered list of local source checks based on user preference.
-            // API_FIRST: skip local sources, go straight to remote.
-            // EMBEDDED_FIRST: check embedded, then local .lrc, then remote.
-            // LOCAL_FIRST: check local .lrc, then embedded, then remote.
             val localSourceChecks: List<suspend () -> Pair<String, Int>?> = when (sourcePreference) {
                 LyricsSourcePreference.API_FIRST -> emptyList()
                 LyricsSourcePreference.EMBEDDED_FIRST -> listOf(
@@ -250,7 +208,6 @@ class LyricsStateHolder @Inject constructor(
                 )
             }
 
-            // Try local sources in priority order.
             for (sourceCheck in localSourceChecks) {
                 val result = withContext(Dispatchers.IO) { sourceCheck() }
                 if (result != null) {
@@ -272,7 +229,6 @@ class LyricsStateHolder @Inject constructor(
                 }
             }
 
-            // Fall through to remote fetch.
             if (forcePickResults) {
                 musicRepository.searchRemoteLyrics(song)
                     .onSuccess { (query, results) ->
@@ -296,7 +252,6 @@ class LyricsStateHolder @Inject constructor(
                     }
                     .onFailure { error ->
                         if (error is NoLyricsFoundException) {
-                            // Fallback to search
                             musicRepository.searchRemoteLyrics(song)
                                 .onSuccess { (query, results) ->
                                     _searchUiState.value = LyricsSearchUiState.PickResult(
@@ -315,9 +270,6 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    /**
-     * Manual search by query.
-     */
     fun searchLyricsManually(title: String, artist: String?) {
         if (title.isBlank()) return
         loadingJob?.cancel()
@@ -341,30 +293,21 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    /**
-     * Accept a search result.
-     */
     fun acceptLyricsSearchResult(result: LyricsSearchResult, currentSong: Song) {
         scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Success(result.lyrics)
 
-            // 1. Update DB cache
             currentSong.id.toLongOrNull()?.let { songId ->
                 musicRepository.updateLyrics(songId, result.rawLyrics)
             }
 
-            // 2. Attempt metadata write-back to the audio file
             val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(currentSong, result.rawLyrics)
             val updatedSong = currentSong.withPersistedLyrics(result.rawLyrics, refreshedAlbumArtUri)
 
-            // 3. Notify
             _songUpdates.emit(updatedSong to result.lyrics)
         }
     }
 
-    /**
-     * Import from file.
-     */
     fun importLyricsFromFile(songId: Long, validatedImport: ValidatedLyricsImport, currentSong: Song?) {
         scope?.launch {
             val sanitizedContent = validatedImport.sanitizedContent
@@ -382,58 +325,57 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    /**
-     * Switch lyrics source (extension or internal).
-     */
     fun selectLyricsSource(song: Song, extensionId: String?) {
-        val currentState = _searchUiState.value as? LyricsSearchUiState.PickResult ?: return
+        val availableExtensions = extensionLoader.all.value.filter {
+            it.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.LyricsClient
+        }
         
         loadingJob?.cancel()
         loadingJob = scope?.launch {
-            _searchUiState.value = currentState.copy(
-                selectedExtensionId = extensionId,
-                results = emptyList() // Clear previous results while loading
+            _searchUiState.value = LyricsSearchUiState.PickResult(
+                query = "${song.title} - ${song.displayArtist}",
+                results = emptyList(),
+                availableExtensions = availableExtensions,
+                selectedExtensionId = extensionId
             )
             
             if (extensionId == null) {
-                // Return to internal LRCLIB
                 musicRepository.searchRemoteLyricsByQuery(song.title, song.displayArtist)
                     .onSuccess { (q, results) ->
                         _searchUiState.value = (_searchUiState.value as LyricsSearchUiState.PickResult).copy(
                             results = results
                         )
                     }
-                    .onFailure { error -> handleError(error, currentState.availableExtensions) }
+                    .onFailure { error -> handleError(error, availableExtensions) }
             } else {
-                // Fetch from extension
                 try {
                     val extension = extensionLoader.all.value.find { it.metadata.id == extensionId } ?: return@launch
                     val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.LyricsClient ?: return@launch
                     
                     val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
                         id = song.id.substringAfter(":track:"),
-                        title = song.title
+                        title = song.title,
+                        artists = listOf(dev.brahmkshatriya.echo.common.models.Artist(id = "", name = song.displayArtist)),
+                        album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album)
                     )
                     
-                    val lyricsFeed = client.loadLyrics(echoTrack)
+                    val lyricsFeed = client.searchTrackLyrics(extensionId, echoTrack)
                     val results = lyricsFeed.loadAll().map { echoLyrics ->
-                        // Map Echo Lyrics to our internal SearchResult
-                        val raw = (echoLyrics.lyrics as? dev.brahmkshatriya.echo.common.models.Lyrics.Simple)?.text ?: ""
+                        val loadedLyrics = client.loadLyrics(echoLyrics)
+                        val appLyrics = loadedLyrics.toAppLyrics()
+                        val raw = LyricsUtils.toLrcString(appLyrics)
+                        
                         LyricsSearchResult(
                             record = com.theveloper.pixelplay.data.network.lyrics.LrcLibResponse(
-                                id = echoLyrics.id.hashCode(),
+                                id = loadedLyrics.id.hashCode(),
                                 name = echoLyrics.title ?: song.title,
                                 artistName = echoLyrics.subtitle ?: song.displayArtist,
                                 albumName = "",
                                 duration = 0.0,
-                                plainLyrics = raw,
-                                syncedLyrics = null
+                                plainLyrics = if (appLyrics.synced.isNullOrEmpty()) raw else null,
+                                syncedLyrics = if (!appLyrics.synced.isNullOrEmpty()) raw else null
                             ),
-                            lyrics = com.theveloper.pixelplay.data.model.Lyrics(
-                                plain = raw,
-                                synced = emptyList(),
-                                areFromRemote = true
-                            ),
+                            lyrics = appLyrics,
                             rawLyrics = raw
                         )
                     }
@@ -442,17 +384,12 @@ class LyricsStateHolder @Inject constructor(
                         results = results
                     )
                 } catch (e: Exception) {
-                    handleError(e, currentState.availableExtensions)
+                    handleError(e, availableExtensions)
                 }
             }
         }
     }
 
-    /**
-     * Translate the current song's lyrics via AI and import the result.
-     * The actual inference is delegated through [LyricsTranslationCallbacks.translate] so this holder
-     * stays decoupled from the AI layer. Toasts are surfaced through [messageEvents] as usual.
-     */
     fun translateLyricsViaAi(currentSong: Song, lyricsObj: Lyrics?, cb: LyricsTranslationCallbacks) {
         val songId = currentSong.id.toLongOrNull() ?: return
 
@@ -533,7 +470,6 @@ class LyricsStateHolder @Inject constructor(
             LyricsSearchUiState.Error(error.message ?: "Unknown error")
         }
         
-        // Ensure we can still see available extensions if a search failed
         if (_searchUiState.value is LyricsSearchUiState.NotFound && availableExtensions.isNotEmpty()) {
              _searchUiState.value = LyricsSearchUiState.PickResult(
                  query = "",
@@ -623,8 +559,6 @@ class LyricsStateHolder @Inject constructor(
 internal fun Song.withPersistedLyrics(rawLyrics: String, refreshedAlbumArtUri: String?): Song {
     return copy(
         lyrics = rawLyrics,
-        // Lyrics writes can refresh the cached cover-art file path. Carry it forward immediately
-        // so the full player doesn't keep rendering a deleted image URI until the next app reload.
         albumArtUriString = refreshedAlbumArtUri ?: albumArtUriString
     )
 }

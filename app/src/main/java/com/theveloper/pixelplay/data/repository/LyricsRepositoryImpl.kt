@@ -1729,7 +1729,7 @@ class LyricsRepositoryImpl @Inject constructor(
                     if (!rawLyrics.isNullOrBlank()) {
                         val parsed = LyricsUtils.parseLyrics(rawLyrics)
                         // Simple validation: must have at least some plain or synced content
-                        if (!parsed.plain.isNullOrBlank() || !parsed.synced.isNullOrEmpty()) {
+                        if (!parsed.plain.isNullOrEmpty() || !parsed.synced.isNullOrEmpty()) {
                             return@withContext parsed.copy(areFromRemote = true)
                         }
                     }

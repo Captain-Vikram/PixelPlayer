@@ -98,34 +98,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-import com.theveloper.pixelplay.data.model.SyncedLine
-import com.theveloper.pixelplay.data.model.SyncedWord
-import com.theveloper.pixelplay.data.repository.LyricsSearchResult
-import com.theveloper.pixelplay.presentation.screens.TabAnimation
-import com.theveloper.pixelplay.presentation.components.subcomps.FetchLyricsDialog
-import com.theveloper.pixelplay.presentation.components.subcomps.PlayerSeekBar
-import com.theveloper.pixelplay.presentation.viewmodel.LyricsSearchUiState
+import kotlinx.coroutines.flow.StateFlow
 import com.theveloper.pixelplay.presentation.viewmodel.StablePlayerState
-import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import com.theveloper.pixelplay.presentation.viewmodel.LyricsSearchUiState
+import com.theveloper.pixelplay.data.repository.LyricsSearchResult
+import com.theveloper.pixelplay.data.model.SyncedWord
 import com.theveloper.pixelplay.utils.BubblesLine
 import com.theveloper.pixelplay.utils.ProviderText
-import com.theveloper.pixelplay.presentation.components.snapping.ExperimentalSnapperApi
-import com.theveloper.pixelplay.presentation.components.snapping.SnapperLayoutInfo
-import com.theveloper.pixelplay.presentation.components.snapping.rememberLazyListSnapperLayoutInfo
-import com.theveloper.pixelplay.presentation.components.snapping.rememberSnapperFlingBehavior
-import com.theveloper.pixelplay.utils.LyricsUtils
-import com.theveloper.pixelplay.presentation.components.subcomps.LyricsMoreBottomSheet
+import androidx.compose.ui.platform.LocalView
 import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
-import androidx.compose.ui.platform.LocalView
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import com.theveloper.pixelplay.data.preferences.dataStore
+import android.graphics.drawable.Drawable
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
+import kotlin.math.pow
+
+import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.data.model.SyncedLine
 
 import kotlin.math.abs
 import kotlin.math.pow
@@ -138,6 +128,16 @@ import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextOverflow
 import com.theveloper.pixelplay.presentation.components.subcomps.PlayingEqIcon
 import com.theveloper.pixelplay.utils.MultiLangRomanizer
+import com.theveloper.pixelplay.presentation.components.snapping.ExperimentalSnapperApi
+import com.theveloper.pixelplay.presentation.components.snapping.SnapperLayoutInfo
+import com.theveloper.pixelplay.presentation.components.snapping.LazyListSnapperLayoutInfo
+import com.theveloper.pixelplay.presentation.components.snapping.rememberLazyListSnapperLayoutInfo
+import com.theveloper.pixelplay.presentation.components.snapping.rememberSnapperFlingBehavior
+import com.theveloper.pixelplay.presentation.components.subcomps.FetchLyricsDialog
+import com.theveloper.pixelplay.presentation.components.subcomps.LyricsMoreBottomSheet
+import com.theveloper.pixelplay.presentation.components.subcomps.PlayerSeekBar
+import com.theveloper.pixelplay.utils.LyricsUtils
+import androidx.media3.common.util.UnstableApi
 
 internal data class LyricsSheetColors(
     val container: Color,
@@ -222,6 +222,7 @@ private fun linearizedChannel(channel: Int): Double {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LyricsSheet(
+    userPreferencesRepository: com.theveloper.pixelplay.data.preferences.UserPreferencesRepository,
     stablePlayerStateFlow: StateFlow<StablePlayerState>,
     playbackPositionFlow: StateFlow<Long>,
     lyricsSearchUiState: LyricsSearchUiState,
@@ -231,6 +232,8 @@ fun LyricsSheet(
     onManualSearch: (String, String?) -> Unit,
     onImportLyrics: () -> Unit,
     onDismissLyricsSearch: () -> Unit,
+    onSelectSource: (String?) -> Unit,
+    lyricsExtensions: List<dev.brahmkshatriya.echo.common.LyricsExtension> = emptyList(),
     lyricsSyncOffset: Int,
     onLyricsSyncOffsetChange: (Int) -> Unit,
     lyricsTextStyle: TextStyle,
@@ -319,54 +322,18 @@ fun LyricsSheet(
 
     val context = LocalContext.current
 
-    // Read lyrics alignment preference internally from DataStore
-    val lyricsAlignmentFlow = remember(context) {
-        context.dataStore.data.map { it[stringPreferencesKey("lyrics_alignment")] ?: "left" }
-    }
-    val lyricsAlignment by lyricsAlignmentFlow.collectAsStateWithLifecycle(initialValue = "left")
+    // Read preferences from UserPreferencesRepository
+    val lyricsAlignment by userPreferencesRepository.lyricsAlignmentFlow.collectAsStateWithLifecycle(initialValue = "left")
+    val showLyricsTranslation by userPreferencesRepository.showLyricsTranslationFlow.collectAsStateWithLifecycle(initialValue = true)
+    val showLyricsRomanization by userPreferencesRepository.showLyricsRomanizationFlow.collectAsStateWithLifecycle(initialValue = true)
+    val useAnimatedLyrics by userPreferencesRepository.useAnimatedLyricsFlow.collectAsStateWithLifecycle(initialValue = false)
+    val animatedLyricsBlurEnabled by userPreferencesRepository.animatedLyricsBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    val disableBlurAllOver by userPreferencesRepository.disableBlurAllOverFlow.collectAsStateWithLifecycle(initialValue = false)
+    val animatedLyricsBlurStrength by userPreferencesRepository.animatedLyricsBlurStrengthFlow.collectAsStateWithLifecycle(initialValue = 2.5f)
 
-    // Read lyrics translation preference internally from DataStore
-    val showLyricsTranslationFlow = remember(context) {
-        context.dataStore.data.map { it[booleanPreferencesKey("show_lyrics_translation")] ?: true }
-    }
-    val showLyricsTranslation by showLyricsTranslationFlow.collectAsStateWithLifecycle(initialValue = true)
+    // Read keep-screen-on preference from UserPreferencesRepository
+    val keepScreenOn by userPreferencesRepository.keepScreenOnLyricsFlow.collectAsStateWithLifecycle(initialValue = false)
 
-    // Read lyrics romanization preference internally from DataStore
-    val showLyricsRomanizationFlow = remember(context) {
-        context.dataStore.data.map { it[booleanPreferencesKey("show_lyrics_romanization")] ?: true }
-    }
-    val showLyricsRomanization by showLyricsRomanizationFlow.collectAsStateWithLifecycle(initialValue = true)
-
-    // Read animated lyrics preference internally from DataStore
-    val useAnimatedLyricsFlow = remember(context) {
-        context.dataStore.data.map { it[booleanPreferencesKey("use_animated_lyrics")] ?: false }
-    }
-    val useAnimatedLyrics by useAnimatedLyricsFlow.collectAsStateWithLifecycle(initialValue = false)
-
-    val animatedLyricsBlurEnabledFlow = remember(context) {
-        context.dataStore.data.map { it[booleanPreferencesKey("animated_lyrics_blur_enabled")] ?: true }
-    }
-    val animatedLyricsBlurEnabled by animatedLyricsBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-
-    val disableBlurAllOverFlow = remember(context) {
-        context.dataStore.data.map { it[booleanPreferencesKey("disable_blur_all_over")] ?: false }
-    }
-    val disableBlurAllOver by disableBlurAllOverFlow.collectAsStateWithLifecycle(initialValue = false)
-
-    val animatedLyricsBlurStrengthFlow = remember(context) {
-        context.dataStore.data.map { it[androidx.datastore.preferences.core.floatPreferencesKey("animated_lyrics_blur_strength")] ?: 2.5f }
-    }
-    val animatedLyricsBlurStrength by animatedLyricsBlurStrengthFlow.collectAsStateWithLifecycle(initialValue = 2.5f)
-
-    // Read keep-screen-on preference from DataStore
-    val keepScreenOnFlow = remember(context) {
-        context.dataStore.data.map { it[booleanPreferencesKey("keep_screen_on_lyrics")] ?: false }
-    }
-    var keepScreenOn by remember { mutableStateOf(false) }
-    // Sync DataStore → local state
-    LaunchedEffect(Unit) {
-        keepScreenOnFlow.collect { keepScreenOn = it }
-    }
     val coroutineScope = rememberCoroutineScope()
 
     // Apply FLAG_KEEP_SCREEN_ON via the window when enabled
@@ -376,38 +343,12 @@ fun LyricsSheet(
     DisposableEffect(keepScreenOn, lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP && keepScreenOn) {
-                keepScreenOn = false
                 coroutineScope.launch {
-                    context.dataStore.edit { prefs ->
-                        prefs[booleanPreferencesKey("keep_screen_on_lyrics")] = false
-                    }
+                    userPreferencesRepository.setKeepScreenOnLyrics(false)
                 }
             }
         }
 
-        if (keepScreenOn) {
-            view.keepScreenOn = true
-        }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            view.keepScreenOn = false
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    DisposableEffect(keepScreenOn, lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP && keepScreenOn) {
-                keepScreenOn = false
-                coroutineScope.launch {
-                    context.dataStore.edit { prefs ->
-                        prefs[booleanPreferencesKey("keep_screen_on_lyrics")] = false
-                    }
-                }
-            }
-        }
-        
         if (keepScreenOn) {
             view.keepScreenOn = true
         }
@@ -473,11 +414,8 @@ fun LyricsSheet(
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: android.content.Context, intent: Intent) {
                 if (intent.action == Intent.ACTION_SCREEN_OFF) {
-                    keepScreenOn = false
                     coroutineScope.launch {
-                        context.dataStore.edit { prefs ->
-                            prefs[booleanPreferencesKey("keep_screen_on_lyrics")] = false
-                        }
+                        userPreferencesRepository.setKeepScreenOnLyrics(false)
                     }
                 }
             }
@@ -537,6 +475,7 @@ fun LyricsSheet(
                 onConfirm = onSearchLyrics,
                 onPickResult = onPickResult,
                 onManualSearch = onManualSearch,
+                onSelectSource = onSelectSource,
                 onDismiss = {
                     showFetchLyricsDialog = false
                     onDismissLyricsSearch()
@@ -995,6 +934,7 @@ fun LyricsSheet(
                         onBackClick()
                     },
                     onMoreClick = { showMoreSheet = true },
+                    onSearchLyricsClick = { onSearchLyrics(true) },
                     backgroundColor = backgroundColor,
                     onBackgroundColor = onBackgroundColor,
                     accentColor = accentColor,
@@ -1035,19 +975,14 @@ fun LyricsSheet(
                     },
                     keepScreenOn = keepScreenOn,
                     onKeepScreenOnChange = { enabled ->
-                        keepScreenOn = enabled
                         coroutineScope.launch {
-                            context.dataStore.edit { prefs ->
-                                prefs[booleanPreferencesKey("keep_screen_on_lyrics")] = enabled
-                            }
+                            userPreferencesRepository.setKeepScreenOnLyrics(enabled)
                         }
                     },
                     lyricsAlignment = lyricsAlignment,
                     onLyricsAlignmentChange = { newAlignment ->
                         coroutineScope.launch {
-                            context.dataStore.edit { preferences ->
-                                preferences[stringPreferencesKey("lyrics_alignment")] = newAlignment
-                            }
+                            userPreferencesRepository.setLyricsAlignment(newAlignment)
                         }
                     },
                     hasTranslatedLyrics = hasTranslatedLyrics,
@@ -1057,20 +992,22 @@ fun LyricsSheet(
                     onShowTranslationChange = { enabled ->
                         resetImmersiveTimer()
                         coroutineScope.launch {
-                            context.dataStore.edit { preferences ->
-                                preferences[booleanPreferencesKey("show_lyrics_translation")] = enabled
-                            }
+                            userPreferencesRepository.setShowLyricsTranslation(enabled)
                         }
                     },
                     onShowRomanizationChange = { enabled ->
                         resetImmersiveTimer()
                         coroutineScope.launch {
-                            context.dataStore.edit { preferences ->
-                                preferences[booleanPreferencesKey("show_lyrics_romanization")] = enabled
-                            }
+                            userPreferencesRepository.setShowLyricsRomanization(enabled)
                         }
                     },
                     immersiveLyricsEnabled = immersiveLyricsEnabled,
+                    lyricsExtensions = lyricsExtensions,
+                    currentLyricsExtensionId = (lyricsSearchUiState as? LyricsSearchUiState.PickResult)?.selectedExtensionId,
+                    onSelectLyricsExtension = { extId ->
+                        resetImmersiveTimer()
+                        onSelectSource(extId)
+                    },
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
                     isFavoriteProvider = isFavoriteProvider,

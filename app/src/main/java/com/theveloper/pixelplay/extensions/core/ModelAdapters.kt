@@ -18,9 +18,9 @@ suspend fun <T : Any> Feed<T>.loadAll(): List<T> {
 }
 
 fun Track.toSong(extensionId: String, streamUrl: String? = null): Song {
-    val albumSyntheticId = album?.let { "extension:$extensionId:album:${it.id}" }
-    val artistSyntheticId = artists.firstOrNull()?.let { "extension:$extensionId:artist:${it.id}" }
-    val mediaId = "extension:$extensionId:track:$id"
+    val albumSyntheticId = album?.let { if (it.id.startsWith("extension:")) it.id else "extension:$extensionId:album:${it.id}" }
+    val artistSyntheticId = artists.firstOrNull()?.let { if (it.id.startsWith("extension:")) it.id else "extension:$extensionId:artist:${it.id}" }
+    val mediaId = if (id.startsWith("extension:")) id else "extension:$extensionId:track:$id"
     
     // Extract video loops (Background) and synced lyrics (Subtitle) if provided directly
     val backgroundStream = backgrounds.firstOrNull()
@@ -31,10 +31,11 @@ fun Track.toSong(extensionId: String, streamUrl: String? = null): Song {
         title = title,
         artist = artists.joinToString(", ") { it.name },
         artistId = artistSyntheticId?.hashCode()?.toLong() ?: -2L, 
-        artists = artists.map { 
+        artists = artists.map { artist ->
+            val syntheticArtistId = if (artist.id.startsWith("extension:")) artist.id else "extension:$extensionId:artist:${artist.id}"
             ArtistRef(
-                id = "extension:$extensionId:artist:${it.id}".hashCode().toLong(), 
-                name = it.name, 
+                id = syntheticArtistId.hashCode().toLong(), 
+                name = artist.name, 
                 isPrimary = true
             ) 
         },

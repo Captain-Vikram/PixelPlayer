@@ -498,12 +498,12 @@ fun SongPickerEmptyState(
 ) {
     val spec = when (tabId) {
         LibraryTabId.LIKED -> when (sourceScope) {
-            SourceScope.Local -> Triple(R.drawable.round_favorite_24, R.string.lib_empty_liked_offline_title, R.string.lib_empty_liked_offline_subtitle)
-            else -> Triple(R.drawable.round_favorite_24, R.string.lib_empty_liked_all_title, R.string.lib_empty_liked_all_subtitle)
+            SourceScope.Local -> Triple(R.drawable.round_favorite_24, R.string.library_empty_liked_offline_title, R.string.library_empty_liked_offline_subtitle)
+            else -> Triple(R.drawable.round_favorite_24, R.string.library_empty_liked_all_title, R.string.library_empty_liked_all_subtitle)
         }
         else -> when (sourceScope) {
-            SourceScope.Local -> Triple(R.drawable.rounded_music_off_24, R.string.lib_empty_songs_offline_title, R.string.lib_empty_songs_offline_subtitle)
-            else -> Triple(R.drawable.rounded_music_off_24, R.string.lib_empty_songs_all_title, R.string.lib_empty_songs_all_subtitle)
+            SourceScope.Local -> Triple(R.drawable.rounded_music_off_24, R.string.library_empty_songs_offline_title, R.string.library_empty_songs_offline_subtitle)
+            else -> Triple(R.drawable.rounded_music_off_24, R.string.library_empty_songs_all_title, R.string.library_empty_songs_all_subtitle)
         }
     }
 
@@ -550,7 +550,7 @@ fun SongPickerSearchField(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp),
-        placeholder = { Text(stringResource(R.string.song_picker_search_placeholder)) },
+        placeholder = { Text(stringResource(R.string.search_placeholder)) },
         leadingIcon = { Icon(Icons.Rounded.Search, null) },
         trailingIcon = {
             if (searchQuery.isNotEmpty()) {
@@ -587,7 +587,7 @@ fun SongPickerList(
     } else if (filteredSongs.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                text = stringResource(R.string.search_no_results_for, searchQuery),
+                text = stringResource(R.string.search_no_results_for_query, searchQuery),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

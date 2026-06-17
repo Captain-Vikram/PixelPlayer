@@ -794,7 +794,7 @@ fun ExperimentalSettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 SettingsSection(
-                    title = stringResource(R.string.presentation_batch_f_exp_extension_cache_title),
+                    title = "Clear extension caches",
                     icon = {
                         Icon(
                             imageVector = Icons.Rounded.BlurOn,
@@ -818,12 +818,12 @@ fun ExperimentalSettingsScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = stringResource(R.string.presentation_batch_f_exp_extension_cache_limit),
+                                        text = "Cache Limit",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = stringResource(R.string.presentation_batch_f_exp_extension_cache_subtitle),
+                                        text = "Frees up space used by plugins",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

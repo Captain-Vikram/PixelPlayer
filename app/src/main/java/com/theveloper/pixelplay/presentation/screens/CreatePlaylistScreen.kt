@@ -69,57 +69,34 @@ import androidx.compose.ui.geometry.RoundRect
 
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
-<<<<<<< HEAD
 enum class PlaylistCreationMode {
     MANUAL, SMART
 }
 
 @Composable
-fun smartPlaylistRuleTitle(rule: SmartPlaylistRule): String = when (rule) {
-    SmartPlaylistRule.TOP_PLAYED -> stringResource(R.string.presentation_batch_f_smart_rule_top_played_title)
+private fun smartPlaylistRuleTitle(rule: SmartPlaylistRule): String = when (rule) {
+    SmartPlaylistRule.TOP_PLAYED -> stringResource(R.string.playlist_creation_rule_top_played_title)
     SmartPlaylistRule.RECENTLY_ADDED -> "Recently Added"
-    SmartPlaylistRule.RECENTLY_PLAYED -> stringResource(R.string.presentation_batch_f_smart_rule_recently_played_title)
+    SmartPlaylistRule.RECENTLY_PLAYED -> stringResource(R.string.playlist_creation_rule_recently_played_title)
     SmartPlaylistRule.NEVER_PLAYED -> "Never Played"
     SmartPlaylistRule.LONGEST_SONGS -> "Longest Songs"
     SmartPlaylistRule.SHORTEST_SONGS -> "Shortest Songs"
-    SmartPlaylistRule.FORGOTTEN_FAVORITES -> "Forgotten Favorites"
-    SmartPlaylistRule.NEW_GEMS -> "New Gems"
+    SmartPlaylistRule.FORGOTTEN_FAVORITES -> stringResource(R.string.playlist_creation_rule_forgotten_title)
+    SmartPlaylistRule.NEW_GEMS -> stringResource(R.string.playlist_creation_rule_new_gems_title)
 }
-=======
-@Composable
-private fun smartPlaylistRuleTitle(rule: SmartPlaylistRule): String =
-    stringResource(
-        when (rule) {
-            SmartPlaylistRule.TOP_PLAYED -> R.string.playlist_creation_rule_top_played_title
-            SmartPlaylistRule.RECENTLY_PLAYED -> R.string.playlist_creation_rule_recently_played_title
-            SmartPlaylistRule.FORGOTTEN_FAVORITES -> R.string.playlist_creation_rule_forgotten_title
-            SmartPlaylistRule.NEW_GEMS -> R.string.playlist_creation_rule_new_gems_title
-        }
-    )
 
 @Composable
-private fun smartPlaylistRuleSubtitle(rule: SmartPlaylistRule): String =
-    stringResource(
-        when (rule) {
-            SmartPlaylistRule.TOP_PLAYED -> R.string.playlist_creation_rule_top_played_sub
-            SmartPlaylistRule.RECENTLY_PLAYED -> R.string.playlist_creation_rule_recently_played_sub
-            SmartPlaylistRule.FORGOTTEN_FAVORITES -> R.string.playlist_creation_rule_forgotten_sub
-            SmartPlaylistRule.NEW_GEMS -> R.string.playlist_creation_rule_new_gems_sub
-        }
-    )
->>>>>>> upstream/master
-
-@Composable
-fun smartPlaylistRuleSubtitle(rule: SmartPlaylistRule): String = when (rule) {
-    SmartPlaylistRule.TOP_PLAYED -> stringResource(R.string.presentation_batch_f_smart_rule_top_played_subtitle)
+private fun smartPlaylistRuleSubtitle(rule: SmartPlaylistRule): String = when (rule) {
+    SmartPlaylistRule.TOP_PLAYED -> stringResource(R.string.playlist_creation_rule_top_played_sub)
     SmartPlaylistRule.RECENTLY_ADDED -> "Latest songs added to your library"
-    SmartPlaylistRule.RECENTLY_PLAYED -> stringResource(R.string.presentation_batch_f_smart_rule_recently_played_subtitle)
+    SmartPlaylistRule.RECENTLY_PLAYED -> stringResource(R.string.playlist_creation_rule_recently_played_sub)
     SmartPlaylistRule.NEVER_PLAYED -> "Songs you haven't played yet"
     SmartPlaylistRule.LONGEST_SONGS -> "Songs with the longest duration"
     SmartPlaylistRule.SHORTEST_SONGS -> "Songs with the shortest duration"
-    SmartPlaylistRule.FORGOTTEN_FAVORITES -> "Songs you loved but forgot"
-    SmartPlaylistRule.NEW_GEMS -> "New songs with low play count"
+    SmartPlaylistRule.FORGOTTEN_FAVORITES -> stringResource(R.string.playlist_creation_rule_forgotten_sub)
+    SmartPlaylistRule.NEW_GEMS -> stringResource(R.string.playlist_creation_rule_new_gems_sub)
 }
+
 
 @Composable
 fun CreatePlaylistDialog(
@@ -233,17 +210,6 @@ private fun CreatePlaylistContent(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-<<<<<<< HEAD
-                    Text(
-                        text = if (showCropUi) "Adjust Cover" else if (currentStep == 0) "New Playlist" else "Add Songs",
-                        fontFamily = GoogleSansRounded,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { if (showCropUi) showCropUi = false else if (currentStep == 1) currentStep = 0 else onDismiss() }) {
-                        Icon(if (showCropUi || currentStep == 1) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Close, null)
-=======
                     AnimatedContent(targetState = if (showCropUi) 2 else currentStep, label = "Title Animation") { displayStep ->
                         Text(
                             when (displayStep) {
@@ -289,18 +255,11 @@ private fun CreatePlaylistContent(
                             },
                             contentDescription = stringResource(R.string.playlist_creation_cd_back_or_cancel)
                         )
->>>>>>> upstream/master
                     }
                 }
             )
         },
         floatingActionButton = {
-<<<<<<< HEAD
-            if (!showCropUi) {
-                ExtendedFloatingActionButton(
-                    text = { Text(if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) "Next" else "Create") },
-                    icon = { Icon(if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) Icons.AutoMirrored.Rounded.ArrowForward else Icons.Rounded.Check, null) },
-=======
             if (!showCropUi && !(currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL)) {
                 MediumExtendedFloatingActionButton(
                     text = {
@@ -322,7 +281,6 @@ private fun CreatePlaylistContent(
                             contentDescription = null
                         ) 
                     },
->>>>>>> upstream/master
                     onClick = {
                         if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) {
                             if (playlistName.isNotBlank()) currentStep = 1
@@ -342,6 +300,7 @@ private fun CreatePlaylistContent(
                 )
             }
         },
+
         bottomBar = {
             if (currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL) {
                 val sourceScope by playerViewModel.playlistPickerSourceScope.collectAsStateWithLifecycle()
@@ -532,10 +491,6 @@ fun EditPlaylistContent(
     onDismiss: () -> Unit,
     onSave: (String, String?, Int?, String?, Float, Float, Float, String?, Float?, Float?, Float?, Float?) -> Unit
 ) {
-<<<<<<< HEAD
-    // Similar to CreatePlaylistContent but for editing
-    Text("Edit Content Placeholder")
-=======
     val context = LocalContext.current
     
     // Initial State Setup
@@ -745,7 +700,6 @@ fun EditPlaylistContent(
              onImageUriChange = { selectedImageUri = it }
          )
     }
->>>>>>> upstream/master
 }
 
 @Composable
@@ -790,11 +744,6 @@ private fun PlaylistFormContent(
     onGenerateClick: (() -> Unit)? = null,
     onImageUriChange: (Uri?) -> Unit
 ) {
-<<<<<<< HEAD
-    Column(modifier = modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
-        OutlinedTextField(value = playlistName, onValueChange = onNameChange, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-        // Rest of the form
-=======
     if (showCropUi) {
          // Fullscreen Crop UI overrides normal content
          Box(
@@ -1141,14 +1090,14 @@ private fun PlaylistFormContent(
             }
 
             val tabs = listOf(
-                stringResource(R.string.playlist_creation_tab_default),
-                stringResource(R.string.playlist_creation_tab_image),
-                stringResource(R.string.playlist_creation_tab_icon)
+                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_default), Icons.Rounded.AutoAwesome),
+                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_image), Icons.Rounded.Image),
+                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_icon), Icons.Rounded.Category)
             )
             ExpressiveButtonGroup(
                 items = tabs,
                 selectedIndex = selectedTab,
-                onItemClick = onTabChange,
+                onIndexChange = onTabChange,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 22.dp)
@@ -1343,7 +1292,6 @@ private fun PlaylistFormContent(
             }
             Spacer(Modifier.height(100.dp))
         }
->>>>>>> upstream/master
     }
 }
 
@@ -1354,3 +1302,87 @@ fun getIconByName(name: String?): ImageVector? = when (name) {
 }
 
 fun getThemeContentColor(colorArgb: Int, scheme: ColorScheme): Color = resolvePlaylistCoverContentColor(colorArgb, scheme)
+
+@Composable
+fun ExpressiveButtonGroup(
+    selectedIndex: Int,
+    onIndexChange: (Int) -> Unit,
+    items: List<ButtonGroupItem>,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(28.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        items.forEachIndexed { index, item ->
+            val isSelected = index == selectedIndex
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable { onIndexChange(index) },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = null,
+                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = item.label,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+            }
+        }
+    }
+}
+
+data class ButtonGroupItem(val label: String, val icon: ImageVector)
+
+@Composable
+fun ShapeParameterCard(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+    valueDisplay: (Float) -> String,
+    steps: Int = 0
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(valueDisplay(value), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+            Slider(
+                value = value,
+                onValueChange = onValueChange,
+                valueRange = range,
+                steps = steps,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}

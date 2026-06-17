@@ -15,11 +15,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.*
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
@@ -37,6 +33,7 @@ import javax.inject.Singleton
 @Singleton
 class SearchStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
+    private val userPreferencesRepository: com.theveloper.pixelplay.data.preferences.UserPreferencesRepository,
     private val extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader,
     private val extensionRepository: com.theveloper.pixelplay.data.repository.ExtensionRepository
 ) {
@@ -85,6 +82,14 @@ class SearchStateHolder @Inject constructor(
      */
     fun initialize(scope: CoroutineScope) {
         this.scope = scope
+        
+        // Restore last source scope
+        scope.launch {
+            userPreferencesRepository.lastSourceScopeFlow.first().let {
+                _currentSourceScope.value = it
+            }
+        }
+
         observeSearchRequests()
         observeExtensionChanges()
         loadSearchFeed()
@@ -189,7 +194,7 @@ class SearchStateHolder @Inject constructor(
                                     is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items ->
                                         shelf.copy(title = "${shelf.title} ($extensionName)")
                                     is dev.brahmkshatriya.echo.common.models.Shelf.Item ->
-                                        shelf.copy(title = "${shelf.title} ($extensionName)")
+                                        shelf
                                     else -> shelf
                                 }
                             }
@@ -332,12 +337,13 @@ class SearchStateHolder @Inject constructor(
 
     fun updateSearchFilter(filterType: SearchFilterType) {
         _selectedSearchFilter.value = filterType
-        // Trigger re-search with same query
-        // ... (existing logic)
     }
 
     fun updateSourceScope(scope: com.theveloper.pixelplay.data.model.SourceScope) {
         _currentSourceScope.value = scope
+        this.scope?.launch {
+            userPreferencesRepository.saveLastSourceScope(scope)
+        }
     }
 
     fun loadSearchHistory(limit: Int = 15) {

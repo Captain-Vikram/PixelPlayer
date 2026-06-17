@@ -126,9 +126,10 @@
     <string name="common_shuffle_play_album">Shuffle play album</string>
     <string name="common_album_art_for_title">Album art for %1$s</string>
 
-    <!-- Top Bar Labels -->
-    <string name="topbar_beta_letter">β</string>
-    <string name="topbar_beta_label">BETA</string>
-    <string name="topbar_cd_cloud_streaming">Cloud Streaming Accounts</string>
-    <string name="topbar_cd_changelog">Changelog</string>
+    <string name="search_no_results_for">No results for \"%1$s\"</string>
+    <string name="search_one_result_for">1 result for \"%1$s\"</string>
+    <string name="search_multiple_results_for">%1$d results for \"%1$s\"</string>
+    <string name="invalid_album_id">Invalid Album ID</string>
+    <string name="invalid_artist_id">Invalid Artist ID</string>
+    <string name="presentation_batch_d_mashup_subtitle">Experimental Mashup</string>
 </resources>

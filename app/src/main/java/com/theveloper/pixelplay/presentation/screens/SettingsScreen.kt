@@ -236,19 +236,6 @@ fun SettingsScreen(
                         itemIndex++
                     }
 
-                    ExpressiveNavigationItem(
-                        title = stringResource(R.string.settings_downloads_title),
-                        subtitle = stringResource(R.string.settings_downloads_subtitle),
-                        icon = Icons.Rounded.Download,
-                        colors = getDownloadsColors(isDark),
-                        onClick = { navController.navigateSafely(Screen.Downloads.route) },
-                        shape = shapeFor(itemIndex)
-                    )
-                    if (itemIndex < totalItems - 1) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-                    itemIndex++
-
                     ExpressiveCategoryItem(
                         category = SettingsCategory.MASHUP,
                         customColors = getCategoryColors(SettingsCategory.MASHUP, isDark),

@@ -144,7 +144,7 @@ class DailyMixStateHolder @Inject constructor(
             val lastUpdate = userPreferencesRepository.lastDailyMixUpdateFlow.first()
             val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
             val lastUpdateDay = Calendar.getInstance().apply {
-                timeInMillis = lastUpdate
+                timeInMillis = lastUpdate ?: 0L
             }.get(Calendar.DAY_OF_YEAR)
 
             if (today != lastUpdateDay) {

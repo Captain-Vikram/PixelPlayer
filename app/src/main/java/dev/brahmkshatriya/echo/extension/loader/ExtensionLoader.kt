@@ -101,6 +101,22 @@ class ExtensionLoader @Inject constructor(
         }
     }
 
+    private fun Lazy<ExtensionClient>.injected(
+        metadata: Metadata,
+    ) = Injectable(::value, mutableListOf({
+        if (this is MetadataProvider) setMetadata(metadata)
+        if (this is MessageFlowProvider) setMessageFlow(host.messageFlow)
+        if (this is GlobalSettingsProvider)
+            setGlobalSettings(ExtensionUtils.getGlobalSettings(host.context))
+        setSettings(ExtensionUtils.getSettings(host.context, metadata))
+        if (this is WebViewClientProvider) setWebViewClient(webViewClientFactory(metadata))
+        onInitialize()
+        onExtensionSelected()
+    }))
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T : ExtensionClient> Injectable<ExtensionClient>.casted() = this as Injectable<T>
+
     private val injected = repository.flow.map { list ->
         list?.groupBy { it.getOrNull()?.first?.run { type to id } }?.map { entry ->
             entry.value.minBy { it.getOrNull()?.first?.importType?.ordinal ?: Int.MAX_VALUE }
@@ -138,19 +154,6 @@ class ExtensionLoader @Inject constructor(
             }
         }
     }
-
-    private fun Lazy<ExtensionClient>.injected(
-        metadata: Metadata,
-    ) = Injectable(::value, mutableListOf({
-        if (this is MetadataProvider) setMetadata(metadata)
-        if (this is MessageFlowProvider) setMessageFlow(host.messageFlow)
-        if (this is GlobalSettingsProvider)
-            setGlobalSettings(ExtensionUtils.getGlobalSettings(host.context))
-        setSettings(ExtensionUtils.getSettings(host.context, metadata))
-        if (this is WebViewClientProvider) setWebViewClient(webViewClientFactory(metadata))
-        onInitialize()
-        onExtensionSelected()
-    }))
 
     private fun <T : Extension<*>> mapped(
         type: ExtensionType, transform: (Metadata, Injectable<ExtensionClient>) -> T,
@@ -217,7 +220,7 @@ class ExtensionLoader @Inject constructor(
             inject(requiredLyricsExtensions, lyrics.value) { setLyricsExtensions(it) }
         }
         (client as? MiscExtensionsProvider)?.run {
-            inject(requiredMiscExtensions, misc.value) { setMiscExtensions(it) }
+            inject(requiredMiscExtensions, music.value as List<MiscExtension>) { setMiscExtensions(it) }
         }
     }
 

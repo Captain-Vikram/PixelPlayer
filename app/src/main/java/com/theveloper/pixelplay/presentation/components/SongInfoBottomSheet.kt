@@ -552,10 +552,10 @@ fun SongInfoBottomSheet(
                                                         }
                                                     }
                                                 }
+                                                onDismiss()
                                             },
                                             onStartRadio = {
-                                                playerViewModel.startRadio(song)
-                                                onDismiss()
+                                                /* playerViewModel.startRadio(song) */
                                             }
                                         )
 

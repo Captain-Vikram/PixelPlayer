@@ -76,8 +76,8 @@ enum class SettingsCategory(
     ),
     MASHUP(
         id = "mashup",
-        titleRes = R.string.settings_mashup_title,
-        subtitleRes = R.string.settings_mashup_subtitle,
+        titleRes = R.string.settings_category_ai_title,
+        subtitleRes = R.string.settings_category_ai_subtitle,
         icon = Icons.Rounded.AutoAwesome
     ),
     ABOUT(

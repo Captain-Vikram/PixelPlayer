@@ -949,7 +949,7 @@ fun LibraryScreen(
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.rounded_upload_file_24),
-                                contentDescription = stringResource(R.string.cd_import_m3u_playlist)
+                                contentDescription = stringResource(R.string.library_cd_import_m3u_playlist)
                             )
                         }
                         FilledIconButton(
@@ -1084,7 +1084,7 @@ fun LibraryScreen(
                     Column(Modifier.fillMaxSize()) {
                         // OPTIMIZACIÓN: La lógica de ordenamiento ahora es más eficiente.
                         val availableSortOptions by playerViewModel.availableSortOptions.collectAsStateWithLifecycle()
-                        val sanitizedSortOptions = remember(availableSortOptions, currentTabId) {
+                        val sanitizedSortOptions: List<com.theveloper.pixelplay.data.model.SortOption> = remember(availableSortOptions, currentTabId) {
                             val cleaned = availableSortOptions.filterIsInstance<SortOption>()
                             val ensured = if (cleaned.any { option ->
                                     option.storageKey == currentTabId.defaultSort.storageKey
@@ -1515,28 +1515,7 @@ fun LibraryScreen(
                                         }
                                     }
                                     if (!isFoldersTab) {
-<<<<<<< HEAD
                                         // "Cloud Only" removed as it is superseded by SourceScope
-=======
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        Text(
-                                            text = stringResource(R.string.library_cloud_sources_heading),
-                                            style = MaterialTheme.typography.headlineSmall,
-                                            fontFamily = com.theveloper.pixelplay.ui.theme.GoogleSansRounded,
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                            modifier = Modifier.padding(start = 2.dp, bottom = 8.dp)
-                                        )
-                                        com.theveloper.pixelplay.presentation.components.LibrarySheetToggleCard(
-                                            label = stringResource(R.string.library_cloud_only_label),
-                                            checked = playerUiState.hideLocalMedia,
-                                            boxBackgroundColor = if (playerUiState.hideLocalMedia)
-                                                MaterialTheme.colorScheme.tertiary
-                                            else
-                                                MaterialTheme.colorScheme.surfaceContainerLow,
-                                            boxCornerRadius = if (playerUiState.hideLocalMedia) 18.dp else 50.dp,
-                                            onCheckedChange = { playerViewModel.setHideLocalMedia(it) }
-                                        )
->>>>>>> upstream/master
                                     }
                                 }
                             )
@@ -1559,8 +1538,7 @@ fun LibraryScreen(
                                     .fillMaxSize()
                                     .padding(top = 8.dp),
                                 pageSpacing = 0.dp,
-                                beyondViewportPageCount = 1, // Pre-load adjacent tabs to reduce lag when switching
-                                key = { it }
+                                beyondViewportPageCount = 1 // Pre-load adjacent tabs to reduce lag when switching
                             ) { page ->
                                 val tabIndex = resolveTabIndex(
                                     page = page,
@@ -1600,7 +1578,7 @@ fun LibraryScreen(
                                         val stableOnAlbumClick: (Long) -> Unit = remember(navController) {
                                             { albumId: Long ->
                                                 navController.navigateSafelyReplacing(
-                                                    route = Screen.AlbumDetail.createRoute(albumId),
+                                                    route = Screen.AlbumDetail.createRoute(albumId.toString()),
                                                     patternToPop = Screen.AlbumDetail.route
                                                 )
                                             }
@@ -1636,7 +1614,7 @@ fun LibraryScreen(
                                             currentArtistSortOption = playerUiState.currentArtistSortOption,
                                             onArtistClick = { artistId ->
                                                 navController.navigateSafelyReplacing(
-                                                    route = Screen.ArtistDetail.createRoute(artistId),
+                                                    route = Screen.ArtistDetail.createRoute(artistId.toString()),
                                                     patternToPop = Screen.ArtistDetail.route
                                                 )
                                             },
@@ -1938,21 +1916,21 @@ fun LibraryScreen(
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
                     navController.navigateSafelyReplacing(
-                        route = Screen.AlbumDetail.createRoute(currentSong.albumId),
+                        route = Screen.AlbumDetail.createRoute(currentSong.albumId.toString()),
                         patternToPop = Screen.AlbumDetail.route
                     )
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {
                     navController.navigateSafelyReplacing(
-                        route = Screen.ArtistDetail.createRoute(currentSong.artistId),
+                        route = Screen.ArtistDetail.createRoute(currentSong.artistId.toString()),
                         patternToPop = Screen.ArtistDetail.route
                     )
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtistById = { artistId ->
                     navController.navigateSafelyReplacing(
-                        route = Screen.ArtistDetail.createRoute(artistId),
+                        route = Screen.ArtistDetail.createRoute(artistId.toString()),
                         patternToPop = Screen.ArtistDetail.route
                     )
                     showSongInfoBottomSheet = false

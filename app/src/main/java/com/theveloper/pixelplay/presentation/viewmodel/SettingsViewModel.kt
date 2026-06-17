@@ -12,7 +12,6 @@ import com.theveloper.pixelplay.data.backup.model.BackupHistoryEntry
 import com.theveloper.pixelplay.data.backup.model.RestorePlan
 import com.theveloper.pixelplay.data.backup.model.RestoreResult
 import com.theveloper.pixelplay.data.backup.model.ValidationError
-import com.theveloper.pixelplay.data.preferences.AppThemeMode
 import com.theveloper.pixelplay.data.preferences.CarouselStyle
 import com.theveloper.pixelplay.data.preferences.LibraryNavigationMode
 import com.theveloper.pixelplay.data.preferences.ThemePreference
@@ -32,6 +31,7 @@ import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.model.LyricsSourcePreference
 import com.theveloper.pixelplay.data.worker.SyncManager
 import com.theveloper.pixelplay.data.worker.SyncProgress
+import com.theveloper.pixelplay.data.preferences.AppThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
@@ -468,7 +468,8 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.collagePatternFlow.collect { pattern ->
+            userPreferencesRepository.collagePatternFlow.collect { patternStr ->
+                val pattern = com.theveloper.pixelplay.data.preferences.CollagePattern.entries.find { it.storageKey == patternStr } ?: com.theveloper.pixelplay.data.preferences.CollagePattern.COSMIC_SWIRL
                 _uiState.update { it.copy(collagePattern = pattern) }
             }
         }
@@ -797,7 +798,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setCollagePattern(pattern: CollagePattern) {
         viewModelScope.launch {
-            userPreferencesRepository.setCollagePattern(pattern)
+            userPreferencesRepository.setCollagePattern(pattern.storageKey)
         }
     }
 
