@@ -95,9 +95,13 @@ class ExtensionLoader @Inject constructor(
 
     fun setupMusicExtension(extension: MusicExtension, manual: Boolean) {
         if (manual) settings.edit().putString(LAST_EXTENSION_KEY, extension.id).apply()
-        current.value = extension
         scope.launch {
-            extension.get { onExtensionSelected() }.getOrThrow(host.throwFlow)
+            val res = extension.get { onExtensionSelected() }
+            if (res.isSuccess) {
+                current.value = extension
+            } else {
+                host.throwFlow.emit(res.exceptionOrNull() ?: Exception("Failed to initialize extension"))
+            }
         }
     }
 
