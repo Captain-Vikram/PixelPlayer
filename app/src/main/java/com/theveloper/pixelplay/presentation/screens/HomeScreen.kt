@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -83,11 +84,16 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+
 
 private const val HomeLoadingPlaceholderMinDurationMillis = 1200L
 
 @androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
@@ -218,6 +224,13 @@ fun HomeScreen(
     val homeStatsOverview by statsViewModel.homeOverview.collectAsStateWithLifecycle()
     val currentMusicExtension by extensionsViewModel.currentMusicExtension.collectAsStateWithLifecycle()
     val shelves by extensionsViewModel.shelves.collectAsStateWithLifecycle()
+    val isLoadingFeed by extensionsViewModel.isLoadingFeed.collectAsStateWithLifecycle()
+
+    LaunchedEffect(currentMusicExtension) {
+        if (currentMusicExtension != null) {
+            extensionsViewModel.loadHomeFeed()
+        }
+    }
 
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val density = LocalDensity.current
@@ -289,17 +302,45 @@ fun HomeScreen(
                 )
             }
         ) { innerPadding ->
-            LazyColumn(
-                state = listState,
+            val pullToRefreshState = rememberPullToRefreshState()
+            PullToRefreshBox(
+                state = pullToRefreshState,
+                isRefreshing = isLoadingFeed,
+                onRefresh = {
+                    extensionsViewModel.refreshFeeds()
+                },
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = paddingValuesParent.calculateBottomPadding() + 38.dp + bottomPadding
-                ),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                    .padding(top = innerPadding.calculateTopPadding()),
+                indicator = {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 16.dp)
+                    ) {
+                        LoadingIndicator(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .graphicsLayer {
+                                    val p = pullToRefreshState.distanceFraction
+                                    scaleX = p.coerceIn(0f, 1f)
+                                    scaleY = p.coerceIn(0f, 1f)
+                                    alpha = p.coerceIn(0f, 1f)
+                                }
+                        )
+                    }
+                }
             ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                    contentPadding = PaddingValues(
+                        bottom = paddingValuesParent.calculateBottomPadding() + 38.dp + bottomPadding
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
                 if (currentMusicExtension != null) {
                     item(key = "extension_shelves") {
                         com.theveloper.pixelplay.presentation.components.ExtensionShelvesSection(
@@ -316,7 +357,7 @@ fun HomeScreen(
                     }
                 }
 
-                if (yourMixSongs.isEmpty() && currentMusicExtension == null) {
+                if (yourMixSongs.isEmpty()) {
                     item(key = "your_mix_placeholder") {
                         if (shouldShowYourMixLoadingPlaceholder) {
                             YourMixLoadingPlaceholder()
@@ -330,7 +371,7 @@ fun HomeScreen(
                             )
                         }
                     }
-                } else if (currentMusicExtension == null) {
+                } else {
                     item(key = "your_mix_header") {
                         YourMixHeader(
                             song = yourMixSong,
@@ -351,7 +392,7 @@ fun HomeScreen(
                 }
 
                 // Collage
-                if (yourMixSongs.isNotEmpty() && currentMusicExtension == null) {
+                if (yourMixSongs.isNotEmpty()) {
                     item(key = "album_art_collage") {
                         val basePattern = settingsUiState.collagePattern
                         val isAutoRotate = settingsUiState.collageAutoRotate
@@ -385,7 +426,7 @@ fun HomeScreen(
                 }
 
                 // Daily Mix
-                if (dailyMixSongs.isNotEmpty() && currentMusicExtension == null) {
+                if (dailyMixSongs.isNotEmpty()) {
                     item(key = "daily_mix_section") {
                         DailyMixSection(
                             songs = dailyMixSongs.toImmutableList(),
@@ -443,6 +484,7 @@ fun HomeScreen(
                 }
             }
         }
+    }
         
         Box(
             modifier = Modifier

@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -18,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,7 +50,7 @@ import dev.brahmkshatriya.echo.common.models.NetworkRequest
 import dev.brahmkshatriya.echo.common.models.Shelf
 import dev.brahmkshatriya.echo.common.models.Track
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LibraryFeedContent(
     extensionShelves: List<Shelf>,
@@ -84,13 +87,23 @@ fun LibraryFeedContent(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullToRefreshState,
-                isRefreshing = isRefreshing,
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.align(Alignment.TopCenter)
-            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp)
+            ) {
+                LoadingIndicator(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .graphicsLayer {
+                            val p = pullToRefreshState.distanceFraction
+                            scaleX = p.coerceIn(0f, 1f)
+                            scaleY = p.coerceIn(0f, 1f)
+                            alpha = p.coerceIn(0f, 1f)
+                        },
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     ) {
         if (isLoading && extensionShelves.isEmpty() && !isRefreshing && favoriteSongs.itemCount == 0) {

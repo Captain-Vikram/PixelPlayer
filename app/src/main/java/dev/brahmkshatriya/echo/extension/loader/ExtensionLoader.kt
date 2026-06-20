@@ -177,6 +177,13 @@ class ExtensionLoader @Inject constructor(
 
     init {
         scope.launch {
+            music.collect { list ->
+                if (current.value == null && list.isNotEmpty()) {
+                    setCurrentExtension()
+                }
+            }
+        }
+        scope.launch {
             all.collect { list ->
                 list.forEach {
                     if (!it.isEnabled) return@forEach

@@ -10,6 +10,8 @@ import com.theveloper.pixelplay.extensions.core.toAppArtist
 import com.theveloper.pixelplay.extensions.core.toAppPlaylist
 import dev.brahmkshatriya.echo.common.clients.SearchFeedClient
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
+import dev.brahmkshatriya.echo.common.models.ImageHolder
+import dev.brahmkshatriya.echo.common.models.NetworkRequest
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -90,6 +92,22 @@ class SearchStateHolder @Inject constructor(
             }
         }
 
+        // Keep search scope in sync with Datastore preference changes
+        scope.launch {
+            userPreferencesRepository.lastSourceScopeFlow.collect { scope ->
+                if (_currentSourceScope.value != scope) {
+                    _currentSourceScope.value = scope
+                }
+            }
+        }
+
+        // Observe search source scope changes to reload search feed
+        scope.launch {
+            _currentSourceScope.collect {
+                loadSearchFeed()
+            }
+        }
+ 
         observeSearchRequests()
         observeExtensionChanges()
         loadSearchFeed()
@@ -104,7 +122,16 @@ class SearchStateHolder @Inject constructor(
     }
 
     fun loadSearchFeed() {
-        val extension = extensionRepository.currentMusicExtension.value ?: run {
+        val sourceScope = _currentSourceScope.value
+        val extension = when (sourceScope) {
+            is com.theveloper.pixelplay.data.model.SourceScope.Extension -> {
+                extensionEngine.all.value.find { it.metadata.id == sourceScope.extensionId }
+                    as? dev.brahmkshatriya.echo.common.MusicExtension
+            }
+            else -> extensionRepository.currentMusicExtension.value
+        }
+        
+        if (extension == null) {
             _searchFeedShelves.value = emptyList()
             return
         }
@@ -146,7 +173,13 @@ class SearchStateHolder @Inject constructor(
                         val currentFilter = _selectedSearchFilter.value
                         val sourceScope = _currentSourceScope.value
                         
-                        val activeExtension = extensionRepository.currentMusicExtension.value
+                        val activeExtension = when (sourceScope) {
+                            is com.theveloper.pixelplay.data.model.SourceScope.Extension -> {
+                                extensionEngine.all.value.find { it.metadata.id == sourceScope.extensionId }
+                                    as? dev.brahmkshatriya.echo.common.MusicExtension
+                            }
+                            else -> extensionRepository.currentMusicExtension.value
+                        }
                         
                         val localSearchFlow = if (sourceScope == com.theveloper.pixelplay.data.model.SourceScope.All || 
                             sourceScope == com.theveloper.pixelplay.data.model.SourceScope.Local) {
@@ -316,7 +349,10 @@ class SearchStateHolder @Inject constructor(
     private fun com.theveloper.pixelplay.data.model.Song.toTrack() = dev.brahmkshatriya.echo.common.models.Track(
         id = id,
         title = title,
-        // ... more mapping if needed
+        artists = listOf(dev.brahmkshatriya.echo.common.models.Artist(id = artistId.toString(), name = artist)),
+        album = dev.brahmkshatriya.echo.common.models.Album(id = albumId.toString(), title = album),
+        cover = albumArtUriString?.let { ImageHolder.NetworkRequestImageHolder(NetworkRequest(it), true) },
+        duration = duration
     )
     
     private fun com.theveloper.pixelplay.data.model.Album.toEchoAlbum() = dev.brahmkshatriya.echo.common.models.Album(
@@ -343,6 +379,23 @@ class SearchStateHolder @Inject constructor(
         _currentSourceScope.value = scope
         this.scope?.launch {
             userPreferencesRepository.saveLastSourceScope(scope)
+            
+            // Sync active extension selection back to extensionRepository
+            val currentExt = extensionRepository.currentMusicExtension.value
+            if (scope is com.theveloper.pixelplay.data.model.SourceScope.Extension) {
+                val targetId = scope.extensionId
+                if (currentExt?.metadata?.id != targetId) {
+                    val extension = extensionEngine.all.value.find { it.metadata.id == targetId }
+                        as? dev.brahmkshatriya.echo.common.MusicExtension
+                    if (extension != null) {
+                        extensionRepository.selectMusicExtension(extension)
+                    }
+                }
+            } else if (scope is com.theveloper.pixelplay.data.model.SourceScope.Local) {
+                if (currentExt != null) {
+                    extensionRepository.selectMusicExtension(null)
+                }
+            }
         }
     }
 

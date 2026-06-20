@@ -384,6 +384,11 @@ class MainActivity : ComponentActivity() {
                 }
                 clearExternalIntentPayload(intent)
             }
+
+            intent.hasExtra("webViewRequest") -> {
+                LogUtils.d("MainActivity", "Received webViewRequest intent")
+                // ExtensionWebViewHandler already handles the request via flow
+            }
             
             intent.action == "com.theveloper.pixelplay.ACTION_PLAY_SONG" -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -694,7 +699,7 @@ class MainActivity : ComponentActivity() {
                         )
 
                         val animatedDefaultTopCornerRadius = animateDpAsState(
-                            targetValue = if (showPlayerContentArea && !isMiniPlayerDismissing) 0.dp else navBarCornerRadius.dp,
+                            targetValue = if (showPlayerContentArea && !isMiniPlayerDismissing) 10.dp else navBarCornerRadius.dp,
                             animationSpec = tween(400),
                             label = "NavBarDefaultTopCornerRadius"
                         )

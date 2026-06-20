@@ -1003,7 +1003,11 @@ fun LyricsSheet(
                     },
                     immersiveLyricsEnabled = immersiveLyricsEnabled,
                     lyricsExtensions = lyricsExtensions,
-                    currentLyricsExtensionId = (lyricsSearchUiState as? LyricsSearchUiState.PickResult)?.selectedExtensionId,
+                    currentLyricsExtensionId = when (val state = lyricsSearchUiState) {
+                        is LyricsSearchUiState.PickResult -> state.selectedExtensionId
+                        is LyricsSearchUiState.Success -> state.extensionId
+                        else -> null
+                    },
                     onSelectLyricsExtension = { extId ->
                         resetImmersiveTimer()
                         onSelectSource(extId)

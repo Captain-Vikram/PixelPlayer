@@ -1,14 +1,11 @@
 package com.theveloper.pixelplay.presentation.components.player
 
 import android.annotation.SuppressLint
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.runtime.DisposableEffect
 import android.content.Context
 import android.content.res.Configuration
@@ -193,50 +190,6 @@ private suspend fun validateLyricsImport(
             reportedSizeBytes = fileSize
         )
     } ?: LyricsImportValidationResult.Invalid(LyricsImportFailureReason.EMPTY_CONTENT)
-}
-
-@Composable
-private fun SyncedSubtitlesOverlay(
-    lyricsProvider: () -> Lyrics?,
-    currentPositionProvider: () -> Long,
-    expansionFractionProvider: () -> Float,
-    modifier: Modifier = Modifier
-) {
-    val expansionFraction = expansionFractionProvider()
-    val lyrics = lyricsProvider()
-    if (lyrics == null || lyrics.synced.isNullOrEmpty() || expansionFraction < 0.1f) return
-
-    val currentPosition = currentPositionProvider()
-    val currentLine = remember(lyrics, currentPosition) {
-        lyrics.synced.findLast { it.time <= currentPosition }?.line ?: ""
-    }
-
-    if (currentLine.isBlank()) return
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .graphicsLayer {
-                alpha = expansionFraction
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = currentLine,
-            style = MaterialTheme.typography.headlineSmall.copy(
-                shadow = Shadow(
-                    color = Color.Black,
-                    offset = Offset(2f, 2f),
-                    blurRadius = 4f
-                )
-            ),
-            color = Color.White,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -691,12 +644,26 @@ fun FullPlayerContent(
         )
     }
 
-    val lyricsPreviewSection: @Composable () -> Unit = {
-        SyncedSubtitlesOverlay(
-            lyricsProvider = lyricsProvider,
-            currentPositionProvider = currentPositionProvider,
+    val landscapeSongMetadataSection: @Composable () -> Unit = {
+        FullPlayerSongMetadataSection(
+            song = song,
+            currentSongArtists = currentSongArtists,
+            loadingTweaks = loadingTweaks,
+            isSheetDragGestureActive = isSheetDragGestureActive,
             expansionFractionProvider = expansionFractionProvider,
-            modifier = Modifier.padding(top = 8.dp)
+            currentSheetState = currentSheetState,
+            placeholderColor = placeholderColor,
+            placeholderOnColor = placeholderOnColor,
+            isLandscape = true,
+            onLyricsClick = onLyricsClick,
+            playerOnBaseColor = playerOnBaseColor,
+            playerViewModel = playerViewModel,
+            gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
+            chipColor = playerOnAccentColor.copy(alpha = 0.8f),
+            chipContentColor = playerAccentColor,
+            onQueueClick = onSongMetadataQueueClick,
+            onArtistClick = onSongMetadataArtistClick,
+            isPlayingProvider = isPlayingProvider
         )
     }
 
@@ -711,29 +678,6 @@ fun FullPlayerContent(
             placeholderColor = placeholderColor,
             placeholderOnColor = placeholderOnColor,
             isLandscape = false,
-            onLyricsClick = onLyricsClick,
-            playerOnBaseColor = playerOnBaseColor,
-            playerViewModel = playerViewModel,
-            gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
-            chipColor = playerOnAccentColor.copy(alpha = 0.8f),
-            chipContentColor = playerAccentColor,
-            onQueueClick = onSongMetadataQueueClick,
-            onArtistClick = onSongMetadataArtistClick,
-            isPlayingProvider = isPlayingProvider
-        )
-    }
-
-    val landscapeSongMetadataSection: @Composable () -> Unit = {
-        FullPlayerSongMetadataSection(
-            song = song,
-            currentSongArtists = currentSongArtists,
-            loadingTweaks = loadingTweaks,
-            isSheetDragGestureActive = isSheetDragGestureActive,
-            expansionFractionProvider = expansionFractionProvider,
-            currentSheetState = currentSheetState,
-            placeholderColor = placeholderColor,
-            placeholderOnColor = placeholderOnColor,
-            isLandscape = true,
             onLyricsClick = onLyricsClick,
             playerOnBaseColor = playerOnBaseColor,
             playerViewModel = playerViewModel,
@@ -1050,7 +994,6 @@ fun FullPlayerContent(
                     albumCoverSection = albumCoverSection,
                     songMetadataSection = landscapeSongMetadataSection,
                     playerProgressSection = playerProgressSection,
-                    lyricsPreviewSection = lyricsPreviewSection,
                     controlsSection = controlsSection
                 )
             } else {
@@ -1059,7 +1002,6 @@ fun FullPlayerContent(
                     albumCoverSection = albumCoverSection,
                     songMetadataSection = portraitSongMetadataSection,
                     playerProgressSection = playerProgressSection,
-                    lyricsPreviewSection = lyricsPreviewSection,
                     controlsSection = controlsSection
                 )
             }
@@ -1517,7 +1459,6 @@ private fun FullPlayerPortraitContent(
     albumCoverSection: @Composable (Modifier) -> Unit,
     songMetadataSection: @Composable () -> Unit,
     playerProgressSection: @Composable () -> Unit,
-    lyricsPreviewSection: @Composable () -> Unit,
     controlsSection: @Composable () -> Unit
 ) {
     Column(
@@ -1541,7 +1482,6 @@ private fun FullPlayerPortraitContent(
                 songMetadataSection()
             }
             playerProgressSection()
-            lyricsPreviewSection()
         }
 
         controlsSection()
@@ -1554,7 +1494,6 @@ private fun FullPlayerLandscapeContent(
     albumCoverSection: @Composable (Modifier) -> Unit,
     songMetadataSection: @Composable () -> Unit,
     playerProgressSection: @Composable () -> Unit,
-    lyricsPreviewSection: @Composable () -> Unit,
     controlsSection: @Composable () -> Unit
 ) {
     Row(
@@ -1586,7 +1525,6 @@ private fun FullPlayerLandscapeContent(
         ) {
             songMetadataSection()
             playerProgressSection()
-            lyricsPreviewSection()
             controlsSection()
         }
     }

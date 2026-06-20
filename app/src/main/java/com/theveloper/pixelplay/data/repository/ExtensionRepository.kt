@@ -42,7 +42,13 @@ class ExtensionRepository @Inject constructor(
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val allExtensions = extensionEngine.all
-    val installedMusicExtensions = extensionEngine.music
+    val installedMusicExtensions = extensionEngine.all.map { list ->
+        list.filterIsInstance<MusicExtension>()
+    }.stateIn(
+        repositoryScope,
+        SharingStarted.Eagerly,
+        emptyList()
+    )
     
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()

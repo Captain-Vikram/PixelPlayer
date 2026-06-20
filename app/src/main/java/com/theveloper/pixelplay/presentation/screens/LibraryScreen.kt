@@ -97,6 +97,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -228,6 +229,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
@@ -508,6 +510,17 @@ fun LibraryScreen(
     val currentSourceScope by libraryViewModel.currentSourceScope.collectAsStateWithLifecycle()
     val activeExtension by extensionsViewModel.currentMusicExtension.collectAsStateWithLifecycle()
     val installedExtensions by extensionsViewModel.installedMusicExtensions.collectAsStateWithLifecycle(initialValue = emptyList())
+    
+    val allExtensions by extensionsViewModel.allExtensions.collectAsStateWithLifecycle(initialValue = emptyList())
+    val extensionCapabilities by extensionsViewModel.extensionCapabilities.collectAsStateWithLifecycle()
+    val neteaseViewModel: com.theveloper.pixelplay.presentation.netease.dashboard.NeteaseDashboardViewModel = hiltViewModel()
+    val qqMusicViewModel: com.theveloper.pixelplay.presentation.qqmusic.dashboard.QqMusicDashboardViewModel = hiltViewModel()
+    val isNeteaseLoggedIn by neteaseViewModel.isLoggedIn.collectAsStateWithLifecycle()
+    val isQqMusicLoggedIn by qqMusicViewModel.isLoggedIn.collectAsStateWithLifecycle()
+
+    val lyricsExtensions = remember(allExtensions) {
+        allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.LyricsExtension>()
+    }
     
     val sourceIconPainter = if (currentSourceScope is SourceScope.Extension) {
         val extensionId = (currentSourceScope as SourceScope.Extension).extensionId
@@ -1522,203 +1535,270 @@ fun LibraryScreen(
                         }
 
                         if (showSourceSelectionSheet) {
-                            SourceSelectionSheet(
-                                currentScope = currentSourceScope,
-                                installedExtensions = installedExtensions,
-                                onScopeSelected = { libraryViewModel.setSourceScope(it) },
-                                onDismiss = { showSourceSelectionSheet = false }
-                            )
-                        }
-
-                        // Box wrapper to allow floating SelectionCountPill overlay
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            HorizontalPager(
-                                state = pagerState,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 8.dp),
-                                pageSpacing = 0.dp,
-                                beyondViewportPageCount = 1 // Pre-load adjacent tabs to reduce lag when switching
-                            ) { page ->
-                                val tabIndex = resolveTabIndex(
-                                    page = page,
-                                    tabCount = tabTitles.size,
-                                    compactMode = isCompactNavigation
-                                )
-                                when (tabTitles.getOrNull(tabIndex)?.toLibraryTabIdOrNull()) {
-                                    LibraryTabId.SONGS -> {
-                                        val allSongsLazyPagingItems = libraryViewModel.songsPagingFlow.collectAsLazyPagingItems()
-                                        LibrarySongsTab(
-                                            songs = allSongsLazyPagingItems,
-                                            isLoading = isLibraryLoading,
-                                            playerViewModel = playerViewModel,
-                                            bottomBarHeight = bottomBarHeightDp,
-                                            onMoreOptionsClick = stableOnMoreOptionsClick,
-                                            isRefreshing = isRefreshing,
-                                            onRefresh = {
-                                                onRefresh()
-                                                allSongsLazyPagingItems.refresh()
-                                            },
-                                            isSelectionMode = isSelectionMode,
-                                            selectedSongIds = selectedSongIds,
-                                            onSongLongPress = onSongLongPress,
-                                            onSongSelectionToggle = onSongSelectionToggle,
-                                            getSelectionIndex = playerViewModel.multiSelectionStateHolder::getSelectionIndex,
-                                            onLocateCurrentSongVisibilityChanged = { songsShowLocateButton = it },
-                                            onRegisterLocateCurrentSongAction = { songsLocateAction = it },
-                                            sortOption = playerUiState.currentSongSortOption,
-                                            currentSourceScope = playerUiState.currentSourceScope,
-                                            hasCurrentSong = hasCurrentSong
-                                        )
-                                    }
-                                    LibraryTabId.ALBUMS -> {
-                                        val albumsLazyPagingItems = libraryViewModel.albumsPagingFlow.collectAsLazyPagingItems()
-                                        val isLoading = playerUiState.isLoadingLibraryCategories
-
-                                        val stableOnAlbumClick: (Long) -> Unit = remember(navController) {
-                                            { albumId: Long ->
-                                                navController.navigateSafelyReplacing(
-                                                    route = Screen.AlbumDetail.createRoute(albumId.toString()),
-                                                    patternToPop = Screen.AlbumDetail.route
-                                                )
-                                            }
+                            val sourceSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                            ModalBottomSheet(
+                                onDismissRequest = { showSourceSelectionSheet = false },
+                                sheetState = sourceSheetState,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                dragHandle = { BottomSheetDefaults.DragHandle() }
+                            ) {
+                                com.theveloper.pixelplay.presentation.components.SourceSelectionBottomSheet(
+                                    musicExtensions = installedExtensions,
+                                    currentMusicExtension = activeExtension,
+                                    onMusicExtensionSelected = { extension ->
+                                        if (extension == null) {
+                                            libraryViewModel.setSourceScope(SourceScope.Local)
+                                        } else {
+                                            libraryViewModel.setSourceScope(SourceScope.Extension(extension.metadata.id))
                                         }
-                                        LibraryAlbumsTab(
-                                            albums = albumsLazyPagingItems,
-                                            isLoading = isLoading,
-                                            playerViewModel = playerViewModel,
-                                            bottomBarHeight = bottomBarHeightDp,
-                                            isListView = playerUiState.isAlbumsListView,
-                                            currentAlbumSortOption = playerUiState.currentAlbumSortOption,
-                                            onAlbumClick = stableOnAlbumClick,
-                                            isRefreshing = isRefreshing,
-                                            onRefresh = onRefresh,
-                                            isSelectionMode = isAlbumSelectionMode,
-                                            selectedAlbumIds = selectedAlbumIds,
-                                            onAlbumLongPress = onAlbumLongPress,
-                                            onAlbumSelectionToggle = onAlbumSelectionToggle,
-                                            getSelectionIndex = getAlbumSelectionIndex,
-                                            currentSourceScope = playerUiState.currentSourceScope
-                                        )
-                                    }
+                                        scope.launch { sourceSheetState.hide() }.invokeOnCompletion {
+                                            showSourceSelectionSheet = false
+                                        }
+                                    },
+                                    lyricsExtensions = lyricsExtensions,
+                                    onNavigateToStore = {
+                                        scope.launch { sourceSheetState.hide() }.invokeOnCompletion {
+                                            showSourceSelectionSheet = false
+                                            navController.navigateSafely(Screen.Extensions.route)
+                                        }
+                                    },
+                                    onOpenExtensionLogin = { extensionId ->
+                                        scope.launch { sourceSheetState.hide() }.invokeOnCompletion {
+                                            showSourceSelectionSheet = false
+                                            navController.navigate(Screen.ExtensionLogin.createRoute(extensionId))
+                                        }
+                                    },
+                                    onOpenExtensionSettings = { extensionId ->
+                                        scope.launch { sourceSheetState.hide() }.invokeOnCompletion {
+                                            showSourceSelectionSheet = false
+                                            navController.navigate(Screen.ExtensionSettings.createRoute(extensionId))
+                                        }
+                                    },
+                                    isNeteaseLoggedIn = isNeteaseLoggedIn,
+                                    onNeteaseClick = {
+                                        scope.launch { sourceSheetState.hide() }.invokeOnCompletion {
+                                            showSourceSelectionSheet = false
+                                            context.startActivity(Intent(context, com.theveloper.pixelplay.presentation.netease.auth.NeteaseLoginActivity::class.java))
+                                        }
+                                    },
+                                    isQqMusicLoggedIn = isQqMusicLoggedIn,
+                                    onQqMusicClick = {
+                                        scope.launch { sourceSheetState.hide() }.invokeOnCompletion {
+                                            showSourceSelectionSheet = false
+                                            context.startActivity(Intent(context, com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity::class.java))
+                                        }
+                                    },
+                                    extensionCapabilities = extensionCapabilities
+                                )
+                            }
+                        }
+                                              // Box wrapper to allow floating SelectionCountPill overlay
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            if (currentSourceScope is SourceScope.Extension) {
+                                val extensionShelves by extensionsViewModel.libraryShelves.collectAsStateWithLifecycle()
+                                val isLibraryFeedLoading by extensionsViewModel.isLoadingLibraryFeed.collectAsStateWithLifecycle()
+                                val favoritePagingItems = libraryViewModel.favoritesPagingFlow.collectAsLazyPagingItems()
 
-                                    LibraryTabId.ARTISTS -> {
-                                        val artistsLazyPagingItems = libraryViewModel.artistsPagingFlow.collectAsLazyPagingItems()
-                                        val isLoading = playerUiState.isLoadingLibraryCategories
-
-                                        LibraryArtistsTab(
-                                            artists = artistsLazyPagingItems,
-                                            isLoading = isLoading,
-                                            playerViewModel = playerViewModel,
-                                            bottomBarHeight = bottomBarHeightDp,
-                                            currentArtistSortOption = playerUiState.currentArtistSortOption,
-                                            onArtistClick = { artistId ->
-                                                navController.navigateSafelyReplacing(
-                                                    route = Screen.ArtistDetail.createRoute(artistId.toString()),
-                                                    patternToPop = Screen.ArtistDetail.route
-                                                )
-                                            },
-                                            isRefreshing = isRefreshing,
-                                            onRefresh = onRefresh,
-                                            currentSourceScope = playerUiState.currentSourceScope
-                                        )
-                                    }
-
-                                    LibraryTabId.PLAYLISTS -> {
-                                        LibraryPlaylistsTab(
-                                            playlistUiState = playlistUiState,
-                                            filteredPlaylists = visiblePlaylists,
-                                            navController = navController,
-                                            playerViewModel = playerViewModel,
-                                            bottomBarHeight = bottomBarHeightDp,
-                                            isRefreshing = isRefreshing,
-                                            onRefresh = onRefresh,
-                                            // Playlist multi-selection
-                                            isSelectionMode = isPlaylistSelectionMode,
-                                            selectedPlaylistIds = selectedPlaylistIds,
-                                            onPlaylistLongPress = onPlaylistLongPress,
-                                            onPlaylistSelectionToggle = onPlaylistSelectionToggle,
-                                            onPlaylistOptionsClick = { showPlaylistMultiSelectionSheet = true }
-                                        )
-                                    }
-
-                                    LibraryTabId.LIKED -> {
-                                        val favoritePagingItems = libraryViewModel.favoritesPagingFlow.collectAsLazyPagingItems()
-                                        LibraryFavoritesTab(
-                                            favoriteSongs = favoritePagingItems,
-                                            playerViewModel = playerViewModel,
-                                            bottomBarHeight = bottomBarHeightDp,
-                                            onMoreOptionsClick = stableOnMoreOptionsClick,
-                                            isRefreshing = isRefreshing,
-                                            onRefresh = {
-                                                onRefresh()
-                                                favoritePagingItems.refresh()
-                                            },
-                                            isSelectionMode = isSelectionMode,
-                                            selectedSongIds = selectedSongIds,
-                                            onSongLongPress = onSongLongPress,
-                                            onSongSelectionToggle = onSongSelectionToggle,
-                                            getSelectionIndex = playerViewModel.multiSelectionStateHolder::getSelectionIndex,
-                                            sortOption = playerUiState.currentFavoriteSortOption,
-                                            onLocateCurrentSongVisibilityChanged = { likedShowLocateButton = it },
-                                            onRegisterLocateCurrentSongAction = { likedLocateAction = it },
-                                            currentSourceScope = playerUiState.currentSourceScope,
-                                            hasCurrentSong = hasCurrentSong
-                                        )
-                                    }
-
-                                    LibraryTabId.FOLDERS -> {
-                                        val folders = playerUiState.musicFolders
-                                        val currentFolder = playerUiState.currentFolder
-                                        val isLoading = playerUiState.isLoadingLibraryCategories
-                                        val defaultFolderName = stringResource(R.string.library_folder_name_fallback)
-
-                                        LibraryFoldersTab(
-                                            folders = folders,
-                                            currentFolder = currentFolder,
-                                            isLoading = isLoading,
-                                            bottomBarHeight = bottomBarHeightDp,
-                                            playerViewModel = playerViewModel,
-                                            onNavigateBack = { playerViewModel.navigateBackFolder() },
-                                            onFolderClick = { folderPath -> playerViewModel.navigateToFolder(folderPath) },
-                                            onFolderAsPlaylistClick = { folder ->
-                                                val encodedPath = Uri.encode(folder.path)
-                                                navController.navigateSafelyReplacing(
-                                                    route = Screen.PlaylistDetail.createRoute(
-                                                        "${PlaylistViewModel.FOLDER_PLAYLIST_PREFIX}$encodedPath"
-                                                    ),
-                                                    patternToPop = Screen.PlaylistDetail.route
-                                                )
-                                            },
-                                            onPlaySong = { song, queue ->
-                                                playerViewModel.showAndPlaySong(
-                                                    song,
-                                                    queue,
-                                                    currentFolder?.name ?: defaultFolderName
-                                                )
-                                            },
-                                            onMoreOptionsClick = stableOnMoreOptionsClick,
-                                            isPlaylistView = playerUiState.isFoldersPlaylistView,
-                                            currentSortOption = playerUiState.currentFolderSortOption,
-                                            isRefreshing = isRefreshing,
-                                            onRefresh = onRefresh,
-                                            isSelectionMode = isSelectionMode,
-                                            selectedSongIds = selectedSongIds,
-                                            onSongLongPress = onSongLongPress,
-                                            onSongSelectionToggle = onSongSelectionToggle,
-                                            getSelectionIndex = playerViewModel.multiSelectionStateHolder::getSelectionIndex,
-                                            onLocateCurrentSongVisibilityChanged = { foldersShowLocateButton = it },
-                                            onRegisterLocateCurrentSongAction = { foldersLocateAction = it },
-                                            pendingLocatePath = pendingFoldersLocatePath,
-                                            onClearPendingLocate = { pendingFoldersLocatePath = null },
-                                            onRequestCrossFolderLocate = { folderPath ->
-                                                pendingFoldersLocatePath = folderPath
-                                                playerViewModel.navigateToFolder(folderPath)
+                                LibraryFeedContent(
+                                    extensionShelves = extensionShelves,
+                                    favoriteSongs = favoritePagingItems,
+                                    isLoading = isLibraryFeedLoading,
+                                    bottomBarHeight = bottomBarHeightDp,
+                                    navController = navController,
+                                    playerViewModel = playerViewModel,
+                                    extensionsViewModel = extensionsViewModel,
+                                    isRefreshing = isLibraryFeedLoading || isRefreshing,
+                                    onRefresh = {
+                                        extensionsViewModel.refreshFeeds()
+                                        favoritePagingItems.refresh()
+                                    },
+                                    onMoreOptionsClick = stableOnMoreOptionsClick,
+                                    isSelectionMode = isSelectionMode,
+                                    selectedSongIds = selectedSongIds,
+                                    onSongLongPress = onSongLongPress,
+                                    onSongSelectionToggle = onSongSelectionToggle
+                                )
+                            } else {
+                                HorizontalPager(
+                                    state = pagerState,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(top = 8.dp),
+                                    pageSpacing = 0.dp,
+                                    beyondViewportPageCount = 1 // Pre-load adjacent tabs to reduce lag when switching
+                                ) { page ->
+                                    val tabIndex = resolveTabIndex(
+                                        page = page,
+                                        tabCount = tabTitles.size,
+                                        compactMode = isCompactNavigation
+                                    )
+                                    when (tabTitles.getOrNull(tabIndex)?.toLibraryTabIdOrNull()) {
+                                        LibraryTabId.SONGS -> {
+                                            val allSongsLazyPagingItems = libraryViewModel.songsPagingFlow.collectAsLazyPagingItems()
+                                            LibrarySongsTab(
+                                                songs = allSongsLazyPagingItems,
+                                                isLoading = isLibraryLoading,
+                                                playerViewModel = playerViewModel,
+                                                bottomBarHeight = bottomBarHeightDp,
+                                                onMoreOptionsClick = stableOnMoreOptionsClick,
+                                                isRefreshing = isRefreshing,
+                                                onRefresh = {
+                                                    onRefresh()
+                                                    allSongsLazyPagingItems.refresh()
+                                                },
+                                                isSelectionMode = isSelectionMode,
+                                                selectedSongIds = selectedSongIds,
+                                                onSongLongPress = onSongLongPress,
+                                                onSongSelectionToggle = onSongSelectionToggle,
+                                                getSelectionIndex = playerViewModel.multiSelectionStateHolder::getSelectionIndex,
+                                                onLocateCurrentSongVisibilityChanged = { songsShowLocateButton = it },
+                                                onRegisterLocateCurrentSongAction = { songsLocateAction = it },
+                                                sortOption = playerUiState.currentSongSortOption,
+                                                currentSourceScope = playerUiState.currentSourceScope,
+                                                hasCurrentSong = hasCurrentSong
+                                            )
+                                        }
+                                        LibraryTabId.ALBUMS -> {
+                                            val albumsLazyPagingItems = libraryViewModel.albumsPagingFlow.collectAsLazyPagingItems()
+                                            val isLoading = playerUiState.isLoadingLibraryCategories
+                                            val stableOnAlbumClick: (Long) -> Unit = remember(navController) {
+                                                { albumId: Long ->
+                                                    navController.navigateSafelyReplacing(
+                                                        route = Screen.AlbumDetail.createRoute(albumId.toString()),
+                                                        patternToPop = Screen.AlbumDetail.route
+                                                    )
+                                                }
                                             }
-                                        )
+                                            LibraryAlbumsTab(
+                                                albums = albumsLazyPagingItems,
+                                                isLoading = isLoading,
+                                                playerViewModel = playerViewModel,
+                                                bottomBarHeight = bottomBarHeightDp,
+                                                isListView = playerUiState.isAlbumsListView,
+                                                currentAlbumSortOption = playerUiState.currentAlbumSortOption,
+                                                onAlbumClick = stableOnAlbumClick,
+                                                isRefreshing = isRefreshing,
+                                                onRefresh = onRefresh,
+                                                isSelectionMode = isAlbumSelectionMode,
+                                                selectedAlbumIds = selectedAlbumIds,
+                                                onAlbumLongPress = onAlbumLongPress,
+                                                onAlbumSelectionToggle = onAlbumSelectionToggle,
+                                                getSelectionIndex = getAlbumSelectionIndex,
+                                                currentSourceScope = playerUiState.currentSourceScope
+                                            )
+                                        }
+                                        LibraryTabId.ARTISTS -> {
+                                            val artistsLazyPagingItems = libraryViewModel.artistsPagingFlow.collectAsLazyPagingItems()
+                                            val isLoading = playerUiState.isLoadingLibraryCategories
+                                            LibraryArtistsTab(
+                                                artists = artistsLazyPagingItems,
+                                                isLoading = isLoading,
+                                                playerViewModel = playerViewModel,
+                                                bottomBarHeight = bottomBarHeightDp,
+                                                currentArtistSortOption = playerUiState.currentArtistSortOption,
+                                                onArtistClick = { artistId ->
+                                                    navController.navigateSafelyReplacing(
+                                                        route = Screen.ArtistDetail.createRoute(artistId.toString()),
+                                                        patternToPop = Screen.ArtistDetail.route
+                                                    )
+                                                },
+                                                isRefreshing = isRefreshing,
+                                                onRefresh = onRefresh,
+                                                currentSourceScope = playerUiState.currentSourceScope
+                                            )
+                                        }
+                                        LibraryTabId.PLAYLISTS -> {
+                                            LibraryPlaylistsTab(
+                                                playlistUiState = playlistUiState,
+                                                filteredPlaylists = visiblePlaylists,
+                                                navController = navController,
+                                                playerViewModel = playerViewModel,
+                                                bottomBarHeight = bottomBarHeightDp,
+                                                isRefreshing = isRefreshing,
+                                                onRefresh = onRefresh,
+                                                // Playlist multi-selection
+                                                isSelectionMode = isPlaylistSelectionMode,
+                                                selectedPlaylistIds = selectedPlaylistIds,
+                                                onPlaylistLongPress = onPlaylistLongPress,
+                                                onPlaylistSelectionToggle = onPlaylistSelectionToggle,
+                                                onPlaylistOptionsClick = { showPlaylistMultiSelectionSheet = true }
+                                            )
+                                        }
+                                        LibraryTabId.LIKED -> {
+                                            val favoritePagingItems = libraryViewModel.favoritesPagingFlow.collectAsLazyPagingItems()
+                                            LibraryFavoritesTab(
+                                                favoriteSongs = favoritePagingItems,
+                                                playerViewModel = playerViewModel,
+                                                bottomBarHeight = bottomBarHeightDp,
+                                                onMoreOptionsClick = stableOnMoreOptionsClick,
+                                                isRefreshing = isRefreshing,
+                                                onRefresh = {
+                                                    onRefresh()
+                                                    favoritePagingItems.refresh()
+                                                },
+                                                isSelectionMode = isSelectionMode,
+                                                selectedSongIds = selectedSongIds,
+                                                onSongLongPress = onSongLongPress,
+                                                onSongSelectionToggle = onSongSelectionToggle,
+                                                getSelectionIndex = playerViewModel.multiSelectionStateHolder::getSelectionIndex,
+                                                sortOption = playerUiState.currentFavoriteSortOption,
+                                                onLocateCurrentSongVisibilityChanged = { likedShowLocateButton = it },
+                                                onRegisterLocateCurrentSongAction = { likedLocateAction = it },
+                                                currentSourceScope = playerUiState.currentSourceScope,
+                                                hasCurrentSong = hasCurrentSong
+                                            )
+                                        }
+                                        LibraryTabId.FOLDERS -> {
+                                            val folders = playerUiState.musicFolders
+                                            val currentFolder = playerUiState.currentFolder
+                                            val isLoading = playerUiState.isLoadingLibraryCategories
+                                            val defaultFolderName = stringResource(R.string.library_folder_name_fallback)
+                                            LibraryFoldersTab(
+                                                folders = folders,
+                                                currentFolder = currentFolder,
+                                                isLoading = isLoading,
+                                                bottomBarHeight = bottomBarHeightDp,
+                                                playerViewModel = playerViewModel,
+                                                onNavigateBack = { playerViewModel.navigateBackFolder() },
+                                                onFolderClick = { folderPath -> playerViewModel.navigateToFolder(folderPath) },
+                                                onFolderAsPlaylistClick = { folder ->
+                                                    val encodedPath = Uri.encode(folder.path)
+                                                    navController.navigateSafelyReplacing(
+                                                        route = Screen.PlaylistDetail.createRoute(
+                                                            "${PlaylistViewModel.FOLDER_PLAYLIST_PREFIX}$encodedPath"
+                                                        ),
+                                                        patternToPop = Screen.PlaylistDetail.route
+                                                    )
+                                                },
+                                                onPlaySong = { song, queue ->
+                                                    playerViewModel.showAndPlaySong(
+                                                        song,
+                                                        queue,
+                                                        currentFolder?.name ?: defaultFolderName
+                                                    )
+                                                },
+                                                onMoreOptionsClick = stableOnMoreOptionsClick,
+                                                isPlaylistView = playerUiState.isFoldersPlaylistView,
+                                                currentSortOption = playerUiState.currentFolderSortOption,
+                                                isRefreshing = isRefreshing,
+                                                onRefresh = onRefresh,
+                                                isSelectionMode = isSelectionMode,
+                                                selectedSongIds = selectedSongIds,
+                                                onSongLongPress = onSongLongPress,
+                                                onSongSelectionToggle = onSongSelectionToggle,
+                                                getSelectionIndex = playerViewModel.multiSelectionStateHolder::getSelectionIndex,
+                                                onLocateCurrentSongVisibilityChanged = { foldersShowLocateButton = it },
+                                                onRegisterLocateCurrentSongAction = { foldersLocateAction = it },
+                                                pendingLocatePath = pendingFoldersLocatePath,
+                                                onClearPendingLocate = { pendingFoldersLocatePath = null },
+                                                onRequestCrossFolderLocate = { folderPath ->
+                                                    pendingFoldersLocatePath = folderPath
+                                                    playerViewModel.navigateToFolder(folderPath)
+                                                }
+                                            )
+                                        }
+                                        null -> Unit
                                     }
-
-                                    null -> Unit
                                 }
                             }
 
@@ -3065,11 +3145,23 @@ fun LibraryFoldersTab(
                         state = foldersPullToRefreshState,
                         modifier = Modifier.fillMaxSize(),
                         indicator = {
-                            PullToRefreshDefaults.LoadingIndicator(
-                                state = foldersPullToRefreshState,
-                                isRefreshing = isRefreshing,
-                                modifier = Modifier.align(Alignment.TopCenter)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 16.dp)
+                            ) {
+                                LoadingIndicator(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .graphicsLayer {
+                                            val p = foldersPullToRefreshState.distanceFraction
+                                            scaleX = p.coerceIn(0f, 1f)
+                                            scaleY = p.coerceIn(0f, 1f)
+                                            alpha = p.coerceIn(0f, 1f)
+                                        },
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {

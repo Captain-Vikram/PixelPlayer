@@ -91,74 +91,82 @@ fun SourceSelectionBottomSheet(
         Spacer(Modifier.height(24.dp))
 
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false),
             shape = containerShape,
             color = Color.Transparent
         ) {
-            Column(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(containerShape),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Local Mode Option
-                val isLocalSelected = currentMusicExtension == null
-                SourceRow(
-                    title = "Internal Library",
-                    subtitle = "Music stored on this device",
-                    iconVector = Icons.Rounded.Storage,
-                    iconTint = MaterialTheme.colorScheme.secondary,
-                    isSelected = isLocalSelected,
-                    onClick = { onMusicExtensionSelected(null) },
-                    shape = itemShape
-                )
-
-                if (musicExtensions.isNotEmpty()) {
-                    Text(
-                        text = "Extensions",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 12.dp, top = 8.dp)
-                    )
-                }
-
-                // Extensions
-                musicExtensions.forEach { extension ->
-                    val isSelected = extension == currentMusicExtension
-                    val caps = extensionCapabilities[extension.metadata.id] ?: ExtensionCapabilities()
-                    val iconModel = when (val icon = extension.metadata.icon) {
-                        is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
-                        is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
-                        else -> null
-                    }
+                item {
+                    val isLocalSelected = currentMusicExtension == null
                     SourceRow(
-                        title = extension.metadata.name,
-                        subtitle = "v${extension.metadata.version} (Music)",
-                        iconModel = iconModel,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        isSelected = isSelected,
-                        onClick = { onMusicExtensionSelected(extension) },
-                        onTrailingIconClick = {
-                            if (caps.isLoginNeeded) {
-                                onOpenExtensionLogin(extension.metadata.id)
-                            } else {
-                                onOpenExtensionSettings(extension.metadata.id)
-                            }
-                        },
-                        trailingIcon = if (caps.isLoginNeeded) Icons.Rounded.Login else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        title = "Internal Library",
+                        subtitle = "Music stored on this device",
+                        iconVector = Icons.Rounded.Storage,
+                        iconTint = MaterialTheme.colorScheme.secondary,
+                        isSelected = isLocalSelected,
+                        onClick = { onMusicExtensionSelected(null) },
                         shape = itemShape
                     )
                 }
 
+                if (musicExtensions.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Extensions",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 12.dp, top = 8.dp)
+                        )
+                    }
+
+                    // Extensions
+                    items(musicExtensions, key = { it.metadata.id }) { extension ->
+                        val isSelected = extension.metadata.id == currentMusicExtension?.metadata?.id
+                        val caps = extensionCapabilities[extension.metadata.id] ?: ExtensionCapabilities()
+                        val iconModel = when (val icon = extension.metadata.icon) {
+                            is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
+                            is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
+                            else -> null
+                        }
+                        SourceRow(
+                            title = extension.metadata.name,
+                            subtitle = "v${extension.metadata.version} (Music)",
+                            iconModel = iconModel,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            isSelected = isSelected,
+                            onClick = { onMusicExtensionSelected(extension) },
+                            onTrailingIconClick = {
+                                if (caps.isLoginNeeded) {
+                                    onOpenExtensionLogin(extension.metadata.id)
+                                } else {
+                                    onOpenExtensionSettings(extension.metadata.id)
+                                }
+                            },
+                            trailingIcon = if (caps.isLoginNeeded) Icons.Rounded.Login else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                            shape = itemShape
+                        )
+                    }
+                }
+
                 if (lyricsExtensions.isNotEmpty()) {
-                    Text(
-                        text = "Lyrics Extensions",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 12.dp, top = 8.dp)
-                    )
+                    item {
+                        Text(
+                            text = "Lyrics Extensions",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 12.dp, top = 8.dp)
+                        )
+                    }
                     
-                    lyricsExtensions.forEach { extension ->
+                    items(lyricsExtensions, key = { it.metadata.id }) { extension ->
                         val caps = extensionCapabilities[extension.metadata.id] ?: ExtensionCapabilities()
                         val iconModel = when (val icon = extension.metadata.icon) {
                             is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
@@ -184,56 +192,68 @@ fun SourceSelectionBottomSheet(
                     }
                 }
 
-                Text(
-                    text = "Other Sources",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 12.dp, top = 8.dp)
-                )
+                item {
+                    Text(
+                        text = "Other Sources",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 12.dp, top = 8.dp)
+                    )
+                }
 
                 // Cloud Providers
-                SourceRow(
-                    title = "Telegram",
-                    subtitle = "Cloud Storage & Chats",
-                    iconPainter = painterResource(R.drawable.telegram),
-                    iconTint = Color(0xFF2AABEE),
-                    onClick = { 
-                        context.startActivity(Intent(context, TelegramLoginActivity::class.java))
-                    },
-                    shape = itemShape
-                )
+                item {
+                    SourceRow(
+                        title = "Telegram",
+                        subtitle = "Cloud Storage & Chats",
+                        iconPainter = painterResource(R.drawable.telegram),
+                        iconTint = Color(0xFF2AABEE),
+                        onClick = { 
+                            context.startActivity(Intent(context, TelegramLoginActivity::class.java))
+                        },
+                        shape = itemShape
+                    )
+                }
 
-                SourceRow(
-                    title = "Netease Music",
-                    subtitle = if (isNeteaseLoggedIn) "Cloud Connected" else "Sign in to stream",
-                    iconPainter = painterResource(R.drawable.netease_cloud_music_logo_icon_206716__1_),
-                    iconTint = Color(0xFFE85959),
-                    isConnected = isNeteaseLoggedIn,
-                    onClick = onNeteaseClick,
-                    shape = itemShape
-                )
+                item {
+                    SourceRow(
+                        title = "Netease Music",
+                        subtitle = if (isNeteaseLoggedIn) "Cloud Connected" else "Sign in to stream",
+                        iconPainter = painterResource(R.drawable.netease_cloud_music_logo_icon_206716__1_),
+                        iconTint = Color(0xFFE85959),
+                        isConnected = isNeteaseLoggedIn,
+                        onClick = onNeteaseClick,
+                        shape = itemShape
+                    )
+                }
 
-                SourceRow(
-                    title = "QQ Music",
-                    subtitle = if (isQqMusicLoggedIn) "Cloud Connected" else "Sign in to stream",
-                    iconPainter = painterResource(R.drawable.qq_music),
-                    iconTint = Color(0xFF31C27C),
-                    isConnected = isQqMusicLoggedIn,
-                    onClick = onQqMusicClick,
-                    shape = itemShape
-                )
+                item {
+                    SourceRow(
+                        title = "QQ Music",
+                        subtitle = if (isQqMusicLoggedIn) "Cloud Connected" else "Sign in to stream",
+                        iconPainter = painterResource(R.drawable.qq_music),
+                        iconTint = Color(0xFF31C27C),
+                        isConnected = isQqMusicLoggedIn,
+                        onClick = onQqMusicClick,
+                        shape = itemShape
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
                 // Management shortcut
-                SourceRow(
-                    title = "Manage Sources",
-                    subtitle = "Install more from the store",
-                    iconVector = Icons.Rounded.Extension,
-                    iconTint = MaterialTheme.colorScheme.secondary,
-                    onClick = onNavigateToStore,
-                    shape = itemShape
-                )
+                item {
+                    SourceRow(
+                        title = "Manage Sources",
+                        subtitle = "Install more from the store",
+                        iconVector = Icons.Rounded.Extension,
+                        iconTint = MaterialTheme.colorScheme.secondary,
+                        onClick = onNavigateToStore,
+                        shape = itemShape
+                    )
+                }
             }
         }
     }

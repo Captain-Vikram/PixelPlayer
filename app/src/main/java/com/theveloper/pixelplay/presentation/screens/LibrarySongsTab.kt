@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -34,6 +35,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -288,11 +290,25 @@ fun LibrarySongsTab(
                     state = pullToRefreshState,
                     modifier = Modifier.fillMaxSize(),
                     indicator = {
-                        PullToRefreshDefaults.LoadingIndicator(
-                            state = pullToRefreshState,
-                            isRefreshing = isRefreshing,
-                            modifier = Modifier.align(Alignment.TopCenter)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 16.dp)
+                        ) {
+                            LoadingIndicator(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .graphicsLayer {
+                                        // Standard M3 PullToRefresh indicator uses scale and alpha
+                                        // We can simulate it here if we want, or just let it pop in
+                                        val p = pullToRefreshState.distanceFraction
+                                        scaleX = p.coerceIn(0f, 1f)
+                                        scaleY = p.coerceIn(0f, 1f)
+                                        alpha = p.coerceIn(0f, 1f)
+                                    },
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {

@@ -8,17 +8,28 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class ExtensionWebViewManager @Inject constructor() {
+class ExtensionWebViewManager @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
+) {
 
     private val _requestFlow = MutableStateFlow<ExtensionWebViewRequest<*>?>(null)
     val requestFlow: StateFlow<ExtensionWebViewRequest<*>?> = _requestFlow
 
     suspend fun <T> await(
         request: WebViewRequest<T>,
-        reason: String
+        reason: String,
+        showWebView: Boolean = false
     ): Result<T?> {
         val deferred = CompletableDeferred<T?>()
-        _requestFlow.value = ExtensionWebViewRequest(request, reason, deferred)
+        val extensionRequest = ExtensionWebViewRequest(request, reason, deferred, showWebView)
+        _requestFlow.value = extensionRequest
+        
+        val intent = android.content.Intent().apply {
+            setClassName(context.packageName, "com.theveloper.pixelplay.MainActivity")
+            putExtra("webViewRequest", true)
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
         
         return try {
             val result = deferred.await()
@@ -26,7 +37,9 @@ class ExtensionWebViewManager @Inject constructor() {
         } catch (e: Exception) {
             Result.failure(e)
         } finally {
-            _requestFlow.value = null
+            if (_requestFlow.value == extensionRequest) {
+                _requestFlow.value = null
+            }
         }
     }
 }
@@ -34,5 +47,6 @@ class ExtensionWebViewManager @Inject constructor() {
 data class ExtensionWebViewRequest<T>(
     val request: WebViewRequest<T>,
     val reason: String,
-    val deferred: CompletableDeferred<T?>
+    val deferred: CompletableDeferred<T?>,
+    val showWebView: Boolean = false
 )

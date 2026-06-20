@@ -58,7 +58,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":shared"))
+    implementation(project(":core:shared"))
 
     // Wear OS Compose
     implementation(libs.wear.compose.material)

@@ -50,6 +50,8 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
@@ -251,13 +253,23 @@ fun StatsScreen(
         state = pullToRefreshState,
         modifier = Modifier.fillMaxSize(),
         indicator = {
-            PullToRefreshDefaults.LoadingIndicator(
-                state = pullToRefreshState,
-                isRefreshing = isPullRefreshAnimating,
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = currentTopBarHeightDp + tabsHeight + tabIndicatorExtraSpacing + 4.dp)
-            )
+            ) {
+                LoadingIndicator(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .graphicsLayer {
+                            val p = pullToRefreshState.distanceFraction
+                            scaleX = p.coerceIn(0f, 1f)
+                            scaleY = p.coerceIn(0f, 1f)
+                            alpha = p.coerceIn(0f, 1f)
+                        },
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     ) {
         Box(

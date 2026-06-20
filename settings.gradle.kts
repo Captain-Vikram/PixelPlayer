@@ -32,11 +32,9 @@ dependencyResolutionManagement {
 
 rootProject.name = "PixelPlay"
 include(":app")
-include(":shared")
+include(":core:shared")
+include(":core:common")
 include(":wear")
 include(":baselineprofile")
 // Official Echo modules are available in the workspace but excluded from
 // project includes for local app assemble until their Gradle setup is aligned.
-
-include(":common")
-project(":common").projectDir = File(rootDir, "common")

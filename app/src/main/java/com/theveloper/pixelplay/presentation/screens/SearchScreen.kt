@@ -58,10 +58,14 @@ import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
 import com.theveloper.pixelplay.presentation.screens.search.components.GenreCategoriesGrid
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
+import com.theveloper.pixelplay.presentation.viewmodel.ExtensionsViewModel
+import com.theveloper.pixelplay.presentation.components.SourceSelectionSheet
 import com.theveloper.pixelplay.ui.theme.LocalPixelPlayDarkTheme
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import com.theveloper.pixelplay.utils.formatSongCount
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
 import dev.brahmkshatriya.echo.common.models.Shelf
+import dev.brahmkshatriya.echo.common.MusicExtension
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -71,6 +75,9 @@ import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import timber.log.Timber
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.composed
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 
 private const val MAX_ALBUM_MULTI_SELECTION = 6
 
@@ -90,6 +97,7 @@ fun SearchScreen(
     paddingValues: PaddingValues,
     playerViewModel: PlayerViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    extensionsViewModel: ExtensionsViewModel = hiltViewModel(),
     navController: NavHostController,
     onSearchBarActiveChange: (Boolean) -> Unit = {}
 ) {
@@ -104,6 +112,8 @@ fun SearchScreen(
     
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
     var showPlaylistBottomSheet by remember { mutableStateOf(false) }
+    var showSourceSelectionSheet by remember { mutableStateOf(false) }
+    val installedExtensions by extensionsViewModel.installedMusicExtensions.collectAsStateWithLifecycle(initialValue = emptyList())
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -235,7 +245,7 @@ fun SearchScreen(
                                     placeholder = {
                                         Text(
                                             stringResource(R.string.search_placeholder),
-                                            style = MaterialTheme.typography.bodyLarge,
+                                            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = GoogleSansRounded),
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                     },
@@ -332,61 +342,18 @@ fun SearchScreen(
                             .padding(vertical = 8.dp, horizontal = 16.dp)
                     )
                 } else {
-                    LazyRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        contentPadding = PaddingValues(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        val currentMusicExtension = playerViewModel.currentMusicExtension
-                        val currentScope = searchUiState.currentSourceScope
-
-                        // Source Selector
-                        item {
-                            SearchSourceScopeChip(
-                                scope = SourceScope.All,
-                                currentScope = currentScope,
-                                extensionName = null,
-                                onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
-                            )
-                        }
-                        item {
-                            SearchSourceScopeChip(
-                                scope = SourceScope.Local,
-                                currentScope = currentScope,
-                                extensionName = null,
-                                onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
-                            )
-                        }
-                        item {
-                            val activeExtension by currentMusicExtension.collectAsStateWithLifecycle()
-                            activeExtension?.let { ext ->
-                                SearchSourceScopeChip(
-                                    scope = SourceScope.Extension(ext.metadata.id),
-                                    currentScope = currentScope,
-                                    extensionName = ext.metadata.name,
-                                    onScopeSelected = { playerViewModel.updateSearchSourceScope(it) }
-                                )
-                            }
-                        }
-
-                        item {
-                            VerticalDivider(
-                                modifier = Modifier
-                                    .height(24.dp)
-                                    .padding(horizontal = 4.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant
-                            )
-                        }
-
-                        // Type Filters
-                        item { SearchFilterChip(SearchFilterType.ALL, currentFilter, playerViewModel) }
-                        item { SearchFilterChip(SearchFilterType.SONGS, currentFilter, playerViewModel) }
-                        item { SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel) }
-                        item { SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel) }
-                        item { SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel) }
+                        SourceSwitcher(
+                            currentScope = searchUiState.currentSourceScope,
+                            installedExtensions = installedExtensions,
+                            onClick = { showSourceSelectionSheet = true }
+                        )
+                        FilterTabs(
+                            currentFilter = currentFilter,
+                            onFilterSelected = { playerViewModel.updateSearchFilter(it) }
+                        )
                     }
                 }
             }
@@ -543,6 +510,17 @@ fun SearchScreen(
             playerViewModel = playerViewModel,
         )
     }
+
+    if (showSourceSelectionSheet) {
+        SourceSelectionSheet(
+            currentScope = searchUiState.currentSourceScope,
+            installedExtensions = installedExtensions,
+            onScopeSelected = { scope ->
+                playerViewModel.updateSearchSourceScope(scope)
+            },
+            onDismiss = { showSourceSelectionSheet = false }
+        )
+    }
 }
 
 @Composable
@@ -578,11 +556,11 @@ private fun DiscoveryFeed(
                     ) {
                         Text(
                             text = "Recent Searches",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleLarge.copy(fontFamily = GoogleSansRounded),
                             fontWeight = FontWeight.Bold
                         )
                         TextButton(onClick = { playerViewModel.clearSearchHistory() }) {
-                            Text("Clear All")
+                            Text("Clear All", fontFamily = GoogleSansRounded)
                         }
                     }
                     
@@ -597,7 +575,7 @@ private fun DiscoveryFeed(
                                     playerViewModel.updateSearchQuery(historyItem.query)
                                     playerViewModel.performSearch(historyItem.query)
                                 },
-                                label = { Text(historyItem.query) },
+                                label = { Text(historyItem.query, fontFamily = GoogleSansRounded) },
                                 shape = CircleShape,
                                 leadingIcon = { Icon(Icons.Rounded.History, null, modifier = Modifier.size(16.dp)) },
                                 trailingIcon = {
@@ -625,22 +603,14 @@ private fun DiscoveryFeed(
                 }
             } else {
                 item {
-                    Column(modifier = Modifier.padding(top = 16.dp)) {
-                        Text(
-                            text = "Browse Genres",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
-                        )
-                        val genres by playerViewModel.genres.collectAsStateWithLifecycle(initialValue = emptyList())
-                        GenreCategoriesGrid(
-                            genres = genres,
-                            playerViewModel = playerViewModel,
-                            onGenreClick = { genre ->
-                                 navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(genre.name, "UTF-8")))
-                            }
-                        )
-                    }
+                    val genres by playerViewModel.genres.collectAsStateWithLifecycle(initialValue = emptyList())
+                    GenreCategoriesGrid(
+                        genres = genres,
+                        playerViewModel = playerViewModel,
+                        onGenreClick = { genre ->
+                             navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(genre.name, "UTF-8")))
+                        }
+                    )
                 }
             }
         }
@@ -709,7 +679,7 @@ private fun SearchShelf(
             Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) {
                 Text(
                     text = cleanTitle,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = GoogleSansRounded),
                     fontWeight = FontWeight.ExtraBold,
                 )
                 if (sourceLabel != null) {
@@ -723,7 +693,7 @@ private fun SearchShelf(
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = sourceLabel,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.typography.labelMedium.copy(fontFamily = GoogleSansRounded),
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                             fontWeight = FontWeight.SemiBold
                         )
@@ -784,7 +754,7 @@ private fun handleEchoItemClick(
 ) {
     val idParts = item.id.split(":")
     val isExtension = idParts.getOrNull(0) == "extension"
-    val extensionId = if (isExtension) idParts.getOrNull(1) else activeExtensionId
+    val extensionId = if (idParts.getOrNull(0) == "extension") idParts.getOrNull(1) else activeExtensionId
 
     when (item) {
         is dev.brahmkshatriya.echo.common.models.Track -> {
@@ -822,18 +792,18 @@ fun EmptySearchResults(searchQuery: String, colorScheme: ColorScheme) {
     ) {
         Icon(
             imageVector = Icons.Rounded.Search,
-            contentDescription = stringResource(R.string.search_no_results_for_query, searchQuery),
+            contentDescription = stringResource(R.string.search_no_results_for, searchQuery),
             modifier = Modifier.size(80.dp).padding(bottom = 16.dp),
             tint = colorScheme.primary.copy(alpha = 0.6f)
         )
 
         Text(
             text = if (searchQuery.isNotBlank()) {
-                stringResource(R.string.search_no_results_for_query, searchQuery)
+                stringResource(R.string.search_no_results_for, searchQuery)
             } else {
                 "No searches found"
             },
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleLarge.copy(fontFamily = GoogleSansRounded),
             textAlign = TextAlign.Center,
             fontWeight = FontWeight.Bold
         )
@@ -842,7 +812,7 @@ fun EmptySearchResults(searchQuery: String, colorScheme: ColorScheme) {
 
         Text(
             text = "Try checking your spelling or changing the source filter.",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = GoogleSansRounded),
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             textAlign = TextAlign.Center
         )
@@ -850,71 +820,143 @@ fun EmptySearchResults(searchQuery: String, colorScheme: ColorScheme) {
 }
 
 @Composable
-fun SearchSourceScopeChip(
-    scope: SourceScope,
+fun SourceSwitcher(
     currentScope: SourceScope,
-    extensionName: String?,
-    onScopeSelected: (SourceScope) -> Unit,
+    installedExtensions: List<MusicExtension>,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val selected = scope == currentScope
-
-    androidx.compose.material3.FilledIconToggleButton(
-        checked = selected,
-        onCheckedChange = { onScopeSelected(scope) },
-        modifier = modifier.size(42.dp),
-        shape = CircleShape,
-        colors = androidx.compose.material3.IconButtonDefaults.filledIconToggleButtonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            checkedContainerColor = MaterialTheme.colorScheme.secondary,
-            checkedContentColor = MaterialTheme.colorScheme.onSecondary
-        )
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Icon(
-            imageVector = when (scope) {
-                SourceScope.All -> Icons.Rounded.Public
-                SourceScope.Local -> Icons.Rounded.Storage
-                else -> Icons.Rounded.Cloud
-            },
-            contentDescription = when (scope) {
-                SourceScope.All -> "All Sources"
-                SourceScope.Local -> "Local Files"
-                is SourceScope.Extension -> extensionName ?: "Extension"
-            },
-            modifier = Modifier.size(20.dp)
+        Text(
+            text = "Source:",
+            style = MaterialTheme.typography.labelMedium.copy(fontFamily = GoogleSansRounded),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Bold
         )
+
+        val activeSourceName = when (currentScope) {
+            SourceScope.All -> "All Sources"
+            SourceScope.Local -> "Local Library"
+            is SourceScope.Extension -> {
+                installedExtensions.find { it.metadata.id == currentScope.extensionId }?.metadata?.name ?: "Extension"
+            }
+        }
+
+        Surface(
+            onClick = onClick,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+            modifier = Modifier.nocturneClickable(shape = CircleShape, onClick = onClick)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = when (currentScope) {
+                        SourceScope.All -> Icons.Rounded.Public
+                        SourceScope.Local -> Icons.Rounded.Storage
+                        else -> Icons.Rounded.Cloud
+                    },
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(16.dp)
+                )
+
+                Text(
+                    text = activeSourceName,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = GoogleSansRounded),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Icon(
+                    imageVector = Icons.Rounded.ArrowDropDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchFilterChip(
-    filterType: SearchFilterType,
+fun FilterTabs(
     currentFilter: SearchFilterType,
-    playerViewModel: PlayerViewModel,
+    onFilterSelected: (SearchFilterType) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val selected = filterType == currentFilter
-
-    val labelResId = when (filterType) {
-        SearchFilterType.ALL -> R.string.common_all
-        SearchFilterType.SONGS -> R.string.library_tab_songs
-        SearchFilterType.ALBUMS -> R.string.library_tab_albums
-        SearchFilterType.ARTISTS -> R.string.library_tab_artists
-        SearchFilterType.PLAYLISTS -> R.string.library_tab_playlists
+    LazyRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        listOf(
+            SearchFilterType.ALL to "ALL",
+            SearchFilterType.SONGS to "SONGS",
+            SearchFilterType.ALBUMS to "ALBUMS",
+            SearchFilterType.ARTISTS to "ARTISTS",
+            SearchFilterType.PLAYLISTS to "PLAYLISTS"
+        ).forEach { (filterType, label) ->
+            item {
+                val selected = filterType == currentFilter
+                Surface(
+                    onClick = { onFilterSelected(filterType) },
+                    shape = CircleShape,
+                    color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                    border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                    modifier = Modifier.nocturneClickable(shape = CircleShape) {
+                        onFilterSelected(filterType)
+                    }
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = GoogleSansRounded
+                        ),
+                        color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
     }
+}
 
-    FilterChip(
-        selected = selected,
-        onClick = { playerViewModel.updateSearchFilter(filterType) },
-        label = { Text(stringResource(labelResId)) },
-        modifier = modifier,
-        shape = CircleShape,
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primary,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+private fun Modifier.nocturneClickable(
+    shape: androidx.compose.ui.graphics.Shape = CircleShape,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) = composed {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
         ),
-        border = null
+        label = "nocturneClickScale"
     )
+    this
+        .scale(scale)
+        .clip(shape)
+        .clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            enabled = enabled,
+            onClick = onClick
+        )
 }

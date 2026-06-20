@@ -32,7 +32,7 @@ object ExtensionHostModule {
             override suspend fun await(
                 showWebView: Boolean, reason: String, request: dev.brahmkshatriya.echo.common.helpers.WebViewRequest<String>
             ): Result<String?> {
-                return webViewManager.await(request, reason)
+                return webViewManager.await(request, reason, showWebView)
             }
         }
     }

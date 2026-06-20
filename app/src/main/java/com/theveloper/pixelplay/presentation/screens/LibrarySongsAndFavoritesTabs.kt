@@ -40,6 +40,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -215,11 +216,23 @@ fun LibraryFavoritesTab(
                 state = songsPullToRefreshState,
                 modifier = Modifier.fillMaxSize(),
                 indicator = {
-                    PullToRefreshDefaults.LoadingIndicator(
-                        state = songsPullToRefreshState,
-                        isRefreshing = isRefreshing,
-                        modifier = Modifier.align(Alignment.TopCenter)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 16.dp)
+                    ) {
+                        LoadingIndicator(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .graphicsLayer {
+                                    val p = songsPullToRefreshState.distanceFraction
+                                    scaleX = p.coerceIn(0f, 1f)
+                                    scaleY = p.coerceIn(0f, 1f)
+                                    alpha = p.coerceIn(0f, 1f)
+                                },
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -398,12 +411,25 @@ fun LibrarySongsTabPaginated(
                     state = pullToRefreshState,
                     modifier = Modifier.fillMaxSize(),
                     indicator = {
-                        PullToRefreshDefaults.LoadingIndicator(
-                            state = pullToRefreshState,
-                            isRefreshing = isRefreshing,
-                            modifier = Modifier.align(Alignment.TopCenter)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 16.dp)
+                        ) {
+                            LoadingIndicator(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .graphicsLayer {
+                                        val p = pullToRefreshState.distanceFraction
+                                        scaleX = p.coerceIn(0f, 1f)
+                                        scaleY = p.coerceIn(0f, 1f)
+                                        alpha = p.coerceIn(0f, 1f)
+                                    },
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
+
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         val activeListState = if (paginatedSongs.itemCount > 0) listState else dummyListState

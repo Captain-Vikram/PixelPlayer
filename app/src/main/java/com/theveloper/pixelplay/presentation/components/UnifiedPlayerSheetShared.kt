@@ -53,7 +53,7 @@ internal val LocalMaterialTheme = compositionLocalOf<ColorScheme> { error("No Co
 
 val MiniPlayerHeight = 64.dp
 const val ANIMATION_DURATION_MS = 255
-val MiniPlayerBottomSpacer = 0.dp
+val MiniPlayerBottomSpacer = 8.dp
 
 @Composable
 fun getNavigationBarHeight(): Dp {

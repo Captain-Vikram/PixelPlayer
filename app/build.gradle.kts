@@ -305,8 +305,8 @@ dependencies {
     }
 
     // Projects
-    implementation(project(":shared"))
-    implementation(project(":common"))
+    implementation(project(":core:shared"))
+    implementation(project(":core:common"))
 
     // Testing (Unit)
     testImplementation(libs.junit.jupiter.api)

@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -25,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -308,19 +311,32 @@ fun LibraryAlbumsTab(
 
         else -> {
             Box(modifier = Modifier.fillMaxSize()) {
-                val albumsPullToRefreshState = rememberPullToRefreshState()
+                val pullToRefreshState = rememberPullToRefreshState()
                 PullToRefreshBox(
                     isRefreshing = isRefreshing,
                     onRefresh = onRefresh,
-                    state = albumsPullToRefreshState,
+                    state = pullToRefreshState,
                     modifier = Modifier.fillMaxSize(),
                     indicator = {
-                        PullToRefreshDefaults.LoadingIndicator(
-                            state = albumsPullToRefreshState,
-                            isRefreshing = isRefreshing,
-                            modifier = Modifier.align(Alignment.TopCenter)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 16.dp)
+                        ) {
+                            LoadingIndicator(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .graphicsLayer {
+                                        val p = pullToRefreshState.distanceFraction
+                                        scaleX = p.coerceIn(0f, 1f)
+                                        scaleY = p.coerceIn(0f, 1f)
+                                        alpha = p.coerceIn(0f, 1f)
+                                    },
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
+
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         if (isListView) {
@@ -598,19 +614,32 @@ fun LibraryArtistsTab(
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
-                val genresPullToRefreshState = rememberPullToRefreshState()
+                val pullToRefreshState = rememberPullToRefreshState()
                 PullToRefreshBox(
                     isRefreshing = isRefreshing,
                     onRefresh = onRefresh,
-                    state = genresPullToRefreshState,
+                    state = pullToRefreshState,
                     modifier = Modifier.fillMaxSize(),
                     indicator = {
-                        PullToRefreshDefaults.LoadingIndicator(
-                            state = genresPullToRefreshState,
-                            isRefreshing = isRefreshing,
-                            modifier = Modifier.align(Alignment.TopCenter)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 16.dp)
+                        ) {
+                            LoadingIndicator(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .graphicsLayer {
+                                        val p = pullToRefreshState.distanceFraction
+                                        scaleX = p.coerceIn(0f, 1f)
+                                        scaleY = p.coerceIn(0f, 1f)
+                                        alpha = p.coerceIn(0f, 1f)
+                                    },
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
+
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         val activeListState = if (artists.itemCount > 0) listState else dummyListState

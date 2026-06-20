@@ -124,7 +124,8 @@ fun GenreCategoriesGrid(
         ) {
             Text(
                 text = stringResource(R.string.browse_by_genre),
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
             )
             
             val shape = androidx.compose.animation.core.animateFloatAsState(

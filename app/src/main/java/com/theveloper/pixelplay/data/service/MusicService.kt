@@ -2649,47 +2649,31 @@ class MusicService : MediaLibraryService() {
     private suspend fun resolveMediaItemsByIds(
         requestedItems: List<MediaItem>
     ): TrustedMediaItemsResolution {
-        val songIds = requestedItems.map { it.mediaId }
-        val extensionIds = songIds.filter { it.startsWith("extension:") }
-        val localSongIds = songIds.filter { !it.startsWith("extension:") }
+        val resolvedMediaItems = mutableListOf<MediaItem>()
 
-        val songs = musicRepository.getSongsByIds(localSongIds).first().toMutableList()
-        
-        // Resolve extension songs
-        extensionIds.forEach { fullId ->
-            try {
-                val parts = fullId.split(":")
-                if (parts.size >= 3) {
-                    val extId = parts[1]
-                    val trackId = parts.drop(2).joinToString(":")
-                    val extensionInfo = extensionEngine.music.value.find { it.metadata.id == extId }
-                    val extension = extensionInfo?.instance?.value()?.getOrNull() as? dev.brahmkshatriya.echo.common.clients.TrackClient
-                    if (extension != null) {
-                        val track = dev.brahmkshatriya.echo.common.models.Track(id = trackId, title = "Unknown", isPlayable = dev.brahmkshatriya.echo.common.models.Track.Playable.Yes)
-                        val loadedTrack = extension.loadTrack(track, false)
-                        val streamable = loadedTrack.streamables.firstOrNull()
-                        val streamUrl = if (streamable != null) {
-                            val media = extension.loadStreamableMedia(streamable, false)
-                            (media as? dev.brahmkshatriya.echo.common.models.Streamable.Media.Server)?.sources?.firstOrNull()?.id
-                        } else null
-                        val song = loadedTrack.toSong(extId, streamUrl)
-                        songs.add(song)
-                    }
+        for (item in requestedItems) {
+            val resolved = if (item.mediaId.startsWith("extension:")) {
+                try {
+                    engine.resolveMediaItem(item)
+                } catch (e: Exception) {
+                    Timber.tag("MusicService").e(e, "Error resolving extension song: ${item.mediaId}")
+                    item
                 }
-            } catch (e: Exception) {
-                Timber.tag("MusicService").e(e, "Error resolving extension song: $fullId")
+            } else {
+                val song = musicRepository.getSongsByIds(listOf(item.mediaId)).first().firstOrNull()
+                if (song != null) {
+                    MediaItemBuilder.buildForExternalController(this, song)
+                } else {
+                    item
+                }
             }
+            resolvedMediaItems.add(resolved)
         }
-
-        val songMap = songs.associateBy { it.id }
 
         return resolveMediaItemsWithTrustedArtworkGrants(requestedItems) { mediaId ->
-            songMap[mediaId]?.let { song ->
-                MediaItemBuilder.buildForExternalController(this, song)
-            }
+            resolvedMediaItems.find { it.mediaId == mediaId }
         }
     }
-
     private fun grantArtworkUriPermissions(
         targetPackage: String,
         mediaItems: List<MediaItem>

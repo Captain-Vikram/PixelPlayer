@@ -293,8 +293,12 @@ class LyricsStateHolder @Inject constructor(
     }
 
     fun acceptLyricsSearchResult(result: LyricsSearchResult, currentSong: Song) {
+        val currentExtensionId = (searchUiState.value as? LyricsSearchUiState.PickResult)?.selectedExtensionId
         scope?.launch {
-            _searchUiState.value = LyricsSearchUiState.Success(result.lyrics)
+            _searchUiState.value = LyricsSearchUiState.Success(
+                lyrics = result.lyrics,
+                extensionId = currentExtensionId
+            )
 
             currentSong.id.toLongOrNull()?.let { songId ->
                 musicRepository.updateLyrics(songId, result.rawLyrics)

@@ -271,6 +271,15 @@ class LibraryStateHolder @Inject constructor(
             _currentSourceScope.value = userPreferencesRepository.lastSourceScopeFlow.first()
         }
 
+        // Keep local scope in sync with Datastore preference changes
+        scope.launch {
+            userPreferencesRepository.lastSourceScopeFlow.collect { scope ->
+                if (_currentSourceScope.value != scope) {
+                    _currentSourceScope.value = scope
+                }
+            }
+        }
+
         // Reactive Bridge: Observe extensions
         scope.launch {
             extensionRepository.currentMusicExtension.collect { extension ->
@@ -285,9 +294,30 @@ class LibraryStateHolder @Inject constructor(
             }
         }
 
+        // Sync SourceScope changes back to ExtensionRepository
+        scope.launch {
+            _currentSourceScope.collect { scope ->
+                val currentExt = extensionRepository.currentMusicExtension.value
+                if (scope is SourceScope.Extension) {
+                    val targetId = scope.extensionId
+                    if (currentExt?.metadata?.id != targetId) {
+                        val extension = extensionRepository.installedMusicExtensions.value.find { it.metadata.id == targetId }
+                        if (extension != null) {
+                            extensionRepository.selectMusicExtension(extension)
+                        }
+                    }
+                } else if (scope is SourceScope.Local) {
+                    if (currentExt != null) {
+                        extensionRepository.selectMusicExtension(null)
+                    }
+                }
+            }
+        }
+
         // Recovery Logic: Fallback if extension is uninstalled
         scope.launch {
             extensionRepository.installedMusicExtensions.collect { extensions ->
+                if (extensions.isEmpty()) return@collect // Prevent premature fallback on startup during scan
                 val current = _currentSourceScope.value
                 if (current is SourceScope.Extension) {
                     val stillInstalled = extensions.any { it.metadata.id == current.extensionId }
