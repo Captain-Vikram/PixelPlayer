@@ -227,7 +227,7 @@ class ExtensionLoader @Inject constructor(
             inject(requiredLyricsExtensions, lyrics.value) { setLyricsExtensions(it) }
         }
         (client as? MiscExtensionsProvider)?.run {
-            inject(requiredMiscExtensions, music.value as List<MiscExtension>) { setMiscExtensions(it) }
+            inject(requiredMiscExtensions, misc.value) { setMiscExtensions(it) }
         }
     }
 

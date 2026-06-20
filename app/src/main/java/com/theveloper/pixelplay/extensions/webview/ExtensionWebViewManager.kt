@@ -4,6 +4,8 @@ import dev.brahmkshatriya.echo.common.helpers.WebViewRequest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,6 +14,7 @@ class ExtensionWebViewManager @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) {
 
+    private val mutex = Mutex()
     private val _requestFlow = MutableStateFlow<ExtensionWebViewRequest<*>?>(null)
     val requestFlow: StateFlow<ExtensionWebViewRequest<*>?> = _requestFlow
 
@@ -19,19 +22,21 @@ class ExtensionWebViewManager @Inject constructor(
         request: WebViewRequest<T>,
         reason: String,
         showWebView: Boolean = false
-    ): Result<T?> {
+    ): Result<T?> = mutex.withLock {
         val deferred = CompletableDeferred<T?>()
         val extensionRequest = ExtensionWebViewRequest(request, reason, deferred, showWebView)
         _requestFlow.value = extensionRequest
         
-        val intent = android.content.Intent().apply {
-            setClassName(context.packageName, "com.theveloper.pixelplay.MainActivity")
-            putExtra("webViewRequest", true)
-            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (showWebView) {
+            val intent = android.content.Intent().apply {
+                setClassName(context.packageName, "com.theveloper.pixelplay.MainActivity")
+                putExtra("webViewRequest", true)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
         }
-        context.startActivity(intent)
         
-        return try {
+        return@withLock try {
             val result = deferred.await()
             Result.success(result)
         } catch (e: Exception) {
