@@ -297,8 +297,6 @@ class MainActivity : ComponentActivity() {
                         contentVisible = true
                     }
 
-                    ExtensionWebViewHandler(extensionWebViewManager)
-
                     Surface(
                         modifier = Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }, 
                         color = MaterialTheme.colorScheme.background
@@ -338,6 +336,8 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+
+                    ExtensionWebViewHandler(extensionWebViewManager)
                 }
             }
         }

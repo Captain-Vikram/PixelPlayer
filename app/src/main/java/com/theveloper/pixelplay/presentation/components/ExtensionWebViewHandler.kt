@@ -13,10 +13,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.*
 import com.theveloper.pixelplay.extensions.webview.ExtensionWebViewManager
 import com.theveloper.pixelplay.extensions.webview.ExtensionWebViewRequest
 import dev.brahmkshatriya.echo.common.helpers.WebViewRequest
@@ -26,6 +31,7 @@ import kotlinx.coroutines.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExtensionWebViewHandler(
     webViewManager: ExtensionWebViewManager
@@ -36,14 +42,45 @@ fun ExtensionWebViewHandler(
     request?.let { req ->
         if (req.showWebView) {
              // Visible WebView for login/etc
-             Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                 WebViewContainer(req, scope, modifier = Modifier.fillMaxSize())
+             val onCancel: () -> Unit = {
+                 @Suppress("UNCHECKED_CAST")
+                 val deferred = req.deferred as CompletableDeferred<Any?>
+                 deferred.completeExceptionally(Exception("User cancelled WebView request"))
+             }
+
+             BackHandler(enabled = true, onBack = onCancel)
+
+             Scaffold(
+                 modifier = Modifier.fillMaxSize(),
+                 topBar = {
+                     TopAppBar(
+                         title = { Text(req.reason) },
+                         navigationIcon = {
+                             IconButton(onClick = onCancel) {
+                                 Icon(Icons.Rounded.Close, contentDescription = "Close")
+                             }
+                         },
+                         colors = TopAppBarDefaults.topAppBarColors(
+                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                             titleContentColor = MaterialTheme.colorScheme.onSurface,
+                             navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                         )
+                     )
+                 }
+             ) { paddingValues ->
+                 Box(
+                     modifier = Modifier
+                         .fillMaxSize()
+                         .padding(paddingValues)
+                 ) {
+                     WebViewContainer(req, scope, modifier = Modifier.fillMaxSize())
+                 }
              }
         } else {
-            // Off-screen WebView for background requests
-            Box(modifier = Modifier.size(1.dp)) {
-                WebViewContainer(req, scope, modifier = Modifier.fillMaxSize())
-            }
+             // Off-screen WebView for background requests
+             Box(modifier = Modifier.size(1.dp)) {
+                 WebViewContainer(req, scope, modifier = Modifier.fillMaxSize())
+             }
         }
     }
 }

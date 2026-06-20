@@ -39,7 +39,7 @@ fun ExtensionLoginScreen(
         } else if (state is ExtensionLoginState.WebViewRequired) {
             val request = (state as ExtensionLoginState.WebViewRequired).request
             scope.launch {
-                val result = webViewManager.await(request, "Login required")
+                val result = webViewManager.await(request, "Login required", showWebView = true)
                 viewModel.onWebViewLoginSuccess(result.getOrNull())
             }
         }
