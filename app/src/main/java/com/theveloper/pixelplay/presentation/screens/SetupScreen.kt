@@ -1926,7 +1926,7 @@ fun LibraryNavigationPillSetupShow(
     Row(
         modifier = Modifier
             .padding(start = 4.dp)
-            .wrapContentHeight(),
+            .height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {

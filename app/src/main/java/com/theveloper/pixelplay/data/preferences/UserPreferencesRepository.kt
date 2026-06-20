@@ -386,7 +386,7 @@ class UserPreferencesRepository @Inject constructor(
         dataStore.edit { it[PreferencesKeys.NAV_BAR_CORNER_RADIUS] = sanitizeNavBarCornerRadius(radius) }
     }
 
-    val navBarStyleFlow: Flow<String> = pref { it[PreferencesKeys.NAV_BAR_STYLE] ?: "DEFAULT" }
+    val navBarStyleFlow: Flow<String> = pref { it[PreferencesKeys.NAV_BAR_STYLE] ?: NavBarStyle.DEFAULT }
     suspend fun setNavBarStyle(style: String) {
         dataStore.edit { it[PreferencesKeys.NAV_BAR_STYLE] = style }
     }
@@ -396,17 +396,17 @@ class UserPreferencesRepository @Inject constructor(
         dataStore.edit { it[PreferencesKeys.NAV_BAR_COMPACT_MODE] = enabled }
     }
 
-    val libraryNavigationModeFlow: Flow<String> = pref { it[PreferencesKeys.LIBRARY_NAVIGATION_MODE] ?: "TAB_ROW" }
+    val libraryNavigationModeFlow: Flow<String> = pref { it[PreferencesKeys.LIBRARY_NAVIGATION_MODE] ?: LibraryNavigationMode.TAB_ROW }
     suspend fun setLibraryNavigationMode(mode: String) {
         dataStore.edit { it[PreferencesKeys.LIBRARY_NAVIGATION_MODE] = mode }
     }
 
-    val carouselStyleFlow: Flow<String> = pref { it[PreferencesKeys.CAROUSEL_STYLE] ?: "NO_PEEK" }
+    val carouselStyleFlow: Flow<String> = pref { it[PreferencesKeys.CAROUSEL_STYLE] ?: CarouselStyle.NO_PEEK }
     suspend fun setCarouselStyle(style: String) {
         dataStore.edit { it[PreferencesKeys.CAROUSEL_STYLE] = style }
     }
 
-    val launchTabFlow: Flow<String> = pref { it[PreferencesKeys.LAUNCH_TAB] ?: "HOME" }
+    val launchTabFlow: Flow<String> = pref { it[PreferencesKeys.LAUNCH_TAB] ?: LaunchTab.HOME }
     suspend fun setLaunchTab(tab: String) {
         dataStore.edit { it[PreferencesKeys.LAUNCH_TAB] = tab }
     }
