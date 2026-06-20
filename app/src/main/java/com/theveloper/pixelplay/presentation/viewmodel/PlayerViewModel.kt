@@ -843,21 +843,6 @@ class PlayerViewModel @Inject constructor(
             }
         }
 
-        viewModelScope.launch {
-            yield()
-            playbackStateHolder.stablePlayerState.collect { state ->
-                val song = state.currentSong
-                if (song != null && song.extensionId != null) {
-                    val currentExtId = extensionRepository.currentMusicExtension.value?.metadata?.id
-                    if (song.extensionId != currentExtId) {
-                        val ext = extensionRepository.allExtensions.value.find { it.metadata.id == song.extensionId }
-                        if (ext is MusicExtension) {
-                            extensionRepository.selectMusicExtension(ext)
-                        }
-                    }
-                }
-            }
-        }
 
         // On cold start, the MediaController connects asynchronously, leaving stablePlayerState.currentSong
         // null until that happens. Pre-load the palette from the persisted snapshot so the mini player
