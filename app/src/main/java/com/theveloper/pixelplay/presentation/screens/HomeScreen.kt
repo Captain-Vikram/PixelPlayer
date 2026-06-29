@@ -371,40 +371,6 @@ fun HomeScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                if (currentMusicExtension != null) {
-                    if (caps.isLoginNeeded && !isExtensionLoggedIn) {
-                        item(key = "extension_login_banner") {
-                            com.theveloper.pixelplay.presentation.components.ExtensionLoginBanner(
-                                extensionName = currentMusicExtension?.metadata?.name ?: "",
-                                brandColor = when {
-                                    currentMusicExtension?.metadata?.id?.contains("spotify", ignoreCase = true) == true -> Color(0xFF1DB954)
-                                    currentMusicExtension?.metadata?.id?.contains("youtube", ignoreCase = true) == true || currentMusicExtension?.metadata?.id?.contains("ytmusic", ignoreCase = true) == true -> Color(0xFFFF0000)
-                                    currentMusicExtension?.metadata?.id?.contains("jellyfin", ignoreCase = true) == true -> Color(0xFF00A4DC)
-                                    currentMusicExtension?.metadata?.id?.contains("navidrome", ignoreCase = true) == true -> Color(0xFFEC5840)
-                                    else -> MaterialTheme.colorScheme.primary
-                                },
-                                onLoginClick = {
-                                    navController.navigate(Screen.ExtensionLogin.createRoute(currentMusicExtension!!.metadata.id))
-                                }
-                            )
-                        }
-                    } else {
-                        item(key = "extension_shelves") {
-                            com.theveloper.pixelplay.presentation.components.ExtensionShelvesSection(
-                                shelves = shelves,
-                                onItemClick = { item ->
-                                    com.theveloper.pixelplay.presentation.components.handleEchoItemClick(
-                                        item = item,
-                                        playerViewModel = playerViewModel,
-                                        navController = navController as NavHostController,
-                                        activeExtensionId = currentMusicExtension?.metadata?.id
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
-
                 if (yourMixSongs.isEmpty()) {
                     item(key = "your_mix_placeholder") {
                         if (shouldShowYourMixLoadingPlaceholder) {
@@ -498,6 +464,42 @@ fun HomeScreen(
                             },
                             playerViewModel = playerViewModel
                         )
+                    }
+                }
+
+                if (currentMusicExtension != null) {
+                    if (caps.isLoginNeeded && !isExtensionLoggedIn) {
+                        item(key = "extension_login_banner") {
+                            com.theveloper.pixelplay.presentation.components.ExtensionLoginBanner(
+                                extensionName = currentMusicExtension?.metadata?.name ?: "",
+                                brandColor = when {
+                                    currentMusicExtension?.metadata?.id?.contains("spotify", ignoreCase = true) == true -> Color(0xFF1DB954)
+                                    currentMusicExtension?.metadata?.id?.contains("youtube", ignoreCase = true) == true || currentMusicExtension?.metadata?.id?.contains("ytmusic", ignoreCase = true) == true -> Color(0xFFFF0000)
+                                    currentMusicExtension?.metadata?.id?.contains("jellyfin", ignoreCase = true) == true -> Color(0xFF00A4DC)
+                                    currentMusicExtension?.metadata?.id?.contains("navidrome", ignoreCase = true) == true -> Color(0xFFEC5840)
+                                    else -> MaterialTheme.colorScheme.primary
+                                },
+                                onLoginClick = {
+                                    navController.navigate(Screen.ExtensionLogin.createRoute(currentMusicExtension!!.metadata.id))
+                                }
+                            )
+                        }
+                    }
+
+                    if (shelves.isNotEmpty()) {
+                        item(key = "extension_shelves") {
+                            com.theveloper.pixelplay.presentation.components.ExtensionShelvesSection(
+                                shelves = shelves,
+                                onItemClick = { item ->
+                                    com.theveloper.pixelplay.presentation.components.handleEchoItemClick(
+                                        item = item,
+                                        playerViewModel = playerViewModel,
+                                        navController = navController as NavHostController,
+                                        activeExtensionId = currentMusicExtension?.metadata?.id
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
 
