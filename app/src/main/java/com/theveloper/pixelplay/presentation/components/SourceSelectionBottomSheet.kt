@@ -57,6 +57,7 @@ fun SourceSelectionBottomSheet(
     isQqMusicLoggedIn: Boolean = false,
     onQqMusicClick: () -> Unit = {},
     extensionCapabilities: Map<String, ExtensionCapabilities> = emptyMap(),
+    loggedInExtensions: Set<String> = emptySet(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -136,9 +137,15 @@ fun SourceSelectionBottomSheet(
                             is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
                             else -> null
                         }
+                        val isExtensionLoggedIn = loggedInExtensions.contains(extension.metadata.id)
+                        val subtitleText = when {
+                            caps.isLoginNeeded && isExtensionLoggedIn -> "Logged In • v${extension.metadata.version}"
+                            caps.isLoginNeeded -> "Login Required • v${extension.metadata.version}"
+                            else -> "v${extension.metadata.version} (Music)"
+                        }
                         SourceRow(
                             title = extension.metadata.name,
-                            subtitle = "v${extension.metadata.version} (Music)",
+                            subtitle = subtitleText,
                             iconModel = iconModel,
                             iconTint = MaterialTheme.colorScheme.primary,
                             isSelected = isSelected,
@@ -173,9 +180,15 @@ fun SourceSelectionBottomSheet(
                             is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
                             else -> null
                         }
+                        val isExtensionLoggedIn = loggedInExtensions.contains(extension.metadata.id)
+                        val subtitleText = when {
+                            caps.isLoginNeeded && isExtensionLoggedIn -> "Logged In • v${extension.metadata.version}"
+                            caps.isLoginNeeded -> "Login Required • v${extension.metadata.version}"
+                            else -> "v${extension.metadata.version}"
+                        }
                         SourceRow(
                             title = extension.metadata.name,
-                            subtitle = "v${extension.metadata.version}",
+                            subtitle = subtitleText,
                             iconModel = iconModel,
                             iconTint = MaterialTheme.colorScheme.secondary,
                             isSelected = false,

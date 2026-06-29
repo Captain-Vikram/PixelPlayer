@@ -542,6 +542,7 @@ fun HomeScreen(
         val allExtensions by extensionsViewModel.allExtensions.collectAsStateWithLifecycle()
         val currentMusicExtension by extensionsViewModel.currentMusicExtension.collectAsStateWithLifecycle()
         val extensionCapabilities by extensionsViewModel.extensionCapabilities.collectAsStateWithLifecycle()
+        val loggedInExtensions by extensionsViewModel.loggedInExtensionIds.collectAsStateWithLifecycle()
         
         val musicExtensions = remember(allExtensions) {
             allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.MusicExtension>()
@@ -602,6 +603,7 @@ fun HomeScreen(
                     }
                 },
                 extensionCapabilities = extensionCapabilities,
+                loggedInExtensions = loggedInExtensions,
                 modifier = Modifier.navigationBarsPadding()
             )
         }

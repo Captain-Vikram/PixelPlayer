@@ -116,6 +116,10 @@ private fun WebViewContainer(
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
         webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
         
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
+        
         webView.addJavascriptInterface(bridge, "bridge")
         
         val stopRegex = request.request.stopUrlRegex
@@ -364,6 +368,7 @@ private fun <T> triggerStop(
             }
             if (req is WebViewRequest.Cookie) {
                 val cookieManager = CookieManager.getInstance()
+                cookieManager.flush()
                 val cookies = cookieManager.getCookie(url) ?: ""
                 cookieRes = req.onStop(
                     NetworkRequest(NetworkRequest.Method.GET, url),

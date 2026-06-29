@@ -110,6 +110,10 @@ class ExtensionRepository @Inject constructor(
     private val _extensionCapabilities = MutableStateFlow<Map<String, ExtensionCapabilities>>(emptyMap())
     val extensionCapabilities: StateFlow<Map<String, ExtensionCapabilities>> = _extensionCapabilities
 
+    val loggedInExtensionIds: StateFlow<Set<String>> = extensionEngine.extensionUserDao.observeCurrentUser()
+        .map { list -> list.map { it.extId }.toSet() }
+        .stateIn(repositoryScope, SharingStarted.Eagerly, emptySet())
+
     private val _isLoadingStore = MutableStateFlow(false)
     val isLoadingStore: StateFlow<Boolean> = _isLoadingStore.asStateFlow()
 

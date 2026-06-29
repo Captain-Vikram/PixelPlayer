@@ -513,6 +513,7 @@ fun LibraryScreen(
     
     val allExtensions by extensionsViewModel.allExtensions.collectAsStateWithLifecycle(initialValue = emptyList())
     val extensionCapabilities by extensionsViewModel.extensionCapabilities.collectAsStateWithLifecycle()
+    val loggedInExtensions by extensionsViewModel.loggedInExtensionIds.collectAsStateWithLifecycle(initialValue = emptySet())
     val neteaseViewModel: com.theveloper.pixelplay.presentation.netease.dashboard.NeteaseDashboardViewModel = hiltViewModel()
     val qqMusicViewModel: com.theveloper.pixelplay.presentation.qqmusic.dashboard.QqMusicDashboardViewModel = hiltViewModel()
     val isNeteaseLoggedIn by neteaseViewModel.isLoggedIn.collectAsStateWithLifecycle()
@@ -1588,7 +1589,8 @@ fun LibraryScreen(
                                             context.startActivity(Intent(context, com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity::class.java))
                                         }
                                     },
-                                    extensionCapabilities = extensionCapabilities
+                                    extensionCapabilities = extensionCapabilities,
+                                    loggedInExtensions = loggedInExtensions
                                 )
                             }
                         }

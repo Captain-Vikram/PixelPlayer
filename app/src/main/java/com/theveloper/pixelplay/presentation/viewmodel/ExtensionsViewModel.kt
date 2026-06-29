@@ -35,6 +35,7 @@ class ExtensionsViewModel @Inject constructor(
     val messages = repository.messages
     val errors = repository.errors
     val extensionCapabilities = repository.extensionCapabilities
+    val loggedInExtensionIds: StateFlow<Set<String>> = repository.loggedInExtensionIds
 
     fun fetchStoreExtensions() = repository.fetchStoreExtensions()
     fun installExtension(item: com.theveloper.pixelplay.extensions.core.ExtensionStoreItem) = repository.installExtension(item)
