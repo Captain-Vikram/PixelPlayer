@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -21,7 +22,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Login
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
@@ -266,5 +270,79 @@ fun ExtensionMediaItemCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+fun ExtensionLoginBanner(
+    extensionName: String,
+    brandColor: Color,
+    onLoginClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        color = brandColor.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, brandColor.copy(alpha = 0.4f)),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    color = brandColor,
+                    shape = CircleShape,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Login,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier
+                            .padding(12.dp)
+                            .size(24.dp)
+                    )
+                }
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Connect $extensionName",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Log in to load your personalized feed, daily mixes, and library.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Button(
+                onClick = onLoginClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = brandColor,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "LOG IN",
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
     }
 }

@@ -346,7 +346,16 @@ class ExtensionRepository @Inject constructor(
                     extractSongsFromShelves(loadedShelves, extensionId)
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    _errors.emit("Failed to load home feed: ${e.message}")
+                    val msg = e.message ?: ""
+                    val isAuthError = msg.contains("auth", ignoreCase = true) || 
+                            msg.contains("login", ignoreCase = true) || 
+                            msg.contains("401") || 
+                            msg.contains("unauthorized", ignoreCase = true) ||
+                            msg.contains("credentials", ignoreCase = true)
+                    
+                    if (!isAuthError) {
+                        _errors.emit("Failed to load home feed: ${e.message}")
+                    }
                 } finally {
                     _isLoadingFeed.value = false
                 }
@@ -475,6 +484,85 @@ class ExtensionRepository @Inject constructor(
 
         _yourMixSongsFromExtension.value = yourMixTracks.distinctBy { it.id }.take(60)
         _dailyMixSongsFromExtension.value = dailyMixTracks.distinctBy { it.id }.take(30)
+
+        // 2. Scan shelves for Mix/Recommended playlists or albums, and fetch their tracks in the background
+        val mixPlaylists = mutableListOf<dev.brahmkshatriya.echo.common.models.Playlist>()
+        val mixAlbums = mutableListOf<dev.brahmkshatriya.echo.common.models.Album>()
+
+        shelves.forEach { shelf ->
+            val shelfTitle = shelf.title.lowercase()
+            val isMixShelf = shelfTitle.contains("mix") || shelfTitle.contains("for you") || 
+                    shelfTitle.contains("recommended") || shelfTitle.contains("radio") || 
+                    shelfTitle.contains("similar") || shelfTitle.contains("fav") || 
+                    shelfTitle.contains("like") || shelfTitle.contains("recent") ||
+                    shelfTitle.contains("artist") || shelfTitle.contains("album") ||
+                    shelfTitle.contains("playlist")
+
+            val items = when (shelf) {
+                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> shelf.list
+                is dev.brahmkshatriya.echo.common.models.Shelf.Item -> listOf(shelf.media)
+                else -> emptyList()
+            }
+
+            items.forEach { item ->
+                val itemTitle = item.title.lowercase()
+                val isMixItem = itemTitle.contains("mix") || itemTitle.contains("for you") || 
+                        itemTitle.contains("recommended") || itemTitle.contains("favorite") ||
+                        itemTitle.contains("like") || isMixShelf
+
+                if (isMixItem) {
+                    if (item is dev.brahmkshatriya.echo.common.models.Playlist) {
+                        mixPlaylists.add(item)
+                    } else if (item is dev.brahmkshatriya.echo.common.models.Album) {
+                        mixAlbums.add(item)
+                    }
+                }
+            }
+        }
+
+        if (mixPlaylists.isNotEmpty() || mixAlbums.isNotEmpty()) {
+            repositoryScope.launch {
+                val fetchedSongs = mutableListOf<com.theveloper.pixelplay.data.model.Song>()
+                val extension = _currentMusicExtension.value ?: return@launch
+                
+                // Fetch top 3 distinct playlists/albums to avoid spamming the API
+                val playlistsToLoad = mixPlaylists.distinctBy { it.id }.take(3)
+                val albumsToLoad = mixAlbums.distinctBy { it.id }.take(3)
+
+                playlistsToLoad.forEach { playlist ->
+                    try {
+                        val tracks = extension.getAs<PlaylistClient, Feed<Track>?> {
+                            loadTracks(playlist)
+                        }.getOrNull()?.loadAll() ?: emptyList()
+                        fetchedSongs.addAll(tracks.map { it.toSong(extensionId) })
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                albumsToLoad.forEach { album ->
+                    try {
+                        val tracks = extension.getAs<AlbumClient, Feed<Track>?> {
+                            loadTracks(album)
+                        }.getOrNull()?.loadAll() ?: emptyList()
+                        fetchedSongs.addAll(tracks.map { it.toSong(extensionId) })
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                if (fetchedSongs.isNotEmpty()) {
+                    val distinctSongs = fetchedSongs.distinctBy { it.id }
+                    val half = distinctSongs.size / 2
+                    
+                    val updatedYourMix = (_yourMixSongsFromExtension.value + distinctSongs.take(half)).distinctBy { it.id }.take(60)
+                    val updatedDailyMix = (_dailyMixSongsFromExtension.value + distinctSongs.drop(half)).distinctBy { it.id }.take(30)
+                    
+                    _yourMixSongsFromExtension.value = updatedYourMix
+                    _dailyMixSongsFromExtension.value = updatedDailyMix
+                }
+            }
+        }
     }
 
     private fun extractTracksFromShelf(shelf: Shelf, extensionId: String): List<com.theveloper.pixelplay.data.model.Song> {

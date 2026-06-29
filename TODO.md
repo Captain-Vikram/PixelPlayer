@@ -11,10 +11,11 @@ This document lists the remaining features from the newer version (`b080ae5f`) t
 - [x] **Spotify/Extension Duplicate Shelves:** Resolved duplicate shelves (e.g. repeating artist, playlist, or favorite shelves) appearing on the Home page and Library tab after user login by implementing title-based deduplication in `ExtensionRepository.kt`.
 - [x] **Native Mixes Extension Integration:** Updated "Your Mix" and "Daily Mix" components on the Home Screen to fetch and show songs from the active extension's feed when an extension is active.
 - [x] **Non-Functional Library Tabs Hiding:** Gracefully hide the top tab bar ("Songs", "Albums", "Artists") and compact pill switcher in the Library tab when an extension is active.
+- [x] **Background Album/Playlist Mixes Extraction:** Scan and extract tracks from shelves containing Albums and Playlists (by loading their tracks in the background via `PlaylistClient` and `AlbumClient`) to populate the native "Your Mix" and "Daily Mix" lists universally across all extensions.
+- [x] **General Feed Before Login Support:** Gracefully handle home feed loading before login. Emits guest/public feeds if available. Suppress auth-related 401 error popups. Fall back to local library mixes, and display a beautiful, brand-colored "Connect [Extension]" banner prompting the user to login.
 
 ## Current Problems & Bugs to Investigate
-- [ ] **Background Album/Playlist Mixes Extraction:** Scan and extract tracks from shelves containing Albums and Playlists (by loading their tracks in the background via `PlaylistClient` and `AlbumClient`) to populate the native "Your Mix" and "Daily Mix" lists universally across all extensions.
-- [ ] **General Feed Before Login Support:** Gracefully handle home feed loading before login. Ensure public/guest feeds (like public charts, popular releases) load and render without showing disruptive error dialogues. Prompt the user to log in when they try to play a track that requires authentication.
+*None currently outstanding. All reported bugs are addressed and ready for testing.*
 
 ## Remaining Features to Port from Newer Version (`b080ae5f`)
 - [ ] **Active Playback Source Switching:** Port the source override fix in `PlayerViewModel` to allow seamless switching of sources during active playback.

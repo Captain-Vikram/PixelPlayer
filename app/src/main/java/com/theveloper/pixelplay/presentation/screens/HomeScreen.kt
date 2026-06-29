@@ -122,25 +122,35 @@ fun HomeScreen(
 
     val yourMixSongsFromExtension by extensionsViewModel.yourMixSongsFromExtension.collectAsStateWithLifecycle()
     val dailyMixSongsFromExtension by extensionsViewModel.dailyMixSongsFromExtension.collectAsStateWithLifecycle()
+    val extensionCapabilities by extensionsViewModel.extensionCapabilities.collectAsStateWithLifecycle()
+    val loggedInExtensions by extensionsViewModel.loggedInExtensionIds.collectAsStateWithLifecycle()
 
-    val dailyMixSongs = remember(currentMusicExtension, dailyMixSongsFromExtension, localDailyMixSongs) {
-        if (currentMusicExtension != null) {
+    val isExtensionLoggedIn = remember(currentMusicExtension, loggedInExtensions) {
+        currentMusicExtension?.let { loggedInExtensions.contains(it.metadata.id) } == true
+    }
+
+    val caps = remember(currentMusicExtension, extensionCapabilities) {
+        currentMusicExtension?.let { extensionCapabilities[it.metadata.id] } ?: com.theveloper.pixelplay.data.model.ExtensionCapabilities()
+    }
+
+    val dailyMixSongs = remember(currentMusicExtension, isExtensionLoggedIn, dailyMixSongsFromExtension, localDailyMixSongs) {
+        if (currentMusicExtension != null && isExtensionLoggedIn) {
             dailyMixSongsFromExtension
         } else {
             localDailyMixSongs
         }
     }
 
-    val usesFallbackHomeMix = remember(currentMusicExtension, curatedYourMixSongs, localDailyMixSongs) {
-        if (currentMusicExtension != null) {
+    val usesFallbackHomeMix = remember(currentMusicExtension, isExtensionLoggedIn, curatedYourMixSongs, localDailyMixSongs) {
+        if (currentMusicExtension != null && isExtensionLoggedIn) {
             false
         } else {
             curatedYourMixSongs.isEmpty() && localDailyMixSongs.isEmpty()
         }
     }
 
-    val yourMixSongs = remember(currentMusicExtension, yourMixSongsFromExtension, curatedYourMixSongs, localDailyMixSongs, homeMixPreviewSongs) {
-        if (currentMusicExtension != null) {
+    val yourMixSongs = remember(currentMusicExtension, isExtensionLoggedIn, yourMixSongsFromExtension, curatedYourMixSongs, localDailyMixSongs, homeMixPreviewSongs) {
+        if (currentMusicExtension != null && isExtensionLoggedIn) {
             yourMixSongsFromExtension
         } else {
             when {
@@ -362,18 +372,36 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                 if (currentMusicExtension != null) {
-                    item(key = "extension_shelves") {
-                        com.theveloper.pixelplay.presentation.components.ExtensionShelvesSection(
-                            shelves = shelves,
-                            onItemClick = { item ->
-                                com.theveloper.pixelplay.presentation.components.handleEchoItemClick(
-                                    item = item,
-                                    playerViewModel = playerViewModel,
-                                    navController = navController as NavHostController,
-                                    activeExtensionId = currentMusicExtension?.metadata?.id
-                                )
-                            }
-                        )
+                    if (caps.isLoginNeeded && !isExtensionLoggedIn) {
+                        item(key = "extension_login_banner") {
+                            com.theveloper.pixelplay.presentation.components.ExtensionLoginBanner(
+                                extensionName = currentMusicExtension?.metadata?.name ?: "",
+                                brandColor = when {
+                                    currentMusicExtension?.metadata?.id?.contains("spotify", ignoreCase = true) == true -> Color(0xFF1DB954)
+                                    currentMusicExtension?.metadata?.id?.contains("youtube", ignoreCase = true) == true || currentMusicExtension?.metadata?.id?.contains("ytmusic", ignoreCase = true) == true -> Color(0xFFFF0000)
+                                    currentMusicExtension?.metadata?.id?.contains("jellyfin", ignoreCase = true) == true -> Color(0xFF00A4DC)
+                                    currentMusicExtension?.metadata?.id?.contains("navidrome", ignoreCase = true) == true -> Color(0xFFEC5840)
+                                    else -> MaterialTheme.colorScheme.primary
+                                },
+                                onLoginClick = {
+                                    navController.navigate(Screen.ExtensionLogin.createRoute(currentMusicExtension!!.metadata.id))
+                                }
+                            )
+                        }
+                    } else {
+                        item(key = "extension_shelves") {
+                            com.theveloper.pixelplay.presentation.components.ExtensionShelvesSection(
+                                shelves = shelves,
+                                onItemClick = { item ->
+                                    com.theveloper.pixelplay.presentation.components.handleEchoItemClick(
+                                        item = item,
+                                        playerViewModel = playerViewModel,
+                                        navController = navController as NavHostController,
+                                        activeExtensionId = currentMusicExtension?.metadata?.id
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -560,8 +588,6 @@ fun HomeScreen(
 
     if (showSourceSelectionSheet) {
         val allExtensions by extensionsViewModel.allExtensions.collectAsStateWithLifecycle()
-        val extensionCapabilities by extensionsViewModel.extensionCapabilities.collectAsStateWithLifecycle()
-        val loggedInExtensions by extensionsViewModel.loggedInExtensionIds.collectAsStateWithLifecycle()
         
         val musicExtensions = remember(allExtensions) {
             allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.MusicExtension>()
