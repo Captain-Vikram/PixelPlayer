@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -87,22 +88,169 @@ fun handleEchoItemClick(
     }
 }
 
+data class QuickPickItem(
+    val title: String,
+    val mediaItem: EchoMediaItem
+)
+
 @Composable
 fun ExtensionShelvesSection(
     shelves: List<Shelf>,
     onItemClick: (EchoMediaItem) -> Unit
 ) {
+    val (quickPicks, regularShelves) = remember(shelves) {
+        val picks = mutableListOf<QuickPickItem>()
+        val regulars = mutableListOf<Shelf>()
+
+        shelves.forEach { shelf ->
+            val singleMediaItem: EchoMediaItem? = when (shelf) {
+                is dev.brahmkshatriya.echo.common.models.Shelf.Item -> shelf.media
+                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> {
+                    if (shelf.list.size == 1) shelf.list[0] else null
+                }
+                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> {
+                    if (shelf.list.size == 1) shelf.list[0] else null
+                }
+                else -> null
+            }
+
+            if (singleMediaItem != null) {
+                picks.add(
+                    QuickPickItem(
+                        title = shelf.title.ifBlank { singleMediaItem.title },
+                        mediaItem = singleMediaItem
+                    )
+                )
+            } else {
+                regulars.add(shelf)
+            }
+        }
+        
+        // We limit picks to a max of 6 items (2 columns of 3 rows) to keep it compact.
+        // If there are more, we append the rest back to regular shelves.
+        if (picks.size > 6) {
+            val toKeep = picks.take(6)
+            val toReturn = picks.drop(6)
+            toReturn.forEach { item ->
+                regulars.add(
+                    dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items(
+                        id = item.mediaItem.id,
+                        title = item.title,
+                        list = listOf(item.mediaItem)
+                    )
+                )
+            }
+            Pair(toKeep, regulars)
+        } else {
+            Pair(picks, regulars)
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(32.dp)
     ) {
-        shelves.forEach { shelf ->
+        if (quickPicks.isNotEmpty()) {
+            QuickPicksGrid(
+                items = quickPicks,
+                onItemClick = onItemClick
+            )
+        }
+
+        regularShelves.forEach { shelf ->
             if (shelf.title.isNotBlank()) {
                 ExtensionShelf(
                     shelf = shelf,
                     onItemClick = onItemClick
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun QuickPicksGrid(
+    items: List<QuickPickItem>,
+    onItemClick: (EchoMediaItem) -> Unit
+) {
+    val timeTitle = remember {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        when (hour) {
+            in 5..11 -> "Good morning"
+            in 12..16 -> "Good afternoon"
+            else -> "Good evening"
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = timeTitle,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.5).sp
+        )
+
+        val rows = items.chunked(2)
+        rows.forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                rowItems.forEach { item ->
+                    QuickPickTile(
+                        item = item,
+                        onClick = { onItemClick(item.mediaItem) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (rowItems.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickPickTile(
+    item: QuickPickItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(56.dp)
+            .clickable(onClick = onClick),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            SmartImage(
+                model = item.mediaItem.cover,
+                contentDescription = item.title,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)),
+                contentScale = ContentScale.Crop
+            )
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .weight(1f)
+            )
         }
     }
 }
