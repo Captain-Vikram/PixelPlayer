@@ -340,7 +340,7 @@ class ExtensionRepository @Inject constructor(
 
                     homeFeedContinuationToken = firstPage.continuation
 
-                    val loadedShelves = firstPage.data
+                    val loadedShelves = firstPage.data.deduplicate()
                     _shelves.value = loadedShelves
                     homeFeedShelvesCache[extensionId] = loadedShelves
                     extractSongsFromShelves(loadedShelves, extensionId)
@@ -380,7 +380,7 @@ class ExtensionRepository @Inject constructor(
                     homeFeedContinuationToken = nextPage.continuation
                     
                     val newShelves = nextPage.data
-                    val updatedShelves = _shelves.value + newShelves
+                    val updatedShelves = (_shelves.value + newShelves).deduplicate()
                     _shelves.value = updatedShelves
                     homeFeedShelvesCache[extension.metadata.id] = updatedShelves
                 } catch (e: Exception) {
@@ -565,7 +565,7 @@ class ExtensionRepository @Inject constructor(
                 try {
                     val feed = client.loadLibraryFeed()
                     _libraryFeed.value = feed
-                    val loadedShelves = feed.loadAll()
+                    val loadedShelves = feed.loadAll().deduplicate()
                     _libraryShelves.value = loadedShelves
                     libraryFeedShelvesCache[extensionId] = loadedShelves
                 } catch (e: Exception) {
@@ -578,6 +578,14 @@ class ExtensionRepository @Inject constructor(
                 _libraryShelves.value = emptyList()
                 libraryFeedShelvesCache.remove(extensionId)
             }
+        }
+    }
+
+    private fun List<Shelf>.deduplicate(): List<Shelf> {
+        val seen = mutableSetOf<String>()
+        return this.filter { shelf ->
+            val title = shelf.title.trim()
+            title.isEmpty() || seen.add(title.lowercase())
         }
     }
 }

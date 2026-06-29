@@ -113,20 +113,41 @@ fun HomeScreen(
     }
     val statsViewModel: StatsViewModel = hiltViewModel()
     val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
-    val dailyMixSongs by playerViewModel.dailyMixSongs.collectAsStateWithLifecycle()
+    val currentMusicExtension by extensionsViewModel.currentMusicExtension.collectAsStateWithLifecycle()
+    val localDailyMixSongs by playerViewModel.dailyMixSongs.collectAsStateWithLifecycle()
     val curatedYourMixSongs by playerViewModel.yourMixSongs.collectAsStateWithLifecycle()
     val homeMixPreviewSongs by playerViewModel.homeMixPreviewSongs.collectAsStateWithLifecycle()
     val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val usesFallbackHomeMix = remember(curatedYourMixSongs, dailyMixSongs) {
-        curatedYourMixSongs.isEmpty() && dailyMixSongs.isEmpty()
+    val yourMixSongsFromExtension by extensionsViewModel.yourMixSongsFromExtension.collectAsStateWithLifecycle()
+    val dailyMixSongsFromExtension by extensionsViewModel.dailyMixSongsFromExtension.collectAsStateWithLifecycle()
+
+    val dailyMixSongs = remember(currentMusicExtension, dailyMixSongsFromExtension, localDailyMixSongs) {
+        if (currentMusicExtension != null) {
+            dailyMixSongsFromExtension
+        } else {
+            localDailyMixSongs
+        }
     }
-    val yourMixSongs = remember(curatedYourMixSongs, dailyMixSongs, homeMixPreviewSongs) {
-        when {
-            curatedYourMixSongs.isNotEmpty() -> curatedYourMixSongs
-            dailyMixSongs.isNotEmpty() -> dailyMixSongs
-            else -> homeMixPreviewSongs
+
+    val usesFallbackHomeMix = remember(currentMusicExtension, curatedYourMixSongs, localDailyMixSongs) {
+        if (currentMusicExtension != null) {
+            false
+        } else {
+            curatedYourMixSongs.isEmpty() && localDailyMixSongs.isEmpty()
+        }
+    }
+
+    val yourMixSongs = remember(currentMusicExtension, yourMixSongsFromExtension, curatedYourMixSongs, localDailyMixSongs, homeMixPreviewSongs) {
+        if (currentMusicExtension != null) {
+            yourMixSongsFromExtension
+        } else {
+            when {
+                curatedYourMixSongs.isNotEmpty() -> curatedYourMixSongs
+                localDailyMixSongs.isNotEmpty() -> localDailyMixSongs
+                else -> homeMixPreviewSongs
+            }
         }
     }
     var homePlaceholderRefreshGeneration by rememberSaveable { mutableIntStateOf(0) }
@@ -222,7 +243,6 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
 
     val homeStatsOverview by statsViewModel.homeOverview.collectAsStateWithLifecycle()
-    val currentMusicExtension by extensionsViewModel.currentMusicExtension.collectAsStateWithLifecycle()
     val shelves by extensionsViewModel.shelves.collectAsStateWithLifecycle()
     val isLoadingFeed by extensionsViewModel.isLoadingFeed.collectAsStateWithLifecycle()
 
@@ -540,7 +560,6 @@ fun HomeScreen(
 
     if (showSourceSelectionSheet) {
         val allExtensions by extensionsViewModel.allExtensions.collectAsStateWithLifecycle()
-        val currentMusicExtension by extensionsViewModel.currentMusicExtension.collectAsStateWithLifecycle()
         val extensionCapabilities by extensionsViewModel.extensionCapabilities.collectAsStateWithLifecycle()
         val loggedInExtensions by extensionsViewModel.loggedInExtensionIds.collectAsStateWithLifecycle()
         

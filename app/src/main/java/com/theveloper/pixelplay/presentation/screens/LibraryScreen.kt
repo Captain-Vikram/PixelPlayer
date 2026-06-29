@@ -888,7 +888,7 @@ fun LibraryScreen(
             ) {
                 TopAppBar(
                     title = {
-                        if (isCompactNavigation) {
+                        if (isCompactNavigation && activeExtension == null) {
                             LibraryNavigationPill(
                                 modifier = Modifier,
                                 title = currentTabTitle,
@@ -987,7 +987,7 @@ fun LibraryScreen(
                         scrolledContainerColor = Color.Transparent
                     )
                 )
-                if (!isCompactNavigation) {
+                if (!isCompactNavigation && activeExtension == null) {
                     val showTabIndicator = false
                     PrimaryScrollableTabRow(
                         selectedTabIndex = currentTabIndex,
