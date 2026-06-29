@@ -112,7 +112,9 @@ private fun WebViewContainer(
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.databaseEnabled = true
-        webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 2; Jeff Bezos) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.158 Mobile Safari/537.36"
+        webView.settings.setSupportMultipleWindows(true)
+        webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
         
         webView.addJavascriptInterface(bridge, "bridge")
         
@@ -123,7 +125,17 @@ private fun WebViewContainer(
             null
         }
 
-        val timeout = request.request.maxTimeout
+        val isLoginRequest = request.showWebView || 
+                request.reason.contains("login", ignoreCase = true) || 
+                request.request.initialUrl.url.contains("login", ignoreCase = true) || 
+                request.request.initialUrl.url.contains("auth", ignoreCase = true) ||
+                request.request.initialUrl.url.contains("accounts.google", ignoreCase = true)
+
+        val timeout = if (isLoginRequest) {
+            request.request.maxTimeout.coerceAtLeast(300_000L)
+        } else {
+            request.request.maxTimeout
+        }
         val timeoutJob = launch {
             delay(timeout)
             if (!doneState.value) {
@@ -215,6 +227,43 @@ private fun WebViewContainer(
                     intercept(networkRequest)
                 }
                 return super.shouldInterceptRequest(view, webResourceRequest)
+            }
+        }
+
+        webView.webChromeClient = object : android.webkit.WebChromeClient() {
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: android.os.Message?
+            ): Boolean {
+                val transport = resultMsg?.obj as? WebView.WebViewTransport
+                if (transport != null) {
+                    val tempWebView = WebView(view!!.context)
+                    tempWebView.webViewClient = object : WebViewClient() {
+                        @Deprecated("Deprecated in Java")
+                        override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                            if (url != null) {
+                                webView.loadUrl(url)
+                            }
+                            return true
+                        }
+
+                        override fun shouldOverrideUrlLoading(
+                            view: WebView?,
+                            request: WebResourceRequest?
+                        ): Boolean {
+                            if (request != null) {
+                                webView.loadUrl(request.url.toString())
+                            }
+                            return true
+                        }
+                    }
+                    transport.webView = tempWebView
+                    resultMsg.sendToTarget()
+                    return true
+                }
+                return super.onCreateWindow(view, isDialog, isUserGesture, resultMsg)
             }
         }
         

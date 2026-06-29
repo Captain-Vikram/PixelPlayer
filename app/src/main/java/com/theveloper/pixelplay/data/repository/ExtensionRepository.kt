@@ -287,6 +287,11 @@ class ExtensionRepository @Inject constructor(
         }
     }
 
+    fun clearCache(extensionId: String) {
+        homeFeedShelvesCache.remove(extensionId)
+        libraryFeedShelvesCache.remove(extensionId)
+    }
+
     fun refreshFeeds() {
         loadHomeFeed(forceRefresh = true)
         loadLibraryFeed(forceRefresh = true)

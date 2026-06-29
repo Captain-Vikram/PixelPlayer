@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 import dev.brahmkshatriya.echo.common.MusicExtension
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
 
 sealed class ExtensionLoginState {
     object Idle : ExtensionLoginState()
@@ -31,6 +32,7 @@ sealed class ExtensionLoginState {
 class ExtensionLoginViewModel @Inject constructor(
     private val extensionLoader: ExtensionLoader,
     private val userDao: UserDao,
+    private val extensionRepository: ExtensionRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -110,6 +112,11 @@ class ExtensionLoginViewModel @Inject constructor(
 
         // Notify client
         loginClient?.setLoginUser(user)
+
+        // Clear feed caches and force reload
+        extensionRepository.clearCache(ext.metadata.id)
+        extensionRepository.loadHomeFeed(forceRefresh = true)
+        extensionRepository.loadLibraryFeed(forceRefresh = true)
 
         _state.value = ExtensionLoginState.Success
     }

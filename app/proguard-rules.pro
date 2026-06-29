@@ -217,6 +217,10 @@
 -keep class dev.brahmkshatriya.echo.** { *; }
 -dontwarn dev.brahmkshatriya.echo.**
 
+# Kotlin standard library (Required for interfaces, lambdas, coroutines in dynamically loaded extensions)
+-keep class kotlin.** { *; }
+-dontwarn kotlin.**
+
 # =============================================================================
 # TIMBER LOGGING OPTIMIZATION FOR RELEASE BUILDS
 # =============================================================================
