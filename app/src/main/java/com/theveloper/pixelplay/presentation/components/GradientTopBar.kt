@@ -4,43 +4,32 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LargeTopAppBar
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
-import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import com.theveloper.pixelplay.ui.theme.PixelPlayStatusBarStyle
-import androidx.compose.ui.res.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,10 +75,10 @@ fun GenreGradientTopBar(
             }
         },
         colors = topAppBarColors(
-            containerColor = Color.Transparent, // Background is handled by the gradient brush
+            containerColor = Color.Transparent,
             scrolledContainerColor = Color.Transparent,
-            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer, // Or a color that contrasts well with your typical gradient
-            navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer // Same as title
+            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
     )
 }
@@ -98,11 +87,15 @@ fun GenreGradientTopBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeGradientTopBar(
-    onNavigationIconClick: () -> Unit,
-    onMoreOptionsClick: () -> Unit,
-    onBetaClick: () -> Unit,
+    onSourceSelectionClick: () -> Unit,
+    onStoreClick: () -> Unit,
+    onChangelogClick: () -> Unit,
+    onBetaLogoClick: () -> Unit,
     onTelegramClick: () -> Unit,
-    onMenuClick: () -> Unit = {},
+    onOpenSidebar: () -> Unit,
+    activeExtensionName: String?,
+    activeExtensionIcon: Any? = null,
+    isSourceSelectionEnabled: Boolean,
     isScrolled: Boolean = false,
 ) {
     val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -117,12 +110,11 @@ fun HomeGradientTopBar(
 
     TopAppBar(
         modifier = Modifier.background(surfaceContainerHigh.copy(alpha = animatedAlpha)),
-        title = { /* nada, usamos solo acciones */ },
+        title = { /* Empty */ },
         navigationIcon = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(start = 12.dp)
+                modifier = Modifier.padding(start = 8.dp)
             ) {
                 FilledTonalButton(
                     modifier = Modifier.padding(start = 4.dp),
@@ -132,7 +124,7 @@ fun HomeGradientTopBar(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         contentColor = MaterialTheme.colorScheme.onSurface
                     ),
-                    onClick = onBetaClick
+                    onClick = onBetaLogoClick
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -155,43 +147,87 @@ fun HomeGradientTopBar(
         actions = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(end = 14.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(end = 8.dp)
             ) {
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onTelegramClick
-                ) {
-                    Icon(
-                         imageVector = Icons.Rounded.Cloud,
-                         contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
-                    )
+                var showCloudMenu by remember { mutableStateOf(false) }
+                
+                Box {
+                    FilledIconButton(
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        onClick = { showCloudMenu = true }
+                    ) {
+                        Icon(
+                             imageVector = Icons.Rounded.Cloud,
+                             contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showCloudMenu,
+                        onDismissRequest = { showCloudMenu = false },
+                        offset = androidx.compose.ui.unit.DpOffset(0.dp, 8.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Accounts") },
+                            onClick = {
+                                showCloudMenu = false
+                                onTelegramClick()
+                            },
+                            leadingIcon = { Icon(Icons.Rounded.AccountCircle, null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Manage Extensions") },
+                            onClick = {
+                                showCloudMenu = false
+                                onStoreClick()
+                            },
+                            leadingIcon = { Icon(Icons.Rounded.Extension, null) }
+                        )
+                    }
                 }
+                
                 FilledIconButton(
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         contentColor = MaterialTheme.colorScheme.onSurface
                     ),
-                    onClick = onMoreOptionsClick
+                    onClick = onChangelogClick
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.round_newspaper_24),
                         contentDescription = stringResource(R.string.topbar_cd_changelog)
                     )
                 }
+
+                // Fused Cloud/Source Button
                 FilledIconButton(
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         contentColor = MaterialTheme.colorScheme.onSurface
                     ),
-                    onClick = onNavigationIconClick
+                    onClick = onSourceSelectionClick,
+                    enabled = isSourceSelectionEnabled
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.rounded_settings_24),
-                        contentDescription = stringResource(R.string.common_settings)
-                    )
+                    if (activeExtensionIcon != null) {
+                        com.theveloper.pixelplay.presentation.components.SmartImage(
+                            model = activeExtensionIcon,
+                            contentDescription = activeExtensionName ?: "Source Selection",
+                            modifier = Modifier.size(24.dp).clip(CircleShape)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.Storage,
+                            contentDescription = "Source Selection",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
         },

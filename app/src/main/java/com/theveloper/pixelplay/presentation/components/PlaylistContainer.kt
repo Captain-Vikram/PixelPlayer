@@ -39,10 +39,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -166,7 +168,7 @@ fun PlaylistContainer(
                         )
                         Text(
                             text = stringResource(R.string.playlist_container_new_playlist_hint),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = GoogleSansRounded),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
@@ -193,11 +195,23 @@ fun PlaylistContainer(
                     state = playlistPullToRefreshState,
                     modifier = Modifier.fillMaxSize(),
                     indicator = {
-                        PullToRefreshDefaults.LoadingIndicator(
-                            state = playlistPullToRefreshState,
-                            isRefreshing = isRefreshing,
-                            modifier = Modifier.align(Alignment.TopCenter)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 16.dp)
+                        ) {
+                            LoadingIndicator(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .graphicsLayer {
+                                        val p = playlistPullToRefreshState.distanceFraction
+                                        scaleX = p.coerceIn(0f, 1f)
+                                        scaleY = p.coerceIn(0f, 1f)
+                                        alpha = p.coerceIn(0f, 1f)
+                                    },
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 ) {
                     PlaylistItems(
@@ -510,9 +524,9 @@ fun PlaylistItem(
                         )
                     }
                 }
-                Text(
+                 Text(
                     text = formatSongCount(playlist.songIds.size),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = GoogleSansRounded),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -591,8 +605,8 @@ fun CreatePlaylistDialogRedesigned(
                 OutlinedTextField(
                     value = playlistName,
                     onValueChange = { playlistName = it },
-                    label = { Text(stringResource(R.string.playlist_container_create_playlist_name_label)) },
-                    placeholder = { Text(stringResource(R.string.playlist_container_create_playlist_name_placeholder)) },
+                     label = { Text(stringResource(R.string.playlist_container_create_playlist_name_label), fontFamily = GoogleSansRounded) },
+                    placeholder = { Text(stringResource(R.string.playlist_container_create_playlist_name_placeholder), fontFamily = GoogleSansRounded) },
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -613,7 +627,7 @@ fun CreatePlaylistDialogRedesigned(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(stringResource(R.string.common_cancel), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                         Text(stringResource(R.string.common_cancel), fontFamily = GoogleSansRounded, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
 
                     Button(
@@ -626,7 +640,7 @@ fun CreatePlaylistDialogRedesigned(
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
-                        Text(stringResource(R.string.common_create), fontWeight = FontWeight.Bold)
+                         Text(stringResource(R.string.common_create), fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold)
                     }
                 }
             }

@@ -1,6 +1,7 @@
 package com.theveloper.pixelplay.data.diagnostics
 
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.data.preferences.AdvancedPerformanceDiagnosticsSettings
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope

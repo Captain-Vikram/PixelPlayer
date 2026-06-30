@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.LibraryTabId
-import com.theveloper.pixelplay.data.model.StorageFilter
+import com.theveloper.pixelplay.data.model.SourceScope
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 
@@ -36,75 +36,75 @@ private data class LibraryEmptySpec(
 
 private fun libraryEmptySpec(
     tabId: LibraryTabId,
-    storageFilter: StorageFilter
+    sourceScope: SourceScope
 ): LibraryEmptySpec {
     return when (tabId) {
-        LibraryTabId.SONGS -> when (storageFilter) {
-            StorageFilter.ALL -> LibraryEmptySpec(
+        LibraryTabId.SONGS -> when (sourceScope) {
+            SourceScope.All -> LibraryEmptySpec(
                 iconRes = R.drawable.rounded_music_off_24,
                 titleRes = R.string.library_empty_songs_all_title,
                 subtitleRes = R.string.library_empty_songs_all_subtitle
             )
-            StorageFilter.OFFLINE -> LibraryEmptySpec(
+            SourceScope.Local -> LibraryEmptySpec(
                 iconRes = R.drawable.rounded_music_off_24,
                 titleRes = R.string.library_empty_songs_offline_title,
                 subtitleRes = R.string.library_empty_songs_offline_subtitle
             )
-            StorageFilter.ONLINE -> LibraryEmptySpec(
+            is SourceScope.Extension -> LibraryEmptySpec(
                 iconRes = R.drawable.rounded_music_off_24,
                 titleRes = R.string.library_empty_songs_online_title,
                 subtitleRes = R.string.library_empty_songs_online_subtitle
             )
         }
 
-        LibraryTabId.ALBUMS -> when (storageFilter) {
-            StorageFilter.ALL -> LibraryEmptySpec(
+        LibraryTabId.ALBUMS -> when (sourceScope) {
+            SourceScope.All -> LibraryEmptySpec(
                 iconRes = R.drawable.rounded_album_24,
                 titleRes = R.string.library_empty_albums_all_title,
                 subtitleRes = R.string.library_empty_albums_all_subtitle
             )
-            StorageFilter.OFFLINE -> LibraryEmptySpec(
+            SourceScope.Local -> LibraryEmptySpec(
                 iconRes = R.drawable.rounded_album_24,
                 titleRes = R.string.library_empty_albums_offline_title,
                 subtitleRes = R.string.library_empty_albums_offline_subtitle
             )
-            StorageFilter.ONLINE -> LibraryEmptySpec(
+            is SourceScope.Extension -> LibraryEmptySpec(
                 iconRes = R.drawable.rounded_album_24,
                 titleRes = R.string.library_empty_albums_online_title,
                 subtitleRes = R.string.library_empty_albums_online_subtitle
             )
         }
 
-        LibraryTabId.ARTISTS -> when (storageFilter) {
-            StorageFilter.ALL -> LibraryEmptySpec(
+        LibraryTabId.ARTISTS -> when (sourceScope) {
+            SourceScope.All -> LibraryEmptySpec(
                 iconRes = R.drawable.rounded_artist_24,
                 titleRes = R.string.library_empty_artists_all_title,
                 subtitleRes = R.string.library_empty_artists_all_subtitle
             )
-            StorageFilter.OFFLINE -> LibraryEmptySpec(
+            SourceScope.Local -> LibraryEmptySpec(
                 iconRes = R.drawable.rounded_artist_24,
                 titleRes = R.string.library_empty_artists_offline_title,
                 subtitleRes = R.string.library_empty_artists_offline_subtitle
             )
-            StorageFilter.ONLINE -> LibraryEmptySpec(
+            is SourceScope.Extension -> LibraryEmptySpec(
                 iconRes = R.drawable.rounded_artist_24,
                 titleRes = R.string.library_empty_artists_online_title,
                 subtitleRes = R.string.library_empty_artists_online_subtitle
             )
         }
 
-        LibraryTabId.LIKED -> when (storageFilter) {
-            StorageFilter.ALL -> LibraryEmptySpec(
+        LibraryTabId.LIKED -> when (sourceScope) {
+            SourceScope.All -> LibraryEmptySpec(
                 iconRes = R.drawable.round_favorite_24,
                 titleRes = R.string.library_empty_liked_all_title,
                 subtitleRes = R.string.library_empty_liked_all_subtitle
             )
-            StorageFilter.OFFLINE -> LibraryEmptySpec(
+            SourceScope.Local -> LibraryEmptySpec(
                 iconRes = R.drawable.round_favorite_24,
                 titleRes = R.string.library_empty_liked_offline_title,
                 subtitleRes = R.string.library_empty_liked_offline_subtitle
             )
-            StorageFilter.ONLINE -> LibraryEmptySpec(
+            is SourceScope.Extension -> LibraryEmptySpec(
                 iconRes = R.drawable.round_favorite_24,
                 titleRes = R.string.library_empty_liked_online_title,
                 subtitleRes = R.string.library_empty_liked_online_subtitle
@@ -128,11 +128,11 @@ private fun libraryEmptySpec(
 @Composable
 internal fun LibraryExpressiveEmptyState(
     tabId: LibraryTabId,
-    storageFilter: StorageFilter,
+    currentSourceScope: SourceScope,
     bottomBarHeight: Dp,
     modifier: Modifier = Modifier
 ) {
-    val spec = remember(tabId, storageFilter) { libraryEmptySpec(tabId, storageFilter) }
+    val spec = remember(tabId, currentSourceScope) { libraryEmptySpec(tabId, currentSourceScope) }
 
     Box(
         modifier = modifier

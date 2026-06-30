@@ -29,8 +29,8 @@ object GenreIconProvider {
     )
 
     @Suppress("CyclomaticComplexMethod")
-    fun getGenreImageResource(genreId: String, customIcons: Map<String, Int> = emptyMap()): Any {
-        customIcons[genreId]?.let { return it }
+    fun getGenreImageResource(genreId: String, customIcons: Map<String, String> = emptyMap()): Any {
+        customIcons[genreId]?.toIntOrNull()?.let { return it }
 
         return when (genreId.lowercase().trim()) {
 

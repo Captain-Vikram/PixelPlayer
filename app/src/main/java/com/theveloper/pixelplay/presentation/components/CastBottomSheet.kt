@@ -1315,7 +1315,7 @@ private fun ActiveDeviceHero(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(IntrinsicSize.Min)
+                    .heightIn(min = 56.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -1578,7 +1578,7 @@ private fun CastDeviceRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Min)
+                .heightIn(min = 56.dp)
                 .padding(12.dp), // Padding uniforme en los 4 lados
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)

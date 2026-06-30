@@ -21,6 +21,8 @@ data class PlayerUiState(
     // val albums: ImmutableList<Album> = persistentListOf(), // REMOVED
     // val artists: ImmutableList<Artist> = persistentListOf(), // REMOVED
     val searchResults: ImmutableList<SearchResultItem> = persistentListOf(),
+    val searchResultsShelves: ImmutableList<dev.brahmkshatriya.echo.common.models.Shelf> = persistentListOf(),
+    val isLoadingSearch: Boolean = false,
     val musicFolders: ImmutableList<MusicFolder> = persistentListOf(),
     val showAiPlaylistSheet: Boolean = false,
     val isGeneratingAiPlaylist: Boolean = false,
@@ -59,8 +61,9 @@ data class PlayerUiState(
     val searchQuery: String = "",
     val isSyncingLibrary: Boolean = false,
     val selectedSearchFilter: SearchFilterType = SearchFilterType.ALL,
-    val currentStorageFilter: com.theveloper.pixelplay.data.model.StorageFilter = com.theveloper.pixelplay.data.model.StorageFilter.ALL,
-    val hideLocalMedia: Boolean = false,
+    val currentSourceScope: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All,
+    val searchFeedShelves: ImmutableList<dev.brahmkshatriya.echo.common.models.Shelf> = persistentListOf(),
+    val isLoadingSearchFeed: Boolean = false,
     val showQueueItemUndoBar: Boolean = false,
     val lastRemovedQueueSong: Song? = null,
     val lastRemovedQueueIndex: Int = -1

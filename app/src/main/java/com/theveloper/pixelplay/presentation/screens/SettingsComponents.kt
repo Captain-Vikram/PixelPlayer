@@ -54,6 +54,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -300,59 +303,124 @@ fun ThemeSelectorItem(
     }
 
     if (showSheet) {
+        var sheetSearchQuery by remember { mutableStateOf("") }
+        val filteredOptions = remember(options, sheetSearchQuery) {
+            if (sheetSearchQuery.isBlank()) {
+                options.entries.toList()
+            } else {
+                options.entries.filter { 
+                    it.value.contains(sheetSearchQuery, ignoreCase = true) || 
+                    it.key.contains(sheetSearchQuery, ignoreCase = true) 
+                }
+            }
+        }
+
         androidx.compose.material3.ModalBottomSheet(
             onDismissRequest = { showSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() }
         ) {
-            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp)
+            ) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.headlineSmall, // Larger header
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 
+                if (options.size > 6) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = sheetSearchQuery,
+                        onValueChange = { sheetSearchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp),
+                        placeholder = { Text("Search options...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        trailingIcon = {
+                            if (sheetSearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { sheetSearchQuery = "" }) {
+                                    Icon(Icons.Rounded.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 LazyColumn(
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
-                        .heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .fillMaxHeight(if (options.size > 6) 0.6f else 0.45f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(options.entries.toList()) { (key, optionLabel) ->
-                        val isSelected = key == selectedKey
-                        val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
-                        val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                        
-                        Surface(
-                            onClick = {
-                                onSelectionChanged(key)
-                                showSheet = false
-                            },
-                            shape = RoundedCornerShape(24.dp),
-                            color = containerColor,
-                            modifier = Modifier.fillMaxWidth().height(72.dp)
-                        ) {
-                            Row(
+                    if (filteredOptions.isEmpty()) {
+                        item {
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 24.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .fillMaxWidth()
+                                    .padding(vertical = 32.dp),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = optionLabel,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = contentColor,
-                                    modifier = Modifier.weight(1f)
+                                    text = "No options found",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Check,
-                                        contentDescription = stringResource(R.string.common_selected),
-                                        tint = contentColor
+                            }
+                        }
+                    } else {
+                        items(filteredOptions, key = { it.key }) { (key, optionLabel) ->
+                            val isSelected = key == selectedKey
+                            val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                            val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            
+                            Surface(
+                                onClick = {
+                                    onSelectionChanged(key)
+                                    showSheet = false
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                color = containerColor,
+                                border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                modifier = Modifier.fillMaxWidth().height(52.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = optionLabel,
+                                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal),
+                                        color = contentColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
                                     )
+                                    
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Check,
+                                            contentDescription = stringResource(R.string.common_selected),
+                                            tint = contentColor,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

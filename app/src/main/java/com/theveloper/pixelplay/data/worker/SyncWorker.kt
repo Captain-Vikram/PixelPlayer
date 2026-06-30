@@ -159,7 +159,7 @@ constructor(
                     var lastSyncTimestamp = userPreferencesRepository.getLastSyncTimestamp()
 
                     // Smart Duration Filtering
-                    minSongDurationMs = userPreferencesRepository.getMinSongDuration()
+                    minSongDurationMs = userPreferencesRepository.getMinSongDuration().toInt()
                     minTracksPerAlbum = userPreferencesRepository.minTracksPerAlbumFlow.first()
 
                     Timber.tag(TAG)

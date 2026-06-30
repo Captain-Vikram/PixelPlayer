@@ -62,6 +62,7 @@ fun LyricsFloatingToolbar(
     onShowSyncedLyricsChange: (Boolean) -> Unit,
     hasSyncedLyrics: Boolean,
     onMoreClick: () -> Unit,
+    onSearchLyricsClick: () -> Unit,
     backgroundColor: Color,
     onBackgroundColor: Color,
     accentColor: Color,
@@ -151,6 +152,22 @@ fun LyricsFloatingToolbar(
             )
         }
         
+        Spacer(modifier = Modifier.width(8.dp))
+
+        IconButton(
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = backgroundColor,
+                contentColor = onBackgroundColor
+            ),
+            onClick = onSearchLyricsClick
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.rounded_manage_search_24),
+                contentDescription = stringResource(R.string.search_placeholder),
+                tint = onBackgroundColor
+            )
+        }
+
         Spacer(modifier = Modifier.width(8.dp))
 
         IconButton(

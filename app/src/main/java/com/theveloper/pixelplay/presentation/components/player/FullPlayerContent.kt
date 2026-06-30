@@ -1,6 +1,12 @@
 package com.theveloper.pixelplay.presentation.components.player
 
 import android.annotation.SuppressLint
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import androidx.compose.runtime.DisposableEffect
 import android.content.Context
 import android.content.res.Configuration
 import android.net.Uri
@@ -113,6 +119,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.presentation.components.SmartImage
 import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 import com.theveloper.pixelplay.data.model.Artist
 import com.theveloper.pixelplay.data.model.Song
@@ -186,10 +193,69 @@ private suspend fun validateLyricsImport(
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
+@Composable
+private fun VideoLoopCanvas(
+    videoUri: String?,
+    isPlaying: Boolean,
+    expansionFraction: Float,
+    modifier: Modifier = Modifier
+) {
+    if (videoUri.isNullOrBlank() || expansionFraction < 0.01f) return
+
+    val context = LocalContext.current
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_ALL
+            volume = 0f
+        }
+    }
+
+    LaunchedEffect(videoUri) {
+        exoPlayer.setMediaItem(MediaItem.fromUri(videoUri))
+        exoPlayer.prepare()
+        if (isPlaying) exoPlayer.play()
+    }
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            if (exoPlayer.playbackState == Player.STATE_ENDED) {
+                exoPlayer.seekTo(0)
+            }
+            exoPlayer.play()
+        } else {
+            exoPlayer.pause()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                useController = false
+                player = exoPlayer
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            }
+        },
+        modifier = modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                alpha = expansionFraction
+            }
+    )
+}
+
+@androidx.annotation.OptIn(UnstableApi::class)
 @SuppressLint("StateFlowValueCalledInComposition")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun FullPlayerContent(
+    userPreferencesRepository: com.theveloper.pixelplay.data.preferences.UserPreferencesRepository,
     currentSong: Song?,
     currentPlaybackQueue: ImmutableList<Song>,
     currentQueueSourceName: String,
@@ -228,7 +294,8 @@ fun FullPlayerContent(
     onShowCastClicked: () -> Unit,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    onDownloadClick: () -> Unit = {}
 ) {
     var retainedSong by remember { mutableStateOf(currentSong) }
     LaunchedEffect(currentSong?.id) {
@@ -244,10 +311,17 @@ fun FullPlayerContent(
     
     val lyricsSearchUiState by playerViewModel.lyricsSearchUiState.collectAsStateWithLifecycle()
 
+    val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
+    val lyricsExtensions = remember(allExtensions) {
+        allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.LyricsExtension>()
+    }
+
     // Single subscription — replaces 11 independent collectAsStateWithLifecycle calls.
     // distinctUntilChanged in the ViewModel ensures this only emits when something
     // actually changed, batching multiple rapid updates into one recomposition.
     val fullPlayerSlice by playerViewModel.fullPlayerSlice.collectAsStateWithLifecycle()
+    val isDownloadable by playerViewModel.isCurrentSongDownloadable.collectAsStateWithLifecycle()
+    val downloadProgress by playerViewModel.currentSongDownloadProgress.collectAsStateWithLifecycle()
     val currentSongArtists = fullPlayerSlice.currentSongArtists
     val lyricsSyncOffset = fullPlayerSlice.lyricsSyncOffset
     val albumArtQuality = fullPlayerSlice.albumArtQuality
@@ -358,6 +432,9 @@ fun FullPlayerContent(
                 },
                 onManualSearch = { title, artist ->
                     playerViewModel.searchLyricsManually(title, artist)
+                },
+                onSelectSource = { extId ->
+                    playerViewModel.selectLyricsSource(extId)
                 },
                 onDismiss = {
                     // El usuario cancela o cierra el diálogo
@@ -567,7 +644,7 @@ fun FullPlayerContent(
         )
     }
 
-    val portraitSongMetadataSection: @Composable () -> Unit = {
+    val landscapeSongMetadataSection: @Composable () -> Unit = {
         FullPlayerSongMetadataSection(
             song = song,
             currentSongArtists = currentSongArtists,
@@ -577,7 +654,7 @@ fun FullPlayerContent(
             currentSheetState = currentSheetState,
             placeholderColor = placeholderColor,
             placeholderOnColor = placeholderOnColor,
-            isLandscape = false,
+            isLandscape = true,
             onLyricsClick = onLyricsClick,
             playerOnBaseColor = playerOnBaseColor,
             playerViewModel = playerViewModel,
@@ -590,7 +667,7 @@ fun FullPlayerContent(
         )
     }
 
-    val landscapeSongMetadataSection: @Composable () -> Unit = {
+    val portraitSongMetadataSection: @Composable () -> Unit = {
         FullPlayerSongMetadataSection(
             song = song,
             currentSongArtists = currentSongArtists,
@@ -600,7 +677,7 @@ fun FullPlayerContent(
             currentSheetState = currentSheetState,
             placeholderColor = placeholderColor,
             placeholderOnColor = placeholderOnColor,
-            isLandscape = true,
+            isLandscape = false,
             onLyricsClick = onLyricsClick,
             playerOnBaseColor = playerOnBaseColor,
             playerViewModel = playerViewModel,
@@ -942,6 +1019,7 @@ fun FullPlayerContent(
         ) + fadeOut(animationSpec = tween(durationMillis = 120))
     ) {
         LyricsSheet(
+            userPreferencesRepository = userPreferencesRepository,
             stablePlayerStateFlow = playerViewModel.stablePlayerState,
             playbackPositionFlow = playerViewModel.currentPlaybackPosition,
             lyricsSearchUiState = lyricsSearchUiState,
@@ -954,6 +1032,8 @@ fun FullPlayerContent(
             onManualSearch = { title, artist -> playerViewModel.searchLyricsManually(title, artist) },
             onImportLyrics = { filePickerLauncher.launch(com.theveloper.pixelplay.utils.LyricsImportSecurity.pickerMimeTypes()) },
             onDismissLyricsSearch = { playerViewModel.resetLyricsSearchState() },
+            onSelectSource = { playerViewModel.selectLyricsSource(it) },
+            lyricsExtensions = lyricsExtensions,
             lyricsSyncOffset = lyricsSyncOffset,
             onLyricsSyncOffsetChange = { currentSong?.id?.let { songId -> playerViewModel.setLyricsSyncOffset(songId, it) } },
             // Use the platform default font (fontFamily = null) for lyrics so extended
@@ -1124,9 +1204,12 @@ private fun FullPlayerControlsSection(
     shuffleTransitionInProgress: Boolean,
     repeatModeProvider: () -> Int,
     isFavoriteProvider: () -> Boolean,
+    isDownloadable: Boolean = false,
+    downloadProgress: Int? = null,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    onDownloadClick: () -> Unit = {}
 ) {
     val motionScheme = remember { MotionScheme.expressive() }
     val controlSpatialSpec = remember { motionScheme.fastSpatialSpec<Float>() }
@@ -1187,9 +1270,12 @@ private fun FullPlayerControlsSection(
                 isShuffleTransitionInProgress = shuffleTransitionInProgress,
                 repeatMode = repeatModeProvider(),
                 isFavoriteProvider = isFavoriteProvider,
+                isDownloadable = isDownloadable,
+                downloadProgress = downloadProgress,
                 onShuffleToggle = onShuffleToggle,
                 onRepeatToggle = onRepeatToggle,
-                onFavoriteToggle = onFavoriteToggle
+                onFavoriteToggle = onFavoriteToggle,
+                onDownloadClick = onDownloadClick
             )
         }
     }
@@ -1480,6 +1566,7 @@ private fun SongMetadataDisplaySection(
                 artist = currentSong.displayArtist,
                 artistId = currentSong.artistId,
                 artists = currentSongArtists,
+                extensionId = currentSong.extensionId,
                 expansionFractionProvider = expansionFractionProvider,
                 textColor = textColor,
                 artistTextColor = artistTextColor,
@@ -2135,6 +2222,7 @@ private fun PlayerSongInfo(
     artist: String,
     artistId: Long,
     artists: List<Artist>,
+    extensionId: String?,
     expansionFractionProvider: () -> Float,
     textColor: Color,
     artistTextColor: Color,
@@ -2171,20 +2259,41 @@ private fun PlayerSongInfo(
                 translationY = (1f - fraction) * 24f
             }
     ) {
-        // We pass 1f to AutoScrollingTextOnDemand because the alpha/translation is now handled by the parent Column graphicsLayer
-        // and we want it "fully rendered" but hidden/moved by the layer.
-        // Actually, AutoScrollingTextOnDemand uses expansionFraction to start scrolling only when fully expanded?
-        // Let's check AutoScrollingTextOnDemand. Assuming it uses it for scrolling trigger.
-        // If we want to avoid recomposition, we might need to pass the provider or just 1f if scrolling logic handles itself.
-        // For now, let's pass the current value from provider for logic correctness, but ideally this component should be optimized too.
-        AutoScrollingTextOnDemand(
-            text = title,
-            style = titleStyle,
-            gradientEdgeColor = gradientEdgeColor,
-            expansionFractionProvider = expansionFractionProvider,
-            modifier = Modifier.fillMaxWidth(),
-            canScroll = isPlayingProvider()
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AutoScrollingTextOnDemand(
+                text = title,
+                style = titleStyle,
+                gradientEdgeColor = gradientEdgeColor,
+                expansionFractionProvider = expansionFractionProvider,
+                modifier = Modifier.weight(1f, fill = false),
+                canScroll = isPlayingProvider()
+            )
+
+            if (extensionId != null) {
+                val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
+                val extension = remember(allExtensions, extensionId) {
+                    allExtensions.find { it.metadata.id == extensionId }
+                }
+                extension?.let { ext ->
+                    val iconModel = when (val icon = ext.metadata.icon) {
+                        is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
+                        is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
+                        else -> null
+                    }
+                    if (iconModel != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        SmartImage(
+                            model = iconModel,
+                            contentDescription = ext.metadata.name,
+                            modifier = Modifier.size(20.dp).clip(CircleShape)
+                        )
+                    }
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(2.dp))
 
 
@@ -2548,9 +2657,12 @@ private fun BottomToggleRow(
     isShuffleTransitionInProgress: Boolean,
     repeatMode: Int,
     isFavoriteProvider: () -> Boolean,
+    isDownloadable: Boolean = false,
+    downloadProgress: Int? = null,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    onDownloadClick: () -> Unit = {}
 ) {
     val isFavorite = isFavoriteProvider()
     val rowCorners = 60.dp
@@ -2638,6 +2750,34 @@ private fun BottomToggleRow(
                 iconId = if (isFavorite) R.drawable.round_favorite_24 else R.drawable.rounded_favorite_24,
                 contentDesc = "Favorito"
             )
+
+            if (isDownloadable) {
+                ToggleSegmentButton(
+                    modifier = commonModifier,
+                    active = false,
+                    activeColor = LocalMaterialTheme.current.primaryFixed,
+                    activeCornerRadius = rowCorners,
+                    inactiveColor = inactiveBg,
+                    onClick = onDownloadClick,
+                ) {
+                    if (downloadProgress != null) {
+                        CircularProgressIndicator(
+                            progress = { downloadProgress!! / 100f },
+                            modifier = Modifier.size(20.dp),
+                            color = LocalMaterialTheme.current.primaryFixed,
+                            strokeWidth = 3.dp,
+                            trackColor = inactiveContentColor.copy(alpha = 0.2f)
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.outline_save_24),
+                            contentDescription = "Download",
+                            tint = inactiveContentColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -186,6 +186,7 @@ fun PlaylistDetailScreen(
     val toastPlayingNext = stringResource(R.string.library_toast_playing_next)
     val currentPlaylist = uiState.currentPlaylistDetails
     val isFolderPlaylist = currentPlaylist?.id?.startsWith(FOLDER_PLAYLIST_PREFIX) == true
+    val isExtensionPlaylist = remember(playlistId) { playlistId.startsWith("extension:") }
     val songsInPlaylist = uiState.currentPlaylistSongs
 
     LaunchedEffect(playlistId) {
@@ -313,7 +314,7 @@ fun PlaylistDetailScreen(
                             contentDescription = sortSongsLabel
                         )
                     }
-                    if (!isFolderPlaylist) {
+                    if (!isFolderPlaylist && !isExtensionPlaylist) {
                         FilledTonalIconButton(
                             modifier = Modifier.padding(end = 10.dp),
                             colors = IconButtonDefaults.filledIconButtonColors(
@@ -353,7 +354,7 @@ fun PlaylistDetailScreen(
                     .padding(top = innerPadding.calculateTopPadding())
             ) {
                 val actionButtonsHeight = 42.dp
-                val playbackControlBottomPadding = if (isFolderPlaylist) 8.dp else 6.dp
+                val playbackControlBottomPadding = if (isFolderPlaylist || isExtensionPlaylist) 8.dp else 6.dp
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -446,7 +447,7 @@ fun PlaylistDetailScreen(
                     }
                 }
 
-                if (!isFolderPlaylist) {
+                if (!isFolderPlaylist && !isExtensionPlaylist) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -806,9 +807,9 @@ fun PlaylistDetailScreen(
 
     if (showAddSongsSheet && currentPlaylist != null && !isFolderPlaylist) {
         SongPickerBottomSheet(
-            initiallySelectedSongIds = currentPlaylist.songIds.toSet(),
+            initialSelectedIds = currentPlaylist.songIds.toSet(),
             onDismiss = { showAddSongsSheet = false },
-            onConfirm = { selectedIds ->
+            onSongsSelected = { selectedIds ->
                 playlistViewModel.addSongsToPlaylist(currentPlaylist.id, selectedIds.toList())
                 showAddSongsSheet = false
             }
@@ -992,21 +993,21 @@ fun PlaylistDetailScreen(
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
                     navController.navigateSafelyReplacing(
-                        route = Screen.AlbumDetail.createRoute(currentSong.albumId),
+                        route = Screen.AlbumDetail.createRoute(currentSong.albumId.toString()),
                         patternToPop = Screen.AlbumDetail.route
                     )
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {
                     navController.navigateSafelyReplacing(
-                        route = Screen.ArtistDetail.createRoute(currentSong.artistId),
+                        route = Screen.ArtistDetail.createRoute(currentSong.artistId.toString()),
                         patternToPop = Screen.ArtistDetail.route
                     )
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtistById = { artistId ->
                     navController.navigateSafelyReplacing(
-                        route = Screen.ArtistDetail.createRoute(artistId),
+                        route = Screen.ArtistDetail.createRoute(artistId.toString()),
                         patternToPop = Screen.ArtistDetail.route
                     )
                     showSongInfoBottomSheet = false

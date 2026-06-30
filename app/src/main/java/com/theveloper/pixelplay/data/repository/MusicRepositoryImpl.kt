@@ -47,7 +47,9 @@ import com.theveloper.pixelplay.data.model.SearchHistoryItem
 import com.theveloper.pixelplay.data.model.SearchResultItem
 import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.model.FolderSource
-import com.theveloper.pixelplay.data.model.StorageFilter
+import com.theveloper.pixelplay.data.model.SourceScope
+import com.theveloper.pixelplay.data.model.toFilterMode
+import com.theveloper.pixelplay.data.model.toExtensionId
 import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.ui.theme.GenreThemeUtils
@@ -208,14 +210,14 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override fun getPaginatedSongs(sortOption: SortOption, storageFilter: com.theveloper.pixelplay.data.model.StorageFilter): Flow<PagingData<Song>> {
+    override fun getPaginatedSongs(sortOption: SortOption, storageFilter: SourceScope): Flow<PagingData<Song>> {
         return songRepository.getPaginatedSongs(sortOption, storageFilter)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getPaginatedAlbums(
         sortOption: SortOption,
-        storageFilter: StorageFilter,
+        storageFilter: SourceScope,
         minTracks: Int
     ): Flow<PagingData<Album>> {
         return combine(
@@ -235,6 +237,7 @@ class MusicRepositoryImpl @Inject constructor(
                                 allowedParentDirs = allowedParentDirs,
                                 applyDirectoryFilter = applyDirectoryFilter,
                                 filterMode = storageFilter.toFilterMode(),
+                                extensionId = storageFilter.toExtensionId(),
                                 sortOrder = sortOption.storageKey,
                                 minTracks = minTracks
                             )
@@ -250,7 +253,7 @@ class MusicRepositoryImpl @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getPaginatedArtists(
         sortOption: SortOption,
-        storageFilter: StorageFilter
+        storageFilter: SourceScope
     ): Flow<PagingData<Artist>> {
         return combine(
             userPreferencesRepository.allowedDirectoriesFlow,
@@ -269,6 +272,7 @@ class MusicRepositoryImpl @Inject constructor(
                                 allowedParentDirs = allowedParentDirs,
                                 applyDirectoryFilter = applyDirectoryFilter,
                                 filterMode = storageFilter.toFilterMode(),
+                                extensionId = storageFilter.toExtensionId(),
                                 sortOrder = sortOption.storageKey
                             )
                         }
@@ -281,11 +285,11 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override fun getPaginatedFavoriteSongs(sortOption: SortOption, storageFilter: StorageFilter): Flow<PagingData<Song>> {
+    override fun getPaginatedFavoriteSongs(sortOption: SortOption, storageFilter: SourceScope): Flow<PagingData<Song>> {
         return songRepository.getPaginatedFavoriteSongs(sortOption, storageFilter)
     }
 
-    override suspend fun getFavoriteSongsOnce(storageFilter: StorageFilter): List<Song> {
+    override suspend fun getFavoriteSongsOnce(storageFilter: SourceScope): List<Song> {
         return songRepository.getFavoriteSongsOnce(storageFilter)
     }
 
@@ -293,7 +297,7 @@ class MusicRepositoryImpl @Inject constructor(
         limit: Int,
         offset: Int,
         sortOption: SortOption,
-        storageFilter: StorageFilter
+        storageFilter: SourceScope
     ): List<Song> = withContext(Dispatchers.IO) {
         val filter = cachedDirFilter.value
         musicDao.getFavoriteSongsPage(
@@ -301,12 +305,13 @@ class MusicRepositoryImpl @Inject constructor(
             applyDirectoryFilter = filter.applyFilter,
             sortOrder = sortOption.storageKey,
             filterMode = storageFilter.toFilterMode(),
+            extensionId = storageFilter.toExtensionId(),
             limit = limit,
             offset = offset
         ).map { it.toSong() }
     }
 
-    override fun getFavoriteSongCountFlow(storageFilter: StorageFilter): Flow<Int> {
+    override fun getFavoriteSongCountFlow(storageFilter: SourceScope): Flow<Int> {
         return songRepository.getFavoriteSongCountFlow(storageFilter)
     }
 
@@ -327,7 +332,7 @@ class MusicRepositoryImpl @Inject constructor(
         limit: Int,
         offset: Int,
         sortOption: SortOption,
-        storageFilter: StorageFilter
+        storageFilter: SourceScope
     ): List<Song> = withContext(Dispatchers.IO) {
         val filter = cachedDirFilter.value
         musicDao.getSongsPage(
@@ -335,6 +340,7 @@ class MusicRepositoryImpl @Inject constructor(
             applyDirectoryFilter = filter.applyFilter,
             sortOrder = sortOption.storageKey,
             filterMode = storageFilter.toFilterMode(),
+            extensionId = storageFilter.toExtensionId(),
             limit = limit,
             offset = offset
         ).map { it.toSong() }
@@ -344,7 +350,7 @@ class MusicRepositoryImpl @Inject constructor(
         limit: Int,
         offset: Int,
         sortOption: SortOption,
-        storageFilter: StorageFilter,
+        storageFilter: SourceScope,
         minTracks: Int
     ): List<Album> = withContext(Dispatchers.IO) {
         val filter = cachedDirFilter.value
@@ -353,6 +359,7 @@ class MusicRepositoryImpl @Inject constructor(
             applyDirectoryFilter = filter.applyFilter,
             sortOrder = sortOption.storageKey,
             filterMode = storageFilter.toFilterMode(),
+            extensionId = storageFilter.toExtensionId(),
             minTracks = minTracks,
             limit = limit,
             offset = offset
@@ -363,7 +370,7 @@ class MusicRepositoryImpl @Inject constructor(
         limit: Int,
         offset: Int,
         sortOption: SortOption,
-        storageFilter: StorageFilter
+        storageFilter: SourceScope
     ): List<Artist> = withContext(Dispatchers.IO) {
         val filter = cachedDirFilter.value
         musicDao.getArtistsPage(
@@ -371,6 +378,7 @@ class MusicRepositoryImpl @Inject constructor(
             applyDirectoryFilter = filter.applyFilter,
             sortOrder = sortOption.storageKey,
             filterMode = storageFilter.toFilterMode(),
+            extensionId = storageFilter.toExtensionId(),
             limit = limit,
             offset = offset
         ).map { it.toArtist() }
@@ -431,14 +439,8 @@ class MusicRepositoryImpl @Inject constructor(
         )
     }
 
-    private fun StorageFilter.toFilterMode(): Int = when (this) {
-        StorageFilter.ALL -> 0
-        StorageFilter.OFFLINE -> 1
-        StorageFilter.ONLINE -> 2
-    }
-
     @OptIn(ExperimentalCoroutinesApi::class)
-    override fun getAlbums(storageFilter: StorageFilter, minTracks: Int): Flow<List<Album>> {
+    override fun getAlbums(storageFilter: SourceScope, minTracks: Int): Flow<List<Album>> {
         return combine(
             userPreferencesRepository.allowedDirectoriesFlow,
             userPreferencesRepository.blockedDirectoriesFlow
@@ -446,7 +448,13 @@ class MusicRepositoryImpl @Inject constructor(
             allowedDirs to blockedDirs
         }.flatMapLatest { (allowedDirs, blockedDirs) ->
             val (allowedParentDirs, applyFilter) = computeAllowedDirs(allowedDirs, blockedDirs)
-            musicDao.getAlbums(allowedParentDirs, applyFilter, storageFilter.toFilterMode(), minTracks)
+            musicDao.getAlbums(
+                allowedParentDirs = allowedParentDirs,
+                applyDirectoryFilter = applyFilter,
+                filterMode = storageFilter.toFilterMode(),
+                extensionId = storageFilter.toExtensionId(),
+                minTracks = minTracks
+            )
                 .map { entities -> entities.map { it.toAlbum() } }
                 .distinctUntilChanged()
         }.conflate().flowOn(Dispatchers.IO)
@@ -457,7 +465,7 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override fun getArtists(storageFilter: StorageFilter): Flow<List<Artist>> {
+    override fun getArtists(storageFilter: SourceScope): Flow<List<Artist>> {
         return combine(
             userPreferencesRepository.allowedDirectoriesFlow,
             userPreferencesRepository.blockedDirectoriesFlow
@@ -468,7 +476,8 @@ class MusicRepositoryImpl @Inject constructor(
             musicDao.getArtistsWithSongCountsFiltered(
                 allowedParentDirs = allowedParentDirs,
                 applyDirectoryFilter = applyFilter,
-                filterMode = storageFilter.toFilterMode()
+                filterMode = storageFilter.toFilterMode(),
+                extensionId = storageFilter.toExtensionId()
             )
                 .distinctUntilChanged()
                 .map { entities ->
@@ -788,13 +797,14 @@ class MusicRepositoryImpl @Inject constructor(
         }.distinctUntilChanged().flowOn(Dispatchers.IO)
     }
 
-    override suspend fun getAllAlbumsOnce(storageFilter: StorageFilter, minTracks: Int): List<Album> = withContext(Dispatchers.IO) {
+    override suspend fun getAllAlbumsOnce(storageFilter: SourceScope, minTracks: Int): List<Album> = withContext(Dispatchers.IO) {
         val filter = cachedDirFilter.value
         musicDao.getAlbumsPage(
             allowedParentDirs = filter.allowedParentDirs,
             applyDirectoryFilter = filter.applyFilter,
             sortOrder = SortOption.AlbumTitleAZ.storageKey,
             filterMode = storageFilter.toFilterMode(),
+            extensionId = storageFilter.toExtensionId(),
             minTracks = minTracks,
             limit = Int.MAX_VALUE,
             offset = 0
@@ -806,7 +816,8 @@ class MusicRepositoryImpl @Inject constructor(
         musicDao.getArtistsWithSongCountsFiltered(
             allowedParentDirs = filter.allowedParentDirs,
             applyDirectoryFilter = filter.applyFilter,
-            filterMode = StorageFilter.ALL.toFilterMode()
+            filterMode = SourceScope.All.toFilterMode(),
+            extensionId = SourceScope.All.toExtensionId()
         ).first().map { it.toArtist() }
     }
 
@@ -967,12 +978,12 @@ class MusicRepositoryImpl @Inject constructor(
         lyricsRepository.resetAllLyrics()
     }
 
-    override fun getMusicFolders(storageFilter: StorageFilter): Flow<List<MusicFolder>> {
+    override fun getMusicFolders(storageFilter: SourceScope): Flow<List<MusicFolder>> {
         return combine(
             userPreferencesRepository.allowedDirectoriesFlow,
             userPreferencesRepository.blockedDirectoriesFlow,
             userPreferencesRepository.isFolderFilterActiveFlow,
-            userPreferencesRepository.foldersSourceFlow
+            userPreferencesRepository.foldersSourceFlow.map { key -> FolderSource.entries.find { it.storageKey == key } ?: FolderSource.INTERNAL }
         ) { allowedDirs, blockedDirs, isFolderFilterActive, folderSource ->
             FolderFlowConfig(
                 allowedDirs = allowedDirs,
@@ -990,7 +1001,8 @@ class MusicRepositoryImpl @Inject constructor(
                     musicDao.getFolderSongs(
                         allowedParentDirs = allowedParentDirs,
                         applyDirectoryFilter = applyDirectoryFilter,
-                        filterMode = storageFilter.toFilterMode()
+                        filterMode = storageFilter.toFilterMode(),
+                        extensionId = storageFilter.toExtensionId()
                     ).map { folderSongs ->
                         folderTreeBuilder.buildFolderTree(
                             folderSongs = folderSongs,
@@ -1148,27 +1160,29 @@ class MusicRepositoryImpl @Inject constructor(
 
     override suspend fun getSongIdsSorted(
         sortOption: SortOption,
-        storageFilter: com.theveloper.pixelplay.data.model.StorageFilter
+        storageFilter: SourceScope
     ): List<Long> = withContext(Dispatchers.IO) {
         val filter = cachedDirFilter.value
         musicDao.getSongIdsSorted(
             allowedParentDirs = filter.allowedParentDirs,
             applyDirectoryFilter = filter.applyFilter,
             sortOrder = sortOption.storageKey,
-            filterMode = storageFilter.toFilterMode()
+            filterMode = storageFilter.toFilterMode(),
+            extensionId = storageFilter.toExtensionId()
         )
     }
 
     override suspend fun getFavoriteSongIdsSorted(
         sortOption: SortOption,
-        storageFilter: com.theveloper.pixelplay.data.model.StorageFilter
+        storageFilter: SourceScope
     ): List<Long> = withContext(Dispatchers.IO) {
         val filter = cachedDirFilter.value
         musicDao.getFavoriteSongIdsSorted(
             allowedParentDirs = filter.allowedParentDirs,
             applyDirectoryFilter = filter.applyFilter,
             sortOrder = sortOption.storageKey,
-            filterMode = storageFilter.toFilterMode()
+            filterMode = storageFilter.toFilterMode(),
+            extensionId = storageFilter.toExtensionId()
         )
     }
 

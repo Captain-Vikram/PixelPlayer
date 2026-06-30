@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -77,6 +78,13 @@ fun PlaylistBottomSheet(
     )
 
     var searchQuery by remember { mutableStateOf("") }
+    
+    LaunchedEffect(songs) {
+        if (songs.size == 1 && songs.first().extensionId != null) {
+            playlistViewModel.fetchRemotePlaylists(songs.first())
+        }
+    }
+    
     val filteredPlaylists = remember(searchQuery, playlistUiState.playlists) {
         if (searchQuery.isBlank()) playlistUiState.playlists
         else playlistUiState.playlists.filter { it.name.contains(searchQuery, true) }
@@ -173,7 +181,7 @@ fun PlaylistBottomSheet(
                     },
                     iconRotation = 0f,
                     showSortButton = false,
-                    showImportButton = false,
+                    showSourceScopeButton = false,
                     onSortClick = { },
                     isPlaylistTab = true,
                     isFoldersTab = false,

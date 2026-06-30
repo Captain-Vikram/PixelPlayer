@@ -137,7 +137,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
             failureMessage = "Failed to build full library queue for songId=%s"
         ) {
             val sortOption = cb.getUiState().currentSongSortOption
-            val storageFilter = cb.getUiState().currentStorageFilter
+            val storageFilter = cb.getUiState().currentSourceScope
             musicRepository.getSongIdsSorted(sortOption, storageFilter)
         }
     }
@@ -154,21 +154,21 @@ class PlaybackDispatchStateHolder @Inject constructor(
             failureMessage = "Failed to build favorites queue for songId=%s"
         ) {
             val sortOption = cb.getUiState().currentFavoriteSortOption
-            val storageFilter = cb.getUiState().currentStorageFilter
+            val storageFilter = cb.getUiState().currentSourceScope
             musicRepository.getFavoriteSongIdsSorted(sortOption, storageFilter)
         }
     }
 
     suspend fun getSongsForCurrentLibrarySelection(): List<Song> {
         val sortOption = cb.getUiState().currentSongSortOption
-        val storageFilter = cb.getUiState().currentStorageFilter
+        val storageFilter = cb.getUiState().currentSourceScope
         val sortedIds = musicRepository.getSongIdsSorted(sortOption, storageFilter)
         return resolvePlaybackQueueFromSortedIds(sortedIds)
     }
 
     suspend fun getSongsForCurrentFavoriteSelection(): List<Song> {
         val sortOption = cb.getUiState().currentFavoriteSortOption
-        val storageFilter = cb.getUiState().currentStorageFilter
+        val storageFilter = cb.getUiState().currentSourceScope
         val sortedIds = musicRepository.getFavoriteSongIdsSorted(sortOption, storageFilter)
         return resolvePlaybackQueueFromSortedIds(sortedIds)
     }
@@ -916,7 +916,8 @@ class PlaybackDispatchStateHolder @Inject constructor(
             scheme != "qqmusic" &&
             scheme != "navidrome" &&
             scheme != "jellyfin" &&
-            scheme != "gdrive"
+            scheme != "gdrive" &&
+            scheme != "extension"
         ) {
             return mediaItem
         }
@@ -925,11 +926,16 @@ class PlaybackDispatchStateHolder @Inject constructor(
             cb.ensureTelegramObservers()
         }
 
-        val resolvedUri = dualPlayerEngine.resolveCloudUri(originalUri)
-        return if (resolvedUri == originalUri) {
+        val resolvedMedia = dualPlayerEngine.resolveCloudUri(originalUri)
+        return if (resolvedMedia.uri == originalUri) {
             mediaItem
         } else {
-            mediaItem.buildUpon().setUri(resolvedUri).build()
+            mediaItem.buildUpon()
+                .setUri(resolvedMedia.uri)
+                .apply {
+                    resolvedMedia.mimeType?.let { setMimeType(it) }
+                }
+                .build()
         }
     }
 
@@ -1163,3 +1169,4 @@ class PlaybackDispatchStateHolder @Inject constructor(
         return remoteCurrentSongId == null || remoteCurrentSongId == expectedSongId
     }
 }
+

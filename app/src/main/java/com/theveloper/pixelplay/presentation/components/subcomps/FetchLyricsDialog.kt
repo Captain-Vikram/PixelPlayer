@@ -59,6 +59,12 @@ import com.theveloper.pixelplay.presentation.viewmodel.LyricsSearchUiState
 import com.theveloper.pixelplay.utils.ProviderText
 import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
 
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.ui.graphics.Color
+
 @Composable
 fun FetchLyricsDialog(
     uiState: LyricsSearchUiState,
@@ -66,6 +72,7 @@ fun FetchLyricsDialog(
     onConfirm: (Boolean) -> Unit,
     onPickResult: (LyricsSearchResult) -> Unit,
     onManualSearch: (String, String?) -> Unit,
+    onSelectSource: (String?) -> Unit,
     onDismiss: () -> Unit,
     onImport: () -> Unit
 ) {
@@ -105,9 +112,10 @@ fun FetchLyricsDialog(
                     }
                     is LyricsSearchUiState.PickResult -> {
                         PickResultContent(
-                            results = uiState.results,
+                            state = uiState,
                             onPickResult = onPickResult,
-                            onCancel = onDismiss // Usamos botón cancelar en lugar de X
+                            onSelectSource = onSelectSource,
+                            onCancel = onDismiss
                         )
                     }
                     is LyricsSearchUiState.NotFound -> {
@@ -133,10 +141,6 @@ fun FetchLyricsDialog(
     }
 }
 
-// --------------------------------------------------------------------------
-// Sub-componentes de Estados (Internal)
-// --------------------------------------------------------------------------
-
 @Composable
 private fun IdleContent(
     currentSong: Song?,
@@ -153,9 +157,8 @@ private fun IdleContent(
             .clip(RoundedStarShape(
                 sides = 8,
                 curve = 0.1,
-                rotation = 0f,
-                //iterations = 45
-            )) // Forma "Squircle" agradable
+                rotation = 0f
+            ))
             .background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center
     ) {
@@ -243,7 +246,7 @@ private fun IdleContent(
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    // Botones de Acción (Vertical para mejor touch target)
+    // Botones de Acción
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth()
@@ -272,7 +275,6 @@ private fun IdleContent(
             Text(stringResource(R.string.common_import))
         }
 
-        // Botón Cancelar (Reemplaza a la X)
         TextButton(
             onClick = onCancel,
             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -303,42 +305,96 @@ private fun LoadingContent() {
 
 @Composable
 private fun PickResultContent(
-    results: List<LyricsSearchResult>,
+    state: LyricsSearchUiState.PickResult,
     onPickResult: (LyricsSearchResult) -> Unit,
+    onSelectSource: (String?) -> Unit,
     onCancel: () -> Unit
 ) {
-    Text(
-        text = stringResource(R.string.lyrics_found_n_matches_format).format(results.size),
-        style = MaterialTheme.typography.headlineSmall,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth()
-    )
+    val results = state.results
+    val extensions = state.availableExtensions
+    val selectedId = state.selectedExtensionId
 
-    Spacer(modifier = Modifier.height(24.dp))
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = if (results.isEmpty() && state.query.isNotEmpty()) 
+                stringResource(R.string.lyrics_not_found)
+            else stringResource(R.string.lyrics_found_n_matches_format).format(results.size),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
 
-    // Lista Scrollable Optimizada
-    LazyColumn(
-        modifier = Modifier.heightIn(max = 350.dp), // Altura máxima dinámica
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(bottom = 8.dp)
-    ) {
-        items(results, key = { it.record.id }) { result ->
-            ResultItemCard(result = result, onClick = { onPickResult(result) })
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (extensions.isNotEmpty()) {
+            ScrollableTabRow(
+                selectedTabIndex = if (selectedId == null) 0 else extensions.indexOfFirst { it.metadata.id == selectedId } + 1,
+                containerColor = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.primary,
+                edgePadding = 0.dp,
+                divider = {},
+                indicator = { tabPositions ->
+                    val index = if (selectedId == null) 0 else extensions.indexOfFirst { it.metadata.id == selectedId } + 1
+                    if (index < tabPositions.size) {
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[index]),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            ) {
+                Tab(
+                    selected = selectedId == null,
+                    onClick = { onSelectSource(null) },
+                    text = { Text("Search") }
+                )
+                extensions.forEach { ext ->
+                    Tab(
+                        selected = selectedId == ext.metadata.id,
+                        onClick = { onSelectSource(ext.metadata.id) },
+                        text = { Text(ext.metadata.name) }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
-        item {
-            ProviderText(
-                providerText = stringResource(R.string.lyrics_provided_by),
-                uri = stringResource(R.string.lyrics_lrclib_uri),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp)
-            )
+        if (results.isEmpty() && state.selectedExtensionId != null) {
+            Column(
+                modifier = Modifier.heightIn(min = 200.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularWavyProgressIndicator(modifier = Modifier.size(40.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Fetching from ${extensions.find { it.metadata.id == selectedId }?.metadata?.name}...")
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 350.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 8.dp)
+            ) {
+                items(results) { result ->
+                    ResultItemCard(result = result, onClick = { onPickResult(result) })
+                }
+
+                if (selectedId == null) {
+                    item {
+                        ProviderText(
+                            providerText = stringResource(R.string.lyrics_provided_by),
+                            uri = stringResource(R.string.lyrics_lrclib_uri),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    // Botón Cancelar al final de la lista
     TextButton(
         onClick = onCancel,
         modifier = Modifier.fillMaxWidth(),
@@ -365,7 +421,6 @@ private fun ResultItemCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon indicator
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -483,7 +538,6 @@ fun NotFoundContent(
 
     Spacer(Modifier.height(16.dp))
 
-    // Title input
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -503,7 +557,6 @@ fun NotFoundContent(
 
     Spacer(Modifier.height(8.dp))
 
-    // Artist input
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -606,285 +659,3 @@ private fun ErrorContent(
         Text(stringResource(R.string.common_ok), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
-
-///**
-// * Diálogo que gestiona la búsqueda de letras para una canción.
-// * Muestra diferentes contenidos según el estado de la búsqueda.
-// */
-//@Composable
-//fun FetchLyricsDialog(
-//    uiState: LyricsSearchUiState,
-//    currentSong: Song?,
-//    onConfirm: () -> Unit,
-//    onPickResult: (LyricsSearchResult) -> Unit,
-//    onDismiss: () -> Unit,
-//    onImport: () -> Unit
-//) {
-//    if (uiState is LyricsSearchUiState.Success) {
-//        // Do nothing and don't show the dialog if the state is success
-//        return
-//    }
-//
-//    Dialog(onDismissRequest = onDismiss) {
-//        Surface(
-//            shape = RoundedCornerShape(28.dp),
-//            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-//            contentColor = MaterialTheme.colorScheme.onSurface
-//        ) {
-//            Box {
-//                when (uiState) {
-//                    LyricsSearchUiState.Idle -> {
-//                        Column(
-//                            modifier = Modifier.padding(24.dp),
-//                            horizontalAlignment = Alignment.CenterHorizontally
-//                        ) {
-//                            DialogHeader(currentSong = currentSong)
-//                            Spacer(modifier = Modifier.height(8.dp))
-//                            Text(
-//                                text = stringResource(R.string.lyrics_not_found),
-//                                style = MaterialTheme.typography.headlineSmall,
-//                                textAlign = TextAlign.Center
-//                            )
-//                            Spacer(modifier = Modifier.height(16.dp))
-//                            Text(
-//                                text = stringResource(R.string.common_search_lyrics_online_prompt),
-//                                style = MaterialTheme.typography.bodyMedium,
-//                                textAlign = TextAlign.Center,
-//                                color = MaterialTheme.colorScheme.onSurfaceVariant
-//                            )
-//                            Spacer(modifier = Modifier.height(24.dp))
-//                            Row(
-//                                modifier = Modifier.fillMaxWidth(),
-//                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                            ) {
-//                                OutlinedButton(
-//                                    onClick = onImport,
-//                                    modifier = Modifier.weight(1f)
-//                                ) {
-//                                    Icon(painter = painterResource(R.drawable.rounded_upload_file_24), contentDescription = null, modifier = Modifier.size(18.dp))
-//                                    Spacer(modifier = Modifier.width(8.dp))
-//                                    Text(stringResource(R.string.common_import), maxLines = 1, overflow = TextOverflow.Ellipsis)
-//                                }
-//                                Button(
-//                                    onClick = onConfirm,
-//                                    modifier = Modifier.weight(1f)
-//                                ) {
-//                                    Icon(painter = painterResource(R.drawable.rounded_manage_search_24), contentDescription = null, modifier = Modifier.size(18.dp))
-//                                    Spacer(modifier = Modifier.width(8.dp))
-//                                    Text(stringResource(R.string.common_search), maxLines = 1, overflow = TextOverflow.Ellipsis)
-//                                }
-//                            }
-//                        }
-//                    }
-//                    LyricsSearchUiState.Loading -> {
-//                        Column(
-//                            modifier = Modifier
-//                                .padding(horizontal = 24.dp, vertical = 48.dp)
-//                                .fillMaxWidth(),
-//                            horizontalAlignment = Alignment.CenterHorizontally,
-//                            verticalArrangement = Arrangement.Center
-//                        ) {
-//                            CircularProgressIndicator()
-//                            Spacer(modifier = Modifier.height(16.dp))
-//                            Text(
-//                                text = stringResource(R.string.common_searching_lyrics),
-//                                style = MaterialTheme.typography.bodyMedium,
-//                                color = MaterialTheme.colorScheme.onSurfaceVariant
-//                            )
-//                        }
-//                    }
-//                    is LyricsSearchUiState.PickResult -> {
-//                        Column(
-//                            modifier = Modifier.padding(24.dp),
-//                            horizontalAlignment = Alignment.CenterHorizontally
-//                        ) {
-//                            DialogHeader(currentSong = currentSong)
-//                            Spacer(modifier = Modifier.height(16.dp))
-//                            ResultContextChip(query = uiState.query)
-//                            Spacer(modifier = Modifier.height(10.dp))
-//                            Text(
-//                                text = stringResource(R.string.found_n_matches_format).format(uiState.results.size),
-//                                style = MaterialTheme.typography.headlineSmall,
-//                                textAlign = TextAlign.Center
-//                            )
-//                            Spacer(modifier = Modifier.height(16.dp))
-//
-//                            val scrollState = rememberScrollState()
-//                            Column(
-//                                modifier = Modifier.verticalScroll(scrollState),
-//                                horizontalAlignment = Alignment.CenterHorizontally
-//                            ) {
-//                                uiState.results.forEach { result ->
-//                                    if (result != uiState.results.first()) {
-//                                        Spacer(modifier = Modifier.height(12.dp))
-//                                    }
-//
-//                                    OutlinedButton (
-//                                        modifier = Modifier.fillMaxWidth(),
-//                                        shape = RoundedCornerShape(12.dp),
-//                                        contentPadding = PaddingValues(12.dp),
-//                                        onClick = { onPickResult(result) },
-//                                    ) {
-//                                        Column(
-//                                            modifier = Modifier.fillMaxWidth(),
-//                                            horizontalAlignment = Alignment.Start
-//                                        ) {
-//                                            Text(
-//                                                text = result.record.name,
-//                                                style = MaterialTheme.typography.bodyMedium,
-//                                                fontWeight = FontWeight.Bold,
-//                                                color = MaterialTheme.colorScheme.onSurface
-//                                            )
-//                                            Spacer(modifier = Modifier.height(4.dp))
-//                                            Text(
-//                                                text = "${result.record.artistName} - ${result.record.albumName}",
-//                                                style = MaterialTheme.typography.bodyMedium,
-//                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-//                                            )
-//                                        }
-//                                    }
-//                                }
-//                            }
-//
-//                            ProviderText(
-//                                providerText = stringResource(R.string.lyrics_provided_by),
-//                                uri = stringResource(R.string.lrclib_uri),
-//                                textAlign = TextAlign.Center,
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                                    .padding(vertical = 16.dp)
-//                            )
-//                        }
-//                    }
-//                    is LyricsSearchUiState.Error -> {
-//                        Column(
-//                            modifier = Modifier.padding(24.dp),
-//                            horizontalAlignment = Alignment.CenterHorizontally
-//                        ) {
-//                            Icon(
-//                                imageVector = Icons.Rounded.ErrorOutline,
-//                                contentDescription = null,
-//                                modifier = Modifier.size(28.dp),
-//                                tint = MaterialTheme.colorScheme.error
-//                            )
-//                            Spacer(modifier = Modifier.height(16.dp))
-//                            Text(
-//                                text = stringResource(R.string.common_error),
-//                                style = MaterialTheme.typography.headlineSmall
-//                            )
-//                            Spacer(modifier = Modifier.height(16.dp))
-//                            Text(
-//                                text = uiState.message,
-//                                style = MaterialTheme.typography.bodyMedium,
-//                                textAlign = TextAlign.Center,
-//                                color = MaterialTheme.colorScheme.onSurfaceVariant
-//                            )
-//                            if (uiState.query != null) {
-//                                Spacer(modifier = Modifier.height(16.dp))
-//                                Text(
-//                                    text = stringResource(R.string.common_searched_for_x_format).format(uiState.query),
-//                                    style = MaterialTheme.typography.bodyMedium,
-//                                    textAlign = TextAlign.Center,
-//                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-//                                )
-//                            }
-//                            Spacer(modifier = Modifier.height(24.dp))
-//                            Row(
-//                                modifier = Modifier.fillMaxWidth(),
-//                                horizontalArrangement = Arrangement.End
-//                            ) {
-//                                TextButton(onClick = onDismiss) {
-//                                    Text(stringResource(R.string.common_ok), maxLines = 1, overflow = TextOverflow.Ellipsis)
-//                                }
-//                            }
-//                        }
-//                    }
-//                    is LyricsSearchUiState.Success -> {
-//                        // Handled outside, this case should not render the dialog
-//                    }
-//                }
-//
-//                // Close button for Idle, PickResult and Error states
-//                if (uiState is LyricsSearchUiState.Idle
-//                    || uiState is LyricsSearchUiState.PickResult
-//                    || uiState is LyricsSearchUiState.Error) {
-//                     IconButton(
-//                         onClick = onDismiss,
-//                         modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
-//                     ) {
-//                         Icon(
-//                             imageVector = Icons.Rounded.Close,
-//                             contentDescription = stringResource(R.string.common_cancel)
-//                         )
-//                     }
-//                }
-//            }
-//        }
-//    }
-//}
-//
-//@Composable
-//private fun DialogHeader(currentSong: Song?) {
-//    val title = currentSong?.title.takeUnless { it.isNullOrBlank() } ?: stringResource(R.string.common_unknown_track)
-//    val artist = currentSong?.displayArtist.takeUnless { it.isNullOrBlank() } ?: stringResource(R.string.common_unknown_artist)
-//    val album = currentSong?.album.takeUnless { it.isNullOrBlank() } ?: stringResource(R.string.common_unknown_album)
-//
-//    Row(
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .clip(RoundedCornerShape(18.dp))
-//            .padding(horizontal = 4.dp, vertical = 2.dp)
-//            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)),
-//        verticalAlignment = Alignment.CenterVertically
-//    ) {
-//        Box(
-//            modifier = Modifier
-//                .size(48.dp)
-//                .clip(RoundedCornerShape(16.dp)),
-//            contentAlignment = Alignment.Center
-//        ) {
-//            Icon(
-//                imageVector = Icons.Rounded.MusicNote,
-//                contentDescription = null,
-//                modifier = Modifier.size(24.dp),
-//                tint = MaterialTheme.colorScheme.onSecondaryContainer
-//            )
-//        }
-//        Spacer(modifier = Modifier.width(12.dp))
-//        Column(
-//            modifier = Modifier.weight(1f)
-//        ) {
-//            Text(
-//                text = title,
-//                style = MaterialTheme.typography.titleMedium,
-//                color = MaterialTheme.colorScheme.onSurface
-//            )
-//            Spacer(modifier = Modifier.height(2.dp))
-//            Text(
-//                text = artist,
-//                style = MaterialTheme.typography.bodyMedium,
-//                color = MaterialTheme.colorScheme.onSurfaceVariant
-//            )
-//            Spacer(modifier = Modifier.height(2.dp))
-//            Text(
-//                text = album,
-//                style = MaterialTheme.typography.bodySmall,
-//                color = MaterialTheme.colorScheme.onSurfaceVariant
-//            )
-//        }
-//    }
-//}
-//
-//@Composable
-//private fun ResultContextChip(query: String) {
-//    SuggestionChip(
-//        onClick = {},
-//        label = { Text(text = query) },
-//        icon = {
-//            Icon(
-//                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-//                contentDescription = null
-//            )
-//        }
-//    )
-//}

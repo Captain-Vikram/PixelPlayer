@@ -540,7 +540,7 @@ fun GenreDetailScreen(
                         showQuickFillDialog = false
                     },
                     onAddCustomGenre = { genre, iconRes ->
-                        playerViewModel.addCustomGenre(genre, iconRes)
+                        playerViewModel.addCustomGenre(genre, iconRes.toString())
                     }
                 )
             }
@@ -578,21 +578,21 @@ fun GenreDetailScreen(
                         onDeleteFromDevice = playerViewModel::deleteFromDevice,
                         onNavigateToAlbum = {
                             navController.navigateSafelyReplacing(
-                                route = com.theveloper.pixelplay.presentation.navigation.Screen.AlbumDetail.createRoute(song.albumId),
+                                route = com.theveloper.pixelplay.presentation.navigation.Screen.AlbumDetail.createRoute(song.albumId.toString()),
                                 patternToPop = com.theveloper.pixelplay.presentation.navigation.Screen.AlbumDetail.route
                             )
                             showSongOptionsSheet = null
                         },
                         onNavigateToArtist = {
                             navController.navigateSafelyReplacing(
-                                route = com.theveloper.pixelplay.presentation.navigation.Screen.ArtistDetail.createRoute(song.artistId),
+                                route = com.theveloper.pixelplay.presentation.navigation.Screen.ArtistDetail.createRoute(song.artistId.toString()),
                                 patternToPop = com.theveloper.pixelplay.presentation.navigation.Screen.ArtistDetail.route
                             )
                             showSongOptionsSheet = null
                         },
                         onNavigateToArtistById = { artistId ->
                             navController.navigateSafelyReplacing(
-                                route = com.theveloper.pixelplay.presentation.navigation.Screen.ArtistDetail.createRoute(artistId),
+                                route = com.theveloper.pixelplay.presentation.navigation.Screen.ArtistDetail.createRoute(artistId.toString()),
                                 patternToPop = com.theveloper.pixelplay.presentation.navigation.Screen.ArtistDetail.route
                             )
                             showSongOptionsSheet = null

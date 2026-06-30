@@ -34,11 +34,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JellyfinSongEntity::class,
         JellyfinPlaylistEntity::class,
         AiCacheEntity::class,
-        AiUsageEntity::class
+        AiUsageEntity::class,
+        DownloadEntity::class,
+        dev.brahmkshatriya.echo.extension.loader.db.models.ExtensionEntity::class,
+        dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity::class,
+        dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser::class
     ],
-    version = 42,
+    version = 45,
     exportSchema = true
 )
+@androidx.room.TypeConverters(PixelPlayDatabase.ExtensionTypeConverters::class)
 abstract class PixelPlayDatabase : RoomDatabase() {
     abstract fun albumArtThemeDao(): AlbumArtThemeDao
     abstract fun searchHistoryDao(): SearchHistoryDao
@@ -56,6 +61,18 @@ abstract class PixelPlayDatabase : RoomDatabase() {
     abstract fun jellyfinDao(): JellyfinDao
     abstract fun aiCacheDao(): AiCacheDao
     abstract fun aiUsageDao(): AiUsageDao
+    abstract fun downloadDao(): DownloadDao
+    abstract fun extensionDao(): dev.brahmkshatriya.echo.extension.loader.db.ExtensionDao
+    abstract fun extensionUserDao(): dev.brahmkshatriya.echo.extension.loader.db.UserDao
+
+    class ExtensionTypeConverters {
+        @androidx.room.TypeConverter
+        fun fromExtensionType(value: dev.brahmkshatriya.echo.common.models.ExtensionType): String = value.name
+
+        @androidx.room.TypeConverter
+        fun toExtensionType(value: String): dev.brahmkshatriya.echo.common.models.ExtensionType = 
+            dev.brahmkshatriya.echo.common.models.ExtensionType.valueOf(value)
+    }
 
     companion object {
         // Gap-bridging no-op migrations for missing version ranges.
@@ -1526,6 +1543,65 @@ abstract class PixelPlayDatabase : RoomDatabase() {
                 createSongsSearchVirtualTable(db)
                 installSongsSearchSyncTriggers(db)
                 rebuildSongsSearchIndex(db)
+            }
+        }
+
+        val MIGRATION_42_43 = object : Migration(42, 43) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS downloads (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        song_id TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        artist TEXT NOT NULL,
+                        thumbnail_url TEXT,
+                        status INTEGER NOT NULL DEFAULT 0,
+                        progress REAL NOT NULL DEFAULT 0,
+                        total_size INTEGER NOT NULL DEFAULT 0,
+                        download_path TEXT,
+                        extension_id TEXT NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        error_message TEXT
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_downloads_song_id ON downloads(song_id)")
+            }
+        }
+
+        val MIGRATION_43_44 = object : Migration(43, 44) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS ExtensionEntity (
+                        id TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        enabled INTEGER NOT NULL,
+                        PRIMARY KEY(id, type)
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS UserEntity (
+                        type TEXT NOT NULL,
+                        extId TEXT NOT NULL,
+                        id TEXT NOT NULL,
+                        data TEXT NOT NULL,
+                        PRIMARY KEY(id, type, extId)
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS CurrentUser (
+                        type TEXT NOT NULL,
+                        extId TEXT NOT NULL,
+                        userId TEXT,
+                        PRIMARY KEY(type, extId)
+                    )
+                """.trimIndent())
+            }
+        }
+
+        val MIGRATION_44_45 = object : Migration(44, 45) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE songs ADD COLUMN background_uri_string TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE songs ADD COLUMN subtitle_uri_string TEXT DEFAULT NULL")
             }
         }
 

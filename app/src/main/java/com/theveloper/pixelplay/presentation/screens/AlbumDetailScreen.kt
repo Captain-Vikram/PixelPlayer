@@ -434,21 +434,21 @@ fun AlbumDetailScreen(
                     onDeleteFromDevice = playerViewModel::deleteFromDevice,
                     onNavigateToAlbum = {
                         navController.navigateSafelyReplacing(
-                            route = Screen.AlbumDetail.createRoute(currentSong.albumId),
+                            route = Screen.AlbumDetail.createRoute(currentSong.albumId.toString()),
                             patternToPop = Screen.AlbumDetail.route
                         )
                         showSongInfoBottomSheet = false
                     },
                     onNavigateToArtist = {
                         navController.navigateSafelyReplacing(
-                            route = Screen.ArtistDetail.createRoute(currentSong.artistId),
+                            route = Screen.ArtistDetail.createRoute(currentSong.artistId.toString()),
                             patternToPop = Screen.ArtistDetail.route
                         )
                         showSongInfoBottomSheet = false
                     },
                     onNavigateToArtistById = { artistId ->
                         navController.navigateSafelyReplacing(
-                            route = Screen.ArtistDetail.createRoute(artistId),
+                            route = Screen.ArtistDetail.createRoute(artistId.toString()),
                             patternToPop = Screen.ArtistDetail.route
                         )
                         showSongInfoBottomSheet = false

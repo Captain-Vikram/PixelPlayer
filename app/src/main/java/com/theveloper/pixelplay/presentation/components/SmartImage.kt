@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
@@ -51,7 +52,7 @@ fun SmartImage(
     errorResId: Int = R.drawable.ic_music_placeholder,
     shape: Shape = RectangleShape,
     contentScale: ContentScale = ContentScale.Crop,
-    crossfadeDurationMillis: Int = 300,
+    crossfadeDurationMillis: Int = 200,
     useDiskCache: Boolean = true,
     useMemoryCache: Boolean = true,
     allowHardware: Boolean = false,
@@ -117,18 +118,31 @@ fun SmartImage(
         }
     }
 
+    var detectedContentScale by remember(model) { mutableStateOf<ContentScale?>(null) }
+    val finalContentScale = detectedContentScale ?: contentScale
+
+    val handleStateChange: (AsyncImagePainter.State) -> Unit = { state ->
+        if (state is AsyncImagePainter.State.Success) {
+            val size = state.painter.intrinsicSize
+            if (size.width > 0 && size.height > 0 && size.width > size.height * 1.15f) {
+                detectedContentScale = ContentScale.Fit
+            }
+        }
+        onState?.invoke(state)
+    }
+
     if (onState != null || placeholderModel != null) {
         SubcomposeAsyncImage(
             model = request,
             contentDescription = contentDescription,
             modifier = clippedModifier,
-            contentScale = contentScale,
+            contentScale = finalContentScale,
             colorFilter = colorFilter,
             alpha = alpha
         ) {
             val state = painter.state
             LaunchedEffect(state) {
-                onState?.invoke(state)
+                handleStateChange(state)
             }
 
             when (state) {
@@ -141,7 +155,7 @@ fun SmartImage(
                             model = placeholderModel,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = contentScale,
+                            contentScale = finalContentScale,
                             colorFilter = colorFilter,
                             alpha = alpha
                         )
@@ -173,11 +187,24 @@ fun SmartImage(
             model = request,
             contentDescription = contentDescription,
             modifier = clippedModifier,
-            contentScale = contentScale,
+            contentScale = finalContentScale,
             colorFilter = colorFilter,
             alpha = alpha,
             placeholder = painterResource(placeholderResId),
-            error = painterResource(errorResId)
+            error = painterResource(errorResId),
+            onSuccess = { state ->
+                val size = state.painter.intrinsicSize
+                if (size.width > 0 && size.height > 0 && size.width > size.height * 1.15f) {
+                    detectedContentScale = ContentScale.Fit
+                }
+                onState?.invoke(state)
+            },
+            onLoading = { state ->
+                onState?.invoke(state)
+            },
+            onError = { state ->
+                onState?.invoke(state)
+            }
         )
     }
 }

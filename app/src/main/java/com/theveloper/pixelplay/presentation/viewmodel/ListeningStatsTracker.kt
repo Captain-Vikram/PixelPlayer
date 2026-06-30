@@ -19,6 +19,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import timber.log.Timber
 
+import dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
+import dev.brahmkshatriya.echo.common.clients.TrackerClient
+import dev.brahmkshatriya.echo.common.models.TrackDetails
+import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.getAs
+
 /**
  * Tracks listening statistics for songs.
  * Extracted from PlayerViewModel to reduce its size and improve modularity.
@@ -27,11 +32,13 @@ import timber.log.Timber
  * - Track active listening sessions
  * - Record play statistics when session ends
  * - Handle voluntary vs automatic plays
+ * - Broadcast playback state to Extension Trackers
  */
 @Singleton
 class ListeningStatsTracker @Inject constructor(
     private val dailyMixManager: DailyMixManager,
-    private val playbackStatsRepository: PlaybackStatsRepository
+    private val playbackStatsRepository: PlaybackStatsRepository,
+    private val extensionLoader: ExtensionLoader
 ) {
     private var currentSession: ActiveSession? = null
     private var pendingVoluntarySongId: String? = null
@@ -100,6 +107,9 @@ class ListeningStatsTracker @Inject constructor(
         isPlaying: Boolean
     ) {
         finalizeCurrentSession()
+        
+        broadcastTrackChangeToExtensions(songId, positionMs, durationMs, fallbackDurationMs, isPlaying)
+        
         val safeSongId = songId?.takeIf { it.isNotBlank() }
         if (safeSongId == null) {
             return
@@ -134,6 +144,70 @@ class ListeningStatsTracker @Inject constructor(
         session.lastRealtimeMs = nowRealtime
         session.lastKnownPositionMs = positionMs.coerceAtLeast(0L)
         session.lastUpdateEpochMs = System.currentTimeMillis()
+        
+        broadcastPlayStateToExtensions(session.songId, positionMs, session.totalDurationMs, isPlaying)
+    }
+
+    private fun broadcastTrackChangeToExtensions(songId: String?, positionMs: Long, durationMs: Long, fallbackDurationMs: Long, isPlaying: Boolean) {
+        scope?.launch(Dispatchers.IO) {
+            val extensionId = "pixelplayer" // Or ideally the actual extension ID if we had the Song object
+            val trackDetails = songId?.let { id ->
+                val trackDuration = normalizeDuration(durationMs, fallbackDurationMs)
+                val dummyTrack = dev.brahmkshatriya.echo.common.models.Track(
+                    id = id,
+                    title = "Unknown Title", // We'd need the actual Song to populate this
+                    duration = trackDuration
+                )
+                TrackDetails(
+                    extensionId = extensionId,
+                    track = dummyTrack,
+                    context = null,
+                    currentPosition = positionMs,
+                    totalDuration = trackDuration
+                )
+            }
+            
+            extensionLoader.all.value.forEach { extension ->
+                val client = extension.instance.value().getOrNull()
+                if (client is TrackerClient) {
+                    try {
+                        client.onTrackChanged(trackDetails)
+                        client.onPlayingStateChanged(trackDetails, isPlaying)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error broadcasting track change to extension ${extension.metadata.id}")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun broadcastPlayStateToExtensions(songId: String, positionMs: Long, durationMs: Long, isPlaying: Boolean) {
+        scope?.launch(Dispatchers.IO) {
+            val extensionId = "pixelplayer" // Or ideally the actual extension ID
+            val dummyTrack = dev.brahmkshatriya.echo.common.models.Track(
+                id = songId,
+                title = "Unknown Title",
+                duration = durationMs
+            )
+            val trackDetails = TrackDetails(
+                extensionId = extensionId,
+                track = dummyTrack,
+                context = null,
+                currentPosition = positionMs,
+                totalDuration = durationMs
+            )
+            
+            extensionLoader.all.value.forEach { extension ->
+                val client = extension.instance.value().getOrNull()
+                if (client is TrackerClient) {
+                    try {
+                        client.onPlayingStateChanged(trackDetails, isPlaying)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error broadcasting play state to extension ${extension.metadata.id}")
+                    }
+                }
+            }
+        }
     }
 
     @Synchronized

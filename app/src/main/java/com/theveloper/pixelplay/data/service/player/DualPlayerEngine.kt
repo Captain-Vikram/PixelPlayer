@@ -23,6 +23,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import okhttp3.OkHttpClient
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -64,9 +66,18 @@ import com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy
 import androidx.core.net.toUri
 import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 
+import kotlinx.coroutines.runBlocking
+
 data class ActiveDecoderInfo(
     val name: String,
     val isHardware: Boolean
+)
+
+data class ResolvedMedia(
+    val uri: Uri,
+    val headers: Map<String, String> = emptyMap(),
+    val rawSource: dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw? = null,
+    val mimeType: String? = null
 )
 
 internal fun shouldResumeAfterTransientAudioFocusLoss(
@@ -188,14 +199,14 @@ internal fun loadControlBufferProfileFor(isLowRamDevice: Boolean): LoadControlBu
         LoadControlBufferProfile(
             minBufferMs = 15_000,
             maxBufferMs = 30_000,
-            bufferForPlaybackMs = 1_000,
+            bufferForPlaybackMs = 1_500,
             bufferForPlaybackAfterRebufferMs = 5_000
         )
     } else {
         LoadControlBufferProfile(
             minBufferMs = 30_000,
             maxBufferMs = 60_000,
-            bufferForPlaybackMs = 1_000,
+            bufferForPlaybackMs = 2_500,
             bufferForPlaybackAfterRebufferMs = 5_000
         )
     }
@@ -221,7 +232,10 @@ class DualPlayerEngine @Inject constructor(
     private val jellyfinStreamProxy: com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy,
     private val gdriveStreamProxy: com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy,
     private val telegramCacheManager: com.theveloper.pixelplay.data.telegram.TelegramCacheManager,
-    private val connectivityStateHolder: com.theveloper.pixelplay.presentation.viewmodel.ConnectivityStateHolder
+    private val connectivityStateHolder: com.theveloper.pixelplay.presentation.viewmodel.ConnectivityStateHolder,
+    private val extensionHost: com.theveloper.pixelplay.extensions.PixelPlayExtensionHost,
+    private val extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader,
+    private val okHttpClient: OkHttpClient
 ) {
     private companion object {
         private const val AUDIO_OFFLOAD_STALL_FALLBACK_MS = 4_000L
@@ -234,10 +248,10 @@ class DualPlayerEngine @Inject constructor(
         private const val POST_TRANSITION_OFFLOAD_GUARD_MS = 2_000L
         private const val MAX_AUXILIARY_TIMELINE_ITEMS = 200
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
-        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive")
+        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive", "extension", "raw")
         // Subset of REMOTE_MEDIA_SCHEMES: schemes that need proxy resolution.
         // http/https resolve directly and must NOT enter the resolvedUriCache lookup path.
-        private val CLOUD_PROXY_SCHEMES = setOf("telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive")
+        private val CLOUD_PROXY_SCHEMES = setOf("telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive", "extension", "raw")
     }
 
     data class TransitionTarget(
@@ -759,7 +773,8 @@ class DualPlayerEngine @Inject constructor(
     fun getAudioSessionId(): Int = if (::playerA.isInitialized) playerA.audioSessionId else 0
 
     private var isReleased = false
-    private val resolvedUriCache = LruCache<String, Uri>(100)
+    private val resolvedUriCache = LruCache<String, ResolvedMedia>(100)
+    private val rawSourceMap = LruCache<String, dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw>(20)
 
     // Whether the OS classifies this as a low-RAM device. Used to cap the player's max
     // prefetch depth so hi-res/lossless buffering (and the second player during a crossfade)
@@ -1102,18 +1117,88 @@ class DualPlayerEngine @Inject constructor(
                 val scheme = uri.scheme
                 if (scheme in CLOUD_PROXY_SCHEMES) {
                     val originalUri = uri.toString()
-                    val resolved = resolvedUriCache.get(originalUri)
-                    if (resolved != null) {
-                        return dataSpec.buildUpon().setUri(resolved).build()
+                    val cached = resolvedUriCache.get(originalUri)
+                    
+                    val resolved = if (cached != null) {
+                        cached
+                    } else {
+                        // JIT Resolution fallback with timeout
+                        Timber.tag("DualPlayerEngine").d("resolveDataSpec: Cache MISS for %s - attempting JIT resolution", originalUri)
+                        runBlocking {
+                            withContext(Dispatchers.IO) {
+                                kotlinx.coroutines.withTimeoutOrNull(10_000) {
+                                    resolveCloudUri(uri)
+                                }
+                            }
+                        }
                     }
-                    Timber.tag("DualPlayerEngine").d("resolveDataSpec: Cache MISS for %s — using original URI", scheme)
+
+                    if (resolved != null) {
+                        val builder = dataSpec.buildUpon()
+                            .setUri(resolved.uri)
+                        
+                        if (resolved.headers.isNotEmpty()) {
+                            builder.setHttpRequestHeaders(resolved.headers)
+                        }
+                        
+                        if (resolved.rawSource != null) {
+                            builder.setCustomData(resolved.rawSource)
+                        }
+                        
+                        return builder.build()
+                    }
+                    
+                    Timber.tag("DualPlayerEngine").w("resolveDataSpec: Failed to resolve URI: %s", originalUri)
                 }
                 return dataSpec
             }
         }
         
-        val dataSourceFactory = DefaultDataSource.Factory(context)
-        val resolvingFactory = ResolvingDataSource.Factory(dataSourceFactory, resolver)
+        val okhttpFactory = OkHttpDataSource.Factory(okHttpClient)
+        val defaultFactory = DefaultDataSource.Factory(context, okhttpFactory)
+        val rawFactory = com.theveloper.pixelplay.data.service.player.RawDataSource.Factory()
+        val baseDataSourceFactory = androidx.media3.datasource.DataSource.Factory {
+            object : androidx.media3.datasource.DataSource {
+                private var source: androidx.media3.datasource.DataSource? = null
+                
+                override fun addTransferListener(transferListener: androidx.media3.datasource.TransferListener) {
+                    // Delegated internally if needed, or ignored for simple wrapper
+                }
+                
+                override fun open(dataSpec: DataSpec): Long {
+                    val rawSource = dataSpec.customData as? dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw
+                        ?: rawSourceMap.get(dataSpec.uri.toString())
+                    val factory = if (rawSource != null) rawFactory else defaultFactory
+                    val newSource = factory.createDataSource()
+                    this.source = newSource
+                    
+                    val finalDataSpec = if (rawSource != null && dataSpec.customData == null) {
+                        dataSpec.buildUpon().setCustomData(rawSource).build()
+                    } else {
+                        dataSpec
+                    }
+                    return newSource.open(finalDataSpec)
+                }
+
+                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                    return source?.read(buffer, offset, length) ?: androidx.media3.common.C.RESULT_END_OF_INPUT
+                }
+
+                override fun getUri(): Uri? = source?.uri
+
+                override fun close() {
+                    source?.close()
+                    source = null
+                }
+            }
+        }
+        
+        val cacheDataSourceFactory = androidx.media3.datasource.cache.CacheDataSource.Factory()
+            .setCache(extensionHost.cache)
+            .setUpstreamDataSourceFactory(baseDataSourceFactory)
+            .setFlags(androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+
+        val resolvingFactory = ResolvingDataSource.Factory(cacheDataSourceFactory, resolver)
         val extractorsFactory = DefaultExtractorsFactory()
             // FLAG_WORKAROUND_IGNORE_EDIT_LISTS intentionally removed: it breaks Opus files
             // by discarding the edit list that encodes the pre-skip (encoder delay), causing
@@ -1193,17 +1278,18 @@ class DualPlayerEngine @Inject constructor(
         rebuildPlayersPreservingMasterState("Hi-Fi mode set to $enabled")
     }
 
-    suspend fun resolveCloudUri(uri: Uri): Uri = withContext(Dispatchers.IO) {
+    suspend fun resolveCloudUri(uri: Uri): ResolvedMedia = withContext(Dispatchers.IO) {
         val uriString = uri.toString()
         resolvedUriCache.get(uriString)?.let { return@withContext it }
 
-        val resolved: Uri? = when (uri.scheme) {
-            "telegram" -> resolveTelegramUriAsync(uri, uriString)
-            "netease" -> resolveNeteaseUriAsync(uriString)
-            "qqmusic" -> resolveQqMusicUriAsync(uriString)
-            "navidrome" -> resolveNavidromeUriAsync(uriString)
-            "jellyfin" -> resolveJellyfinUriAsync(uriString)
-            "gdrive" -> resolveGDriveUriAsync(uriString)
+        val resolved: ResolvedMedia? = when (uri.scheme) {
+            "telegram" -> resolveTelegramUriAsync(uri, uriString)?.let { ResolvedMedia(it) }
+            "netease" -> resolveNeteaseUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "qqmusic" -> resolveQqMusicUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "navidrome" -> resolveNavidromeUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "jellyfin" -> resolveJellyfinUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "gdrive" -> resolveGDriveUriAsync(uriString)?.let { ResolvedMedia(it) }
+            "extension" -> resolveExtensionUriAsync(uri, uriString)
             else -> null
         }
 
@@ -1211,7 +1297,71 @@ class DualPlayerEngine @Inject constructor(
             resolvedUriCache.put(uriString, resolved)
             return@withContext resolved
         }
-        uri
+        ResolvedMedia(uri)
+    }
+
+    private suspend fun resolveExtensionUriAsync(uri: Uri, uriString: String): ResolvedMedia? = withContext(Dispatchers.IO) {
+        val parts = uriString.split(":")
+        if (parts.size < 4 || parts[0] != "extension") return@withContext null
+        val extensionId = parts[1]
+        val itemId = parts.drop(3).joinToString(":")
+
+        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return@withContext null
+        
+        return@withContext try {
+            val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.TrackClient ?: return@withContext null
+            val echoTrack = dev.brahmkshatriya.echo.common.models.Track(itemId, "")
+            val loadedTrack = client.loadTrack(echoTrack, true)
+            
+            // Collect all potential sources with their quality
+            val potentialSources = mutableListOf<Pair<dev.brahmkshatriya.echo.common.models.Streamable.Source, dev.brahmkshatriya.echo.common.models.Streamable>>()
+            
+            val allStreamables = (loadedTrack.servers.ifEmpty { loadedTrack.streamables })
+                .sortedByDescending { it.quality }
+            
+            for (streamable in allStreamables) {
+                try {
+                    val media = client.loadStreamableMedia(streamable, true)
+                    if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
+                        for (source in media.sources) {
+                            potentialSources.add(source to streamable)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.tag("DualPlayerEngine").w(e, "Failed to load streamable media for %s", streamable.id)
+                }
+            }
+            
+            // Sort potential sources by their own quality, then by streamable quality
+            potentialSources.sortWith(compareByDescending<Pair<dev.brahmkshatriya.echo.common.models.Streamable.Source, dev.brahmkshatriya.echo.common.models.Streamable>> { it.first.quality }
+                .thenByDescending { it.second.quality })
+            
+            for ((source, _) in potentialSources) {
+                if (source is dev.brahmkshatriya.echo.common.models.Streamable.Source.Http) {
+                    val mimeType = when (source.type) {
+                        dev.brahmkshatriya.echo.common.models.Streamable.SourceType.HLS -> androidx.media3.common.MimeTypes.APPLICATION_M3U8
+                        dev.brahmkshatriya.echo.common.models.Streamable.SourceType.DASH -> androidx.media3.common.MimeTypes.APPLICATION_MPD
+                        else -> null
+                    }
+                    return@withContext ResolvedMedia(
+                        uri = Uri.parse(source.id),
+                        headers = source.request.headers,
+                        mimeType = mimeType
+                    )
+                } else if (source is dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw) {
+                    val rawUri = "raw://${source.id.hashCode()}"
+                    rawSourceMap.put(rawUri, source)
+                    return@withContext ResolvedMedia(
+                        uri = Uri.parse(rawUri),
+                        rawSource = source
+                    )
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Timber.tag("DualPlayerEngine").e(e, "Failed to resolve extension track: $uriString")
+            null
+        }
     }
 
     private suspend fun resolveTelegramUriAsync(uri: Uri, uriString: String): Uri? = withContext(Dispatchers.IO) {
@@ -1275,8 +1425,12 @@ class DualPlayerEngine @Inject constructor(
         // Use CLOUD_PROXY_SCHEMES: http/https resolve directly via ExoPlayer and never
         // reach resolveCloudUri, so checking them wastes an IO dispatch.
         if (scheme !in CLOUD_PROXY_SCHEMES) return mediaItem
-        val resolvedUri = resolveCloudUri(uri)
-        return if (resolvedUri == uri) mediaItem else mediaItem.buildUpon().setUri(resolvedUri).build()
+
+        val resolved = resolveCloudUri(uri)
+        return mediaItem.buildUpon()
+            .setUri(if (scheme == "extension") uri else resolved.uri)
+            .setMimeType(resolved.mimeType)
+            .build()
     }
 
     suspend fun prepareNext(target: TransitionTarget, startPositionMs: Long = 0L) {

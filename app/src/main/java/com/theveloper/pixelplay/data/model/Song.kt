@@ -42,6 +42,9 @@ data class Song(
     val qqMusicMid: String? = null, // QQ Music song MID
     val navidromeId: String? = null, // Navidrome song ID
     val jellyfinId: String? = null, // Jellyfin item ID
+    val extensionId: String? = null, // ID of the extension that provided this song
+    val backgroundUriString: String? = null, // URL for video loop/canvas background
+    val subtitleUriString: String? = null, // URL for synchronized subtitles
 ) : Parcelable {
     /**
      * Returns the display string for artists.
@@ -97,7 +100,10 @@ data class Song(
                 gdriveFileId = null,
                 qqMusicMid = null,
                 navidromeId = null,
-                jellyfinId = null
+                jellyfinId = null,
+                extensionId = null,
+                backgroundUriString = null,
+                subtitleUriString = null
             )
         }
     }

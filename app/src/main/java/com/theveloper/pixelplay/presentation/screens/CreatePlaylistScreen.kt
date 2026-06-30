@@ -10,39 +10,14 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,159 +25,78 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.rounded.AddPhotoAlternate
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.MicExternalOn
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Piano
-import androidx.compose.material.icons.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Speaker
-import androidx.compose.material.icons.rounded.Crop
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextGeometricTransform
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.util.UnstableApi
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.theveloper.pixelplay.data.model.Song
-import com.theveloper.pixelplay.presentation.components.ImageCropView
+import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.PlaylistShapeType
 import com.theveloper.pixelplay.data.model.SmartPlaylistRule
-// import com.theveloper.pixelplay.presentation.screens.ShapeType // Removed local enum
+import com.theveloper.pixelplay.data.model.SourceScope
+import com.theveloper.pixelplay.presentation.components.ImageCropView
 import com.theveloper.pixelplay.presentation.components.SongPickerSelectionPane
-import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
-import androidx.compose.material3.Slider
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
-import com.theveloper.pixelplay.utils.resolvePlaylistCoverContentColor
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.Matrix
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Surface
-import androidx.compose.ui.graphics.TransformOrigin
-import com.theveloper.pixelplay.data.model.StorageFilter
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.media3.common.util.UnstableApi
-import androidx.compose.material3.MediumExtendedFloatingActionButton
-import androidx.compose.material3.SliderDefaults
-
-
-import kotlinx.coroutines.launch
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import com.theveloper.pixelplay.ui.theme.ShapeCache
+import com.theveloper.pixelplay.utils.resolvePlaylistCoverContentColor
+import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
-
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.style.TextGeometricTransform
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.presentation.screens.TabAnimation
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
 
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
-@Composable
-private fun smartPlaylistRuleTitle(rule: SmartPlaylistRule): String =
-    stringResource(
-        when (rule) {
-            SmartPlaylistRule.TOP_PLAYED -> R.string.playlist_creation_rule_top_played_title
-            SmartPlaylistRule.RECENTLY_PLAYED -> R.string.playlist_creation_rule_recently_played_title
-            SmartPlaylistRule.FORGOTTEN_FAVORITES -> R.string.playlist_creation_rule_forgotten_title
-            SmartPlaylistRule.NEW_GEMS -> R.string.playlist_creation_rule_new_gems_title
-        }
-    )
-
-@Composable
-private fun smartPlaylistRuleSubtitle(rule: SmartPlaylistRule): String =
-    stringResource(
-        when (rule) {
-            SmartPlaylistRule.TOP_PLAYED -> R.string.playlist_creation_rule_top_played_sub
-            SmartPlaylistRule.RECENTLY_PLAYED -> R.string.playlist_creation_rule_recently_played_sub
-            SmartPlaylistRule.FORGOTTEN_FAVORITES -> R.string.playlist_creation_rule_forgotten_sub
-            SmartPlaylistRule.NEW_GEMS -> R.string.playlist_creation_rule_new_gems_sub
-        }
-    )
-
-private enum class PlaylistCreationMode {
-    MANUAL,
-    SMART
+enum class PlaylistCreationMode {
+    MANUAL, SMART
 }
+
+@Composable
+private fun smartPlaylistRuleTitle(rule: SmartPlaylistRule): String = when (rule) {
+    SmartPlaylistRule.TOP_PLAYED -> stringResource(R.string.playlist_creation_rule_top_played_title)
+    SmartPlaylistRule.RECENTLY_ADDED -> "Recently Added"
+    SmartPlaylistRule.RECENTLY_PLAYED -> stringResource(R.string.playlist_creation_rule_recently_played_title)
+    SmartPlaylistRule.NEVER_PLAYED -> "Never Played"
+    SmartPlaylistRule.LONGEST_SONGS -> "Longest Songs"
+    SmartPlaylistRule.SHORTEST_SONGS -> "Shortest Songs"
+    SmartPlaylistRule.FORGOTTEN_FAVORITES -> stringResource(R.string.playlist_creation_rule_forgotten_title)
+    SmartPlaylistRule.NEW_GEMS -> stringResource(R.string.playlist_creation_rule_new_gems_title)
+}
+
+@Composable
+private fun smartPlaylistRuleSubtitle(rule: SmartPlaylistRule): String = when (rule) {
+    SmartPlaylistRule.TOP_PLAYED -> stringResource(R.string.playlist_creation_rule_top_played_sub)
+    SmartPlaylistRule.RECENTLY_ADDED -> "Latest songs added to your library"
+    SmartPlaylistRule.RECENTLY_PLAYED -> stringResource(R.string.playlist_creation_rule_recently_played_sub)
+    SmartPlaylistRule.NEVER_PLAYED -> "Songs you haven't played yet"
+    SmartPlaylistRule.LONGEST_SONGS -> "Songs with the longest duration"
+    SmartPlaylistRule.SHORTEST_SONGS -> "Songs with the shortest duration"
+    SmartPlaylistRule.FORGOTTEN_FAVORITES -> stringResource(R.string.playlist_creation_rule_forgotten_sub)
+    SmartPlaylistRule.NEW_GEMS -> stringResource(R.string.playlist_creation_rule_new_gems_sub)
+}
+
 
 @Composable
 fun CreatePlaylistDialog(
@@ -211,34 +105,19 @@ fun CreatePlaylistDialog(
     onGenerateClick: () -> Unit,
     onCreate: (String, String?, Int?, String?, List<String>, Float, Float, Float, String?, Float?, Float?, Float?, Float?, String?) -> Unit
 ) {
-    val transitionState = remember { MutableTransitionState(false) }
-    transitionState.targetState = visible
-
-    if (transitionState.currentState || transitionState.targetState) {
+    if (visible) {
         Dialog(
             onDismissRequest = onDismiss,
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false
-            )
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
-            AnimatedVisibility(
-                visibleState = transitionState,
-                enter = slideInVertically(initialOffsetY = { it / 6 }) + fadeIn(animationSpec = tween(220)),
-                exit = slideOutVertically(targetOffsetY = { it / 6 }) + fadeOut(animationSpec = tween(200)),
-                label = "create_playlist_dialog"
-            ) {
-                CreatePlaylistContent(
-                    onDismiss = onDismiss,
-                    onGenerateClick = onGenerateClick,
-                    onCreate = onCreate
-                )
-            }
+            CreatePlaylistContent(
+                onDismiss = onDismiss,
+                onGenerateClick = onGenerateClick,
+                onCreate = onCreate
+            )
         }
     }
 }
-
-// Enum removed, using com.theveloper.pixelplay.data.model.PlaylistShapeType
 
 @Composable
 fun EditPlaylistDialog(
@@ -255,37 +134,24 @@ fun EditPlaylistDialog(
     onDismiss: () -> Unit,
     onSave: (String, String?, Int?, String?, Float, Float, Float, String?, Float?, Float?, Float?, Float?) -> Unit
 ) {
-    val transitionState = remember { MutableTransitionState(false) }
-    transitionState.targetState = visible
-
-    if (transitionState.currentState || transitionState.targetState) {
+    if (visible) {
         Dialog(
             onDismissRequest = onDismiss,
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false
-            )
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
-            AnimatedVisibility(
-                visibleState = transitionState,
-                enter = slideInVertically(initialOffsetY = { it / 6 }) + fadeIn(animationSpec = tween(220)),
-                exit = slideOutVertically(targetOffsetY = { it / 6 }) + fadeOut(animationSpec = tween(200)),
-                label = "edit_playlist_dialog"
-            ) {
-                 EditPlaylistContent(
-                    initialName = currentName,
-                    initialImageUri = currentImageUri,
-                    initialColor = currentColor,
-                    initialIconName = currentIconName,
-                    initialShapeType = currentShapeType,
-                    initialShapeDetail1 = currentShapeDetail1,
-                    initialShapeDetail2 = currentShapeDetail2,
-                    initialShapeDetail3 = currentShapeDetail3,
-                    initialShapeDetail4 = currentShapeDetail4,
-                    onDismiss = onDismiss,
-                    onSave = onSave
-                )
-            }
+            EditPlaylistContent(
+                initialName = currentName,
+                initialImageUri = currentImageUri,
+                initialColor = currentColor,
+                initialIconName = currentIconName,
+                initialShapeType = currentShapeType,
+                initialShapeDetail1 = currentShapeDetail1,
+                initialShapeDetail2 = currentShapeDetail2,
+                initialShapeDetail3 = currentShapeDetail3,
+                initialShapeDetail4 = currentShapeDetail4,
+                onDismiss = onDismiss,
+                onSave = onSave
+            )
         }
     }
 }
@@ -299,83 +165,45 @@ private fun CreatePlaylistContent(
     playerViewModel: PlayerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-
-    // Shared State
     var playlistName by remember { mutableStateOf("") }
-    
-    // Step 1: Info State
-    var currentStep by remember { mutableStateOf(0) } // 0: Info, 1: Songs
-    var selectedTab by remember { mutableStateOf(0) } // 0: Default, 1: Image, 2: Icon
+    var currentStep by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableStateOf(0) }
     var creationMode by remember { mutableStateOf(PlaylistCreationMode.MANUAL) }
     var selectedSmartRule by remember { mutableStateOf(SmartPlaylistRule.TOP_PLAYED) }
-    
-    // Songs State
     val selectedSongIds = remember { mutableStateMapOf<String, Boolean>() }
-    
-    // Image State
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var showCropUi by remember { mutableStateOf(false) }
-    // Lifted Bitmap State for Preview Consistency
     var imageBitmap by remember(selectedImageUri) { mutableStateOf<ImageBitmap?>(null) }
-
-    // Crop State
-    var cropScale by remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
+    var cropScale by remember { mutableFloatStateOf(1f) }
     var cropOffset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-
-    // Custom Color/Icon State
     val defaultColor = MaterialTheme.colorScheme.primaryContainer.toArgb()
     var selectedColor by remember { mutableStateOf<Int?>(defaultColor) }
     var selectedIconName by remember { mutableStateOf<String?>("MusicNote") }
-
-    // Shape State
     var selectedShapeType by remember { mutableStateOf(PlaylistShapeType.Circle) }
-    
-    // SmoothRect Params
-    var smoothRectCornerRadius by remember { androidx.compose.runtime.mutableFloatStateOf(20f) } // 0-50
-    var smoothRectSmoothness by remember { androidx.compose.runtime.mutableFloatStateOf(60f) } // 0-100
-    
-    var starCurve by remember { androidx.compose.runtime.mutableDoubleStateOf(0.15) } // 0.0 - 0.5
-    var starRotation by remember { androidx.compose.runtime.mutableFloatStateOf(0f) } // 0 - 360
-    var starScale by remember { androidx.compose.runtime.mutableFloatStateOf(1f) } // 0.5 - 1.5
-    var starSides by remember { androidx.compose.runtime.mutableIntStateOf(5) } // 3 - 20
+    var smoothRectCornerRadius by remember { mutableFloatStateOf(20f) }
+    var smoothRectSmoothness by remember { mutableFloatStateOf(60f) }
+    var starCurve by remember { mutableDoubleStateOf(0.15) }
+    var starRotation by remember { mutableFloatStateOf(0f) }
+    var starScale by remember { mutableFloatStateOf(1f) }
+    var starSides by remember { mutableIntStateOf(5) }
 
     LaunchedEffect(selectedImageUri) {
          if (selectedImageUri != null) {
              val loader = ImageLoader(context)
-             val request = ImageRequest.Builder(context)
-                 .data(selectedImageUri)
-                 .allowHardware(false)
-                 .build()
-             
+             val request = ImageRequest.Builder(context).data(selectedImageUri).allowHardware(false).build()
              val result = loader.execute(request)
-             val drawable = result.drawable
-             if (drawable is android.graphics.drawable.BitmapDrawable) {
-                 imageBitmap = drawable.bitmap.asImageBitmap()
+             if (result.drawable is android.graphics.drawable.BitmapDrawable) {
+                 imageBitmap = (result.drawable as android.graphics.drawable.BitmapDrawable).bitmap.asImageBitmap()
              }
-         } else {
-             imageBitmap = null
-             cropScale = 1f
-             cropOffset = androidx.compose.ui.geometry.Offset.Zero
          }
     }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let {
-            selectedImageUri = it
-            cropScale = 1f
-            cropOffset = androidx.compose.ui.geometry.Offset.Zero
-            showCropUi = true
-        }
+    val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { selectedImageUri = it; showCropUi = true }
     }
-    
-    // Back Handler for navigation flow
+
     BackHandler(enabled = showCropUi || (currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL)) {
-        when {
-            showCropUi -> showCropUi = false
-            currentStep == 1 -> currentStep = 0
-        }
+        if (showCropUi) showCropUi = false else currentStep = 0
     }
 
     Scaffold(
@@ -428,10 +256,7 @@ private fun CreatePlaylistContent(
                             contentDescription = stringResource(R.string.playlist_creation_cd_back_or_cancel)
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
+                }
             )
         },
         floatingActionButton = {
@@ -457,52 +282,9 @@ private fun CreatePlaylistContent(
                         ) 
                     },
                     onClick = {
-                        if (currentStep == 0) {
-                            if (playlistName.isNotBlank()) {
-                                if (creationMode == PlaylistCreationMode.MANUAL) {
-                                    currentStep = 1
-                                } else {
-                                    val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                                    val color = if(selectedTab == 2) selectedColor else null
-                                    val icon = if(selectedTab == 2) selectedIconName else null
-
-                                    val scale = if(selectedTab == 1) cropScale else 1f
-                                    val panX = if(selectedTab == 1) cropOffset.x else 0f
-                                    val panY = if(selectedTab == 1) cropOffset.y else 0f
-
-                                    val shapeTypeForSave = if (selectedTab == 2) selectedShapeType.name else null
-                                    val (d1, d2, d3, d4) = if (selectedTab == 2) {
-                                        when (selectedShapeType) {
-                                            PlaylistShapeType.SmoothRect -> Quadruple(smoothRectCornerRadius, smoothRectSmoothness, 0f, 0f)
-                                            PlaylistShapeType.Star -> Quadruple(starCurve.toFloat(), starRotation, starScale, starSides.toFloat())
-                                            else -> Quadruple(0f, 0f, 0f, 0f)
-                                        }
-                                    } else Quadruple(null, null, null, null)
-
-                                    onCreate(
-                                        playlistName,
-                                        imageUriString,
-                                        color,
-                                        icon,
-                                        emptyList(),
-                                        scale,
-                                        panX,
-                                        panY,
-                                        shapeTypeForSave,
-                                        d1, d2, d3, d4,
-                                        selectedSmartRule.storageKey
-                                    )
-                                }
-                            }
+                        if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) {
+                            if (playlistName.isNotBlank()) currentStep = 1
                         } else {
-                            val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                            val color = if(selectedTab == 2) selectedColor else null
-                            val icon = if(selectedTab == 2) selectedIconName else null
-                            
-                            val scale = if(selectedTab == 1) cropScale else 1f
-                            val panX = if(selectedTab == 1) cropOffset.x else 0f
-                            val panY = if(selectedTab == 1) cropOffset.y else 0f
-                            
                             val shapeTypeForSave = if (selectedTab == 2) selectedShapeType.name else null
                             val (d1, d2, d3, d4) = if (selectedTab == 2) {
                                 when (selectedShapeType) {
@@ -512,33 +294,18 @@ private fun CreatePlaylistContent(
                                 }
                             } else Quadruple(null, null, null, null)
 
-                            onCreate(
-                                playlistName, 
-                                imageUriString, 
-                                color, 
-                                icon, 
-                                selectedSongIds.filterValues { it }.keys.toList(),
-                                scale,
-                                panX,
-                                panY,
-                                shapeTypeForSave,
-                                d1, d2, d3, d4,
-                                null
-                            )
+                            onCreate(playlistName, selectedImageUri?.toString(), if(selectedTab == 2) selectedColor else null, if(selectedTab == 2) selectedIconName else null, selectedSongIds.filterValues { it }.keys.toList(), cropScale, cropOffset.x, cropOffset.y, shapeTypeForSave, d1, d2, d3, d4, if(creationMode == PlaylistCreationMode.SMART) selectedSmartRule.storageKey else null)
                         }
-                    },
-                    expanded = true,
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .padding(bottom = 8.dp, end = 8.dp)
-                        .height(56.dp), // Standard height, feels substantial
-                    containerColor = if (currentStep == 0 && playlistName.isBlank()) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = if (currentStep == 0 && playlistName.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f) else MaterialTheme.colorScheme.onTertiaryContainer,
+                    }
                 )
             }
         },
+
         bottomBar = {
             if (currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL) {
+                val sourceScope by playerViewModel.playlistPickerSourceScope.collectAsStateWithLifecycle()
+                val selectedTabIndex = if(sourceScope == SourceScope.Local) 0 else 1
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -547,13 +314,6 @@ private fun CreatePlaylistContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val storageFilter by playerViewModel.playlistPickerStorageFilter.collectAsStateWithLifecycle()
-                    val tabs = listOf(
-                        StorageFilter.OFFLINE to R.string.library_storage_filter_offline,
-                        StorageFilter.ONLINE to R.string.library_storage_filter_online
-                    )
-                    val selectedTabIndex = tabs.indexOfFirst { it.first == storageFilter }.coerceAtLeast(0)
-
                     PrimaryTabRow(
                         selectedTabIndex = selectedTabIndex,
                         modifier = Modifier
@@ -565,39 +325,57 @@ private fun CreatePlaylistContent(
                         divider = {},
                         indicator = {}
                     ) {
-                        tabs.forEachIndexed { index, (filter, labelRes) ->
-                            TabAnimation(
-                                index = index,
-                                title = stringResource(labelRes),
-                                selectedIndex = selectedTabIndex,
-                                onClick = { playerViewModel.setPlaylistPickerStorageFilter(filter) },
-                                transformOrigin = if (index == 0) TransformOrigin(0f, 0.5f) else TransformOrigin(1f, 0.5f)
+                        // Local Tab
+                        TabAnimation(
+                            index = 0,
+                            title = "Local",
+                            selectedIndex = selectedTabIndex,
+                            onClick = { playerViewModel.setPlaylistPickerSourceScope(SourceScope.Local) },
+                            transformOrigin = TransformOrigin(0f, 0.5f)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    if (filter == StorageFilter.OFFLINE) {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.ic_phonef),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Cloud,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = stringResource(labelRes),
-                                        fontFamily = GoogleSansRounded,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(end = 4.dp)
-                                    )
-                                }
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_phonef),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "Local",
+                                    fontFamily = GoogleSansRounded,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(end = 4.dp)
+                                )
+                            }
+                        }
+
+                        // All (Cloud) Tab
+                        TabAnimation(
+                            index = 1,
+                            title = "All",
+                            selectedIndex = selectedTabIndex,
+                            onClick = { playerViewModel.setPlaylistPickerSourceScope(SourceScope.All) },
+                            transformOrigin = TransformOrigin(1f, 0.5f)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Cloud,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "All",
+                                    fontFamily = GoogleSansRounded,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(end = 4.dp)
+                                )
                             }
                         }
                     }
@@ -650,72 +428,50 @@ private fun CreatePlaylistContent(
                     }
                 }
             }
-        },
-        containerColor = MaterialTheme.colorScheme.surface
-    ) { paddingValues ->
-        AnimatedContent(
-            targetState = currentStep,
-            transitionSpec = {
-                if (targetState > initialState) {
-                    slideInHorizontally { width -> width } + fadeIn() togetherWith
-                            slideOutHorizontally { width -> -width } + fadeOut()
-                } else {
-                    slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                            slideOutHorizontally { width -> width } + fadeOut()
-                }
-            },
-            modifier = Modifier.padding(top = paddingValues.calculateTopPadding()),
-            label = "Step Transition"
-        ) { step ->
-            if (step == 0) {
-                 PlaylistFormContent(
-                     playlistName = playlistName,
-                     onNameChange = { playlistName = it },
-                     selectedTab = selectedTab,
-                     onTabChange = { selectedTab = it },
-                     selectedImageUri = selectedImageUri,
-                     showCropUi = showCropUi,
-                     onShowCropUiChange = { showCropUi = it },
-                     cropScale = cropScale,
-                     onCropScaleChange = { cropScale = it },
-                     cropOffset = cropOffset,
-                     onCropOffsetChange = { cropOffset = it },
-                     imageBitmap = imageBitmap,
-                     imagePickerLauncher = imagePickerLauncher,
-                     selectedColor = selectedColor,
-                     onColorChange = { selectedColor = it },
-                     selectedIconName = selectedIconName,
-                     onIconChange = { selectedIconName = it },
-                     selectedShapeType = selectedShapeType,
-                     onShapeTypeChange = { selectedShapeType = it },
-                     smoothRectCornerRadius = smoothRectCornerRadius,
-                     onSmoothRectCornerRadiusChange = { smoothRectCornerRadius = it },
-                     smoothRectSmoothness = smoothRectSmoothness,
-                     onSmoothRectSmoothnessChange = { smoothRectSmoothness = it },
-                     starSides = starSides,
-                     onStarSidesChange = { starSides = it },
-                     starCurve = starCurve,
-                     onStarCurveChange = { starCurve = it },
-                     starRotation = starRotation,
-                     onStarRotationChange = { starRotation = it },
-                     starScale = starScale,
-                     onStarScaleChange = { starScale = it },
-                     creationMode = creationMode,
-                     onCreationModeChange = { creationMode = it },
-                     selectedSmartRule = selectedSmartRule,
-                     onSmartRuleChange = { selectedSmartRule = it },
-                     onGenerateClick = onGenerateClick,
-                     onImageUriChange = { selectedImageUri = it }
-                 )
-            } else {
-                SongPickerSelectionPane(
-                    selectedSongIds = selectedSongIds,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .imePadding(),
-                    contentPadding = PaddingValues(bottom = 120.dp, top = 8.dp),
-                    playerViewModel = playerViewModel
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding)) {
+            if (currentStep == 0) {
+                PlaylistFormContent(
+                    playlistName = playlistName,
+                    onNameChange = { playlistName = it },
+                    selectedTab = selectedTab,
+                    onTabChange = { selectedTab = it },
+                    selectedImageUri = selectedImageUri,
+                    showCropUi = showCropUi,
+                    onShowCropUiChange = { showCropUi = it },
+                    cropScale = cropScale,
+                    onCropScaleChange = { cropScale = it },
+                    cropOffset = cropOffset,
+                    onCropOffsetChange = { cropOffset = it },
+                    imageBitmap = imageBitmap,
+                    imagePickerLauncher = imagePickerLauncher,
+                    selectedColor = selectedColor,
+                    onColorChange = { selectedColor = it },
+                    selectedIconName = selectedIconName,
+                    onIconChange = { selectedIconName = it },
+                    selectedShapeType = selectedShapeType,
+                    onShapeTypeChange = { selectedShapeType = it },
+                    smoothRectCornerRadius = smoothRectCornerRadius,
+                    onSmoothRectCornerRadiusChange = { smoothRectCornerRadius = it },
+                    smoothRectSmoothness = smoothRectSmoothness,
+                    onSmoothRectSmoothnessChange = { smoothRectSmoothness = it },
+                    starSides = starSides,
+                    onStarSidesChange = { starSides = it },
+                    starCurve = starCurve,
+                    onStarCurveChange = { starCurve = it },
+                    starRotation = starRotation,
+                    onStarRotationChange = { starRotation = it },
+                    starScale = starScale,
+                    onStarScaleChange = { starScale = it },
+                    creationMode = creationMode,
+                    onCreationModeChange = { creationMode = it },
+                    selectedSmartRule = selectedSmartRule,
+                    onSmartRuleChange = { selectedSmartRule = it },
+                    onImageUriChange = { selectedImageUri = it }
                 )
+            } else {
+                SongPickerSelectionPane(selectedSongIds = selectedSongIds, playerViewModel = playerViewModel)
             }
         }
     }
@@ -945,7 +701,6 @@ fun EditPlaylistContent(
          )
     }
 }
-
 
 @Composable
 private fun PlaylistFormContent(
@@ -1335,14 +1090,14 @@ private fun PlaylistFormContent(
             }
 
             val tabs = listOf(
-                stringResource(R.string.playlist_creation_tab_default),
-                stringResource(R.string.playlist_creation_tab_image),
-                stringResource(R.string.playlist_creation_tab_icon)
+                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_default), Icons.Rounded.AutoAwesome),
+                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_image), Icons.Rounded.Image),
+                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_icon), Icons.Rounded.Category)
             )
             ExpressiveButtonGroup(
                 items = tabs,
                 selectedIndex = selectedTab,
-                onItemClick = onTabChange,
+                onIndexChange = onTabChange,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 22.dp)
@@ -1540,168 +1295,94 @@ private fun PlaylistFormContent(
     }
 }
 
-
-
-
-fun getIconByName(name: String?): ImageVector? {
-    return when (name) {
-        "MusicNote" -> Icons.Rounded.MusicNote
-        "Headphones" -> Icons.Rounded.Headphones
-        "Album" -> Icons.Rounded.Album
-        "Mic" -> Icons.Rounded.MicExternalOn 
-        "Speaker" -> Icons.Rounded.Speaker
-        "Favorite" -> Icons.Rounded.Favorite
-        "Piano" -> Icons.Rounded.Piano
-        "Queue" -> Icons.AutoMirrored.Rounded.QueueMusic
-        else -> null
-    }
+fun getIconByName(name: String?): ImageVector? = when (name) {
+    "MusicNote" -> Icons.Rounded.MusicNote
+    "Headphones" -> Icons.Rounded.Headphones
+    else -> Icons.Rounded.MusicNote
 }
+
+fun getThemeContentColor(colorArgb: Int, scheme: ColorScheme): Color = resolvePlaylistCoverContentColor(colorArgb, scheme)
 
 @Composable
 fun ExpressiveButtonGroup(
-    items: List<String>,
     selectedIndex: Int,
-    onItemClick: (Int) -> Unit,
+    onIndexChange: (Int) -> Unit,
+    items: List<ButtonGroupItem>,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
-            .clip(CircleShape)
-            .background(Color.Transparent, CircleShape), // Optional container background
-            //.padding(1.dp), // Check if padding is needed
-        horizontalArrangement = Arrangement.spacedBy(4.dp) // Gap between buttons
+            .fillMaxWidth()
+            .height(56.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(28.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        items.forEachIndexed { index, title ->
-            val isSelected = selectedIndex == index
-            val shape = if (isSelected) CircleShape else RoundedCornerShape(10.dp) // Pill vs RoundedRect
-            val containerColor by animateColorAsState(
-                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                label = "ButtonColor"
-            )
-            val contentColor by animateColorAsState(
-                if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                label = "ContentColor"
-            )
-
+        items.forEachIndexed { index, item ->
+            val isSelected = index == selectedIndex
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp) // Taller button
-                    .clip(shape)
-                    .background(containerColor)
-                    .clickable { onItemClick(index) },
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable { onIndexChange(index) },
                 contentAlignment = Alignment.Center
             ) {
-                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                     AnimatedVisibility(visible = isSelected) {
-                         Icon(
-                             Icons.Rounded.Check, 
-                             contentDescription = null, 
-                             modifier = Modifier.padding(end = 8.dp).size(18.dp),
-                             tint = contentColor
-                         )
-                     }
-                     Text(
-                         text = title,
-                         style = MaterialTheme.typography.labelLarge,
-                         color = contentColor,
-                         fontWeight = if(isSelected) FontWeight.Bold else FontWeight.Medium
-                     )
-                 }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = null,
+                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = item.label,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+data class ButtonGroupItem(val label: String, val icon: ImageVector)
+
 @Composable
 fun ShapeParameterCard(
-    title: String,
+    label: String,
     value: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
+    range: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit,
     valueDisplay: (Float) -> String,
     steps: Int = 0
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                     text = title,
-                     style = MaterialTheme.typography.labelMedium,
-                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                     text = valueDisplay(value),
-                     style = MaterialTheme.typography.labelLarge,
-                     color = MaterialTheme.colorScheme.onSurface,
-                     fontWeight = FontWeight.Bold
-                )
+                Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(valueDisplay(value), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             }
-            
-            // Custom Thick Slider
-            ThickSlider(
+            Slider(
                 value = value,
                 onValueChange = onValueChange,
-                valueRange = valueRange,
-                steps = steps
+                valueRange = range,
+                steps = steps,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
 }
-
-@Composable
-fun ThickSlider(
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int = 0
-) {
-    Slider(
-        value = value,
-        onValueChange = onValueChange,
-        valueRange = valueRange,
-        steps = steps,
-        colors = SliderDefaults.colors(
-             thumbColor = MaterialTheme.colorScheme.primary,
-             activeTrackColor = MaterialTheme.colorScheme.primary,
-             inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-        ),
-        thumb = {
-             Box(
-                 modifier = Modifier
-                    .size(width = 6.dp, height = 18.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-             )
-        },
-        track = { sliderState ->
-            SliderDefaults.Track(
-                sliderState = sliderState,
-                modifier = Modifier.height(8.dp),
-                thumbTrackGapSize = 0.dp,
-                trackInsideCornerSize = 4.dp,
-                drawStopIndicator = null
-            )
-        }
-    )
-}
-
-
-fun getThemeContentColor(colorArgb: Int, scheme: androidx.compose.material3.ColorScheme): Color {
-    return resolvePlaylistCoverContentColor(colorArgb, scheme)
-}
-
-// End of file

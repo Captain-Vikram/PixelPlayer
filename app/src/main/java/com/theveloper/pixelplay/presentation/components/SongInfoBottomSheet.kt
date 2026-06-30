@@ -53,6 +53,7 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
@@ -142,7 +143,12 @@ fun SongInfoBottomSheet(
         coverArtUpdate: CoverArtUpdate?
     ) -> Unit,
     removeFromListTrigger: () -> Unit,
-    songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel()
+    isGeneratingMetadata: Boolean = false,
+    aiMetadataSuccess: Boolean = false,
+    aiError: String? = null,
+    onRetryMetadata: () -> Unit = {},
+    songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel(),
+    playerViewModel: com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val ringtonePermissionMissingMsg = stringResource(R.string.song_info_ringtone_permission_missing)
@@ -427,7 +433,7 @@ fun SongInfoBottomSheet(
                                     text = song.title
                                 )
                             }
-                            val isEditable = remember(song) { songInfoViewModel.isSongEditable(song) }
+                            val isEditable = remember(song) { songInfoViewModel.isSongEditable(song) && song.extensionId == null }
                             if (isEditable) {
                                 FilledTonalIconButton(
                                     modifier = Modifier
@@ -533,6 +539,7 @@ fun SongInfoBottomSheet(
                                         )
 
                                         Row3Actions(
+                                            isExtension = song.extensionId != null,
                                             onAddToPlaylist = onAddToPlayList,
                                             onDelete = {
                                                 (context as? Activity)?.let { activity ->
@@ -543,6 +550,10 @@ fun SongInfoBottomSheet(
                                                         }
                                                     }
                                                 }
+                                                onDismiss()
+                                            },
+                                            onStartRadio = {
+                                                /* playerViewModel.startRadio(song) */
                                             }
                                         )
 
@@ -550,7 +561,7 @@ fun SongInfoBottomSheet(
                                             currentSongTransfer != null ||
                                                     shouldOfferWatchTransfer ||
                                                     shouldShowWatchTransferLoading
-                                        if (shouldRenderWatchTransferRow) {
+                                        if (shouldRenderWatchTransferRow && song.extensionId == null) {
                                             Row4Actions(
                                                 isPixelPlayWatchAvailable = isPixelPlayWatchAvailable,
                                                 isSendingToWatch = isSendingToWatch,
@@ -566,7 +577,7 @@ fun SongInfoBottomSheet(
                                                     }
                                                 }
                                             )
-                                        } else {
+                                        } else if (song.extensionId == null) {
                                             RingtoneActionButton(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -1467,8 +1478,10 @@ private fun Row2Actions(
 
 @Composable
 private fun Row3Actions(
+    isExtension: Boolean,
     onAddToPlaylist: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onStartRadio: () -> Unit
 ) {
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var clickPending by remember { mutableStateOf(false) }
@@ -1485,15 +1498,15 @@ private fun Row3Actions(
         }
     }
 
-    val deleteInteractionSource = remember { MutableInteractionSource() }
-    val isDeletePressed by deleteInteractionSource.collectIsPressedAsState()
-    var deleteVisualPressed by remember { mutableStateOf(false) }
-    LaunchedEffect(isDeletePressed) {
-        if (isDeletePressed) {
-            deleteVisualPressed = true
+    val tertiaryInteractionSource = remember { MutableInteractionSource() }
+    val isTertiaryPressed by tertiaryInteractionSource.collectIsPressedAsState()
+    var tertiaryVisualPressed by remember { mutableStateOf(false) }
+    LaunchedEffect(isTertiaryPressed) {
+        if (isTertiaryPressed) {
+            tertiaryVisualPressed = true
         } else {
             kotlinx.coroutines.delay(180)
-            deleteVisualPressed = false
+            tertiaryVisualPressed = false
         }
     }
 
@@ -1507,14 +1520,14 @@ private fun Row3Actions(
         animationSpec = pressSpec,
         label = "PlaylistPressFraction"
     )
-    val pressFractionDelete by animateFloatAsState(
-        targetValue = if (deleteVisualPressed) 1f else 0f,
+    val pressFractionTertiary by animateFloatAsState(
+        targetValue = if (tertiaryVisualPressed) 1f else 0f,
         animationSpec = pressSpec,
-        label = "DeletePressFraction"
+        label = "TertiaryPressFraction"
     )
 
-    val weightPlaylist = (0.5f + 0.08f * pressFractionPlaylist - 0.08f * pressFractionDelete).coerceAtLeast(0.1f)
-    val weightDelete = (0.5f + 0.08f * pressFractionDelete - 0.08f * pressFractionPlaylist).coerceAtLeast(0.1f)
+    val weightPlaylist = (0.5f + 0.08f * pressFractionPlaylist - 0.08f * pressFractionTertiary).coerceAtLeast(0.1f)
+    val weightTertiary = (0.5f + 0.08f * pressFractionTertiary - 0.08f * pressFractionPlaylist).coerceAtLeast(0.1f)
 
     Row(
         modifier = Modifier
@@ -1561,42 +1574,82 @@ private fun Row3Actions(
             )
         }
 
-        FilledTonalButton(
-            modifier = Modifier
-                .weight(weightDelete)
-                .heightIn(min = 66.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer,
-                contentColor = MaterialTheme.colorScheme.onErrorContainer
-            ),
-            contentPadding = PaddingValues(horizontal = 10.dp),
-            shape = CircleShape,
-            interactionSource = deleteInteractionSource,
-            onClick = {
-                if (clickPending) return@FilledTonalButton
-                clickPending = true
-                deleteVisualPressed = true
-                android.util.Log.d("PixelPlayerDebug", "Row3Actions: Delete clicked")
-                coroutineScope.launch {
-                    kotlinx.coroutines.delay(180)
-                    deleteVisualPressed = false
-                    clickPending = false
-                    onDelete()
+        if (!isExtension) {
+            FilledTonalButton(
+                modifier = Modifier
+                    .weight(weightTertiary)
+                    .heightIn(min = 66.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                ),
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                shape = CircleShape,
+                interactionSource = tertiaryInteractionSource,
+                onClick = {
+                    if (clickPending) return@FilledTonalButton
+                    clickPending = true
+                    tertiaryVisualPressed = true
+                    android.util.Log.d("PixelPlayerDebug", "Row3Actions: Delete clicked")
+                    coroutineScope.launch {
+                        kotlinx.coroutines.delay(180)
+                        tertiaryVisualPressed = false
+                        clickPending = false
+                        onDelete()
+                    }
                 }
+            ) {
+                Icon(
+                    Icons.Default.DeleteForever,
+                    contentDescription = stringResource(R.string.song_info_action_delete)
+                )
+                Spacer(Modifier.width(6.dp))
+                TightWrapText(
+                    text = stringResource(R.string.song_info_action_delete),
+                    modifier = Modifier.padding(end = 4.dp),
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2,
+                    lineHeight = 20.sp
+                )
             }
-        ) {
-            Icon(
-                Icons.Default.DeleteForever,
-                contentDescription = stringResource(R.string.song_info_action_delete)
-            )
-            Spacer(Modifier.width(6.dp))
-            TightWrapText(
-                text = stringResource(R.string.song_info_action_delete),
-                modifier = Modifier.padding(end = 4.dp),
-                overflow = TextOverflow.Ellipsis,
-                maxLines = 2,
-                lineHeight = 20.sp
-            )
+        } else {
+            FilledTonalButton(
+                modifier = Modifier
+                    .weight(weightTertiary)
+                    .heightIn(min = 66.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                ),
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                shape = CircleShape,
+                interactionSource = tertiaryInteractionSource,
+                onClick = {
+                    if (clickPending) return@FilledTonalButton
+                    clickPending = true
+                    tertiaryVisualPressed = true
+                    android.util.Log.d("PixelPlayerDebug", "Row3Actions: Start Radio clicked")
+                    coroutineScope.launch {
+                        kotlinx.coroutines.delay(180)
+                        tertiaryVisualPressed = false
+                        clickPending = false
+                        onStartRadio()
+                    }
+                }
+            ) {
+                Icon(
+                    Icons.Rounded.Sensors,
+                    contentDescription = "Start Radio"
+                )
+                Spacer(Modifier.width(6.dp))
+                TightWrapText(
+                    text = "Start Radio",
+                    modifier = Modifier.padding(end = 4.dp),
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    lineHeight = 20.sp
+                )
+            }
         }
     }
 }
@@ -1794,4 +1847,3 @@ private fun Row4Actions(
         }
     }
 }
-

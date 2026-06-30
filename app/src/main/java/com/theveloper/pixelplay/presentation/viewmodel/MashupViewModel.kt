@@ -21,7 +21,6 @@ import javax.inject.Inject
 data class DeckState(
     val song: Song? = null,
     val isPlaying: Boolean = false,
-    val progress: Float = 0f,
     val volume: Float = 1f,
     val speed: Float = 1f,
     val stemWaveforms: Map<String, List<Int>> = emptyMap()
@@ -38,11 +37,18 @@ data class MashupUiState(
 @HiltViewModel
 class MashupViewModel @Inject constructor(
     private val application: Application,
-    private val musicRepository: MusicRepository
+    private val musicRepository: MusicRepository,
+    private val extensionRepository: com.theveloper.pixelplay.data.repository.ExtensionRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MashupUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _deck1Progress = MutableStateFlow(0f)
+    val deck1Progress = _deck1Progress.asStateFlow()
+
+    private val _deck2Progress = MutableStateFlow(0f)
+    val deck2Progress = _deck2Progress.asStateFlow()
 
     private lateinit var deck1Controller: DeckController
     private lateinit var deck2Controller: DeckController
@@ -53,6 +59,18 @@ class MashupViewModel @Inject constructor(
         initializeDecks()
         loadAllSongs()
         startProgressUpdater()
+        observeExtensionFeeds()
+    }
+
+    private fun observeExtensionFeeds() {
+        viewModelScope.launch {
+            // Combine extension songs with local library songs
+            extensionRepository.yourMixSongsFromExtension.collect { extSongs ->
+                if (extSongs.isNotEmpty()) {
+                    _uiState.update { it.copy(allSongs = extSongs + it.allSongs.filter { s -> !s.id.startsWith("extension:") }) }
+                }
+            }
+        }
     }
 
     private fun initializeDecks() {
@@ -119,8 +137,8 @@ class MashupViewModel @Inject constructor(
         progressJob?.cancel()
         progressJob = viewModelScope.launch {
             while (isActive) {
-                updateDeckState(1) { it.copy(progress = deck1Controller.getProgress()) }
-                updateDeckState(2) { it.copy(progress = deck2Controller.getProgress()) }
+                _deck1Progress.value = deck1Controller.getProgress()
+                _deck2Progress.value = deck2Controller.getProgress()
                 delay(100)
             }
         }

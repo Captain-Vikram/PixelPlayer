@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens
 
+import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,7 +31,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconButtonDefaults.iconButtonColors
 import androidx.compose.material3.MaterialTheme
@@ -64,8 +64,6 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.data.preferences.MAX_NAV_BAR_CORNER_RADIUS
-import com.theveloper.pixelplay.data.preferences.MIN_NAV_BAR_CORNER_RADIUS
 import com.theveloper.pixelplay.presentation.viewmodel.SettingsViewModel
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import com.theveloper.pixelplay.data.preferences.NavBarStyle
@@ -103,7 +101,7 @@ fun NavBarCornerRadiusContent(
     isCompactMode: Boolean = false
 ) {
     fun Float.safeRadius(): Float =
-        coerceIn(MIN_NAV_BAR_CORNER_RADIUS.toFloat(), MAX_NAV_BAR_CORNER_RADIUS.toFloat())
+        coerceIn(UserPreferencesRepository.MIN_NAV_BAR_CORNER_RADIUS.toFloat(), UserPreferencesRepository.MAX_NAV_BAR_CORNER_RADIUS.toFloat())
 
     var sliderValue by remember { mutableFloatStateOf(initialRadius.safeRadius()) }
     var hasBeenAdjusted by remember { mutableStateOf(sliderValue != DEFAULT_NAV_BAR_CORNER_RADIUS) }
@@ -141,7 +139,7 @@ fun NavBarCornerRadiusContent(
                 actions = {
                     Button(
                         onClick = {
-                            onRadiusChange(sliderValue.toInt().coerceIn(MIN_NAV_BAR_CORNER_RADIUS, MAX_NAV_BAR_CORNER_RADIUS))
+                            onRadiusChange(sliderValue.toInt().coerceIn(UserPreferencesRepository.MIN_NAV_BAR_CORNER_RADIUS, UserPreferencesRepository.MAX_NAV_BAR_CORNER_RADIUS))
                             onDone()
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -283,7 +281,7 @@ fun NavBarCornerRadiusContent(
                                             sliderValue = it.safeRadius()
                                         }
                                     },
-                                    valueRange = MIN_NAV_BAR_CORNER_RADIUS.toFloat()..MAX_NAV_BAR_CORNER_RADIUS.toFloat(),
+                                    valueRange = UserPreferencesRepository.MIN_NAV_BAR_CORNER_RADIUS.toFloat()..UserPreferencesRepository.MAX_NAV_BAR_CORNER_RADIUS.toFloat(),
                                     colors = SliderDefaults.colors(
                                         thumbColor = MaterialTheme.colorScheme.primary,
                                         activeTrackColor = MaterialTheme.colorScheme.primary,
