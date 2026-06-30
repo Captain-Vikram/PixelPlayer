@@ -23,6 +23,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import okhttp3.OkHttpClient
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -232,7 +234,8 @@ class DualPlayerEngine @Inject constructor(
     private val telegramCacheManager: com.theveloper.pixelplay.data.telegram.TelegramCacheManager,
     private val connectivityStateHolder: com.theveloper.pixelplay.presentation.viewmodel.ConnectivityStateHolder,
     private val extensionHost: com.theveloper.pixelplay.extensions.PixelPlayExtensionHost,
-    private val extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
+    private val extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader,
+    private val okHttpClient: OkHttpClient
 ) {
     private companion object {
         private const val AUDIO_OFFLOAD_STALL_FALLBACK_MS = 4_000L
@@ -1151,7 +1154,8 @@ class DualPlayerEngine @Inject constructor(
             }
         }
         
-        val defaultFactory = DefaultDataSource.Factory(context)
+        val okhttpFactory = OkHttpDataSource.Factory(okHttpClient)
+        val defaultFactory = DefaultDataSource.Factory(context, okhttpFactory)
         val rawFactory = com.theveloper.pixelplay.data.service.player.RawDataSource.Factory()
         val baseDataSourceFactory = androidx.media3.datasource.DataSource.Factory {
             object : androidx.media3.datasource.DataSource {
