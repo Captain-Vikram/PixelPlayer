@@ -46,6 +46,12 @@ internal fun LibraryPlaybackAwareSongItem(
             .distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = LibrarySongPlaybackUiState())
 
+    val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
+    val sourceLabel = remember(song.extensionId, allExtensions) {
+        if (song.extensionId == null) null
+        else allExtensions.find { it.metadata.id == song.extensionId }?.metadata?.name ?: "Cloud"
+    }
+
     EnhancedSongListItem(
         song = song,
         isPlaying = playbackUiState.isPlaying,
@@ -55,6 +61,7 @@ internal fun LibraryPlaybackAwareSongItem(
         isSelected = isSelected,
         selectionIndex = selectionIndex,
         isSelectionMode = isSelectionMode,
+        sourceLabel = sourceLabel,
         onLongPress = onLongPress,
         onMoreOptionsClick = onMoreOptionsClick,
         onClick = onClick

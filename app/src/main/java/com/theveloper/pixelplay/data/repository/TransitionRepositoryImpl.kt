@@ -47,7 +47,7 @@ class TransitionRepositoryImpl @Inject constructor(
                                 )
                             )
                         } else {
-                            userPreferences.globalTransitionSettingsFlow.map { settings ->
+                            getGlobalSettings().map { settings ->
                                 TransitionResolution(
                                     settings = settings,
                                     source = TransitionSource.GLOBAL_DEFAULT,
@@ -84,11 +84,19 @@ class TransitionRepositoryImpl @Inject constructor(
     }
 
     override fun getGlobalSettings(): Flow<TransitionSettings> {
-        return userPreferences.globalTransitionSettingsFlow
+        return userPreferences.transitionSettingsFlow.map { settingsStr ->
+            settingsStr?.let {
+                runCatching {
+                    kotlinx.serialization.json.Json.decodeFromString<TransitionSettings>(it)
+                }.getOrNull()
+            } ?: TransitionSettings()
+        }
     }
 
     override suspend fun saveGlobalSettings(settings: TransitionSettings) {
-        userPreferences.saveGlobalTransitionSettings(settings)
+        userPreferences.saveTransitionSettings(
+            kotlinx.serialization.json.Json.encodeToString(settings)
+        )
     }
 
     // --- Mappers ---

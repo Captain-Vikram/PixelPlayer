@@ -32,6 +32,15 @@ import com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity
 import com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.rememberAsyncImagePainter
+import dev.brahmkshatriya.echo.common.clients.LoginClient
+
+import kotlinx.coroutines.launch
+
 /**
  * Bottom sheet that lets the user choose between streaming providers.
  * Uses a segmented Material 3 Expressive list that matches the other
@@ -41,6 +50,8 @@ import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 @Composable
 fun StreamingProviderSheet(
     onDismissRequest: () -> Unit,
+    playerViewModel: com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel,
+    onNavigateToExtensionLogin: (String) -> Unit,
     isNeteaseLoggedIn: Boolean = false,
     onNavigateToNeteaseDashboard: () -> Unit = {},
     isQqMusicLoggedIn: Boolean = false,
@@ -56,6 +67,13 @@ fun StreamingProviderSheet(
     val context = LocalContext.current
     val providerSegmentContainerShape = RoundedCornerShape(20.dp)
     val providerSegmentItemShape = RoundedCornerShape(8.dp)
+    val scope = rememberCoroutineScope()
+    
+    val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
+    val musicExtensions = remember(allExtensions) {
+        allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.MusicExtension>()
+    }
+    val currentExtension by playerViewModel.currentMusicExtension.collectAsStateWithLifecycle()
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -68,7 +86,8 @@ fun StreamingProviderSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 28.dp),
+                .padding(bottom = 28.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -104,6 +123,37 @@ fun StreamingProviderSheet(
                         .clip(providerSegmentContainerShape),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    // Dynamic Echo Extensions
+                    musicExtensions.forEach { extension ->
+                        val isSelected = currentExtension?.metadata?.id == extension.metadata.id
+                        ProviderRow(
+                            iconPainter = rememberAsyncImagePainter((extension.metadata.icon as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url),
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            title = extension.metadata.name,
+                            subtitle = extension.metadata.description,
+                            shape = providerSegmentItemShape,
+                            isConnected = isSelected,
+                            onClick = {
+                                scope.launch {
+                                    val instance = extension.instance.value().getOrNull()
+                                    if (instance is LoginClient && !isSelected) {
+                                        onNavigateToExtensionLogin(extension.metadata.id)
+                                    } else {
+                                        playerViewModel.selectMusicExtension(extension)
+                                    }
+                                    onDismissRequest()
+                                }
+                            }
+                        )
+                    }
+
+                    if (musicExtensions.isNotEmpty()) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                    }
+
                     ProviderRow(
                         iconPainter = painterResource(R.drawable.telegram),
                         iconTint = Color(0xFF2AABEE),

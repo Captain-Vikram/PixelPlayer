@@ -95,8 +95,8 @@ internal class SheetVerticalDragGestureHandler(
 
         val verticalVelocity = velocityTracker.calculateVelocity().y
         val currentFraction = playerContentExpansionFraction.value
-        val minDragThresholdPx = with(densityProvider()) { 5.dp.toPx() }
-        val velocityThreshold = 150f
+        val minDragThresholdPx = with(densityProvider()) { 3.dp.toPx() }
+        val velocityThreshold = 120f
 
         val targetState = resolveVerticalSheetTargetState(
             currentSheetContentState = currentSheetStateProvider(),

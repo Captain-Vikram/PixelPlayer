@@ -54,6 +54,7 @@ import com.theveloper.pixelplay.presentation.components.ShimmerBox
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.SmartImage
+import com.theveloper.pixelplay.presentation.utils.bounceClick
 
 @Immutable
 private data class EnhancedSongAnimationTarget(
@@ -97,6 +98,7 @@ fun EnhancedSongListItem(
     selectionIndex: Int? = null,
     isSelectionMode: Boolean = false,
     showMoreOptionsButton: Boolean = true,
+    sourceLabel: String? = null,
     onLongPress: () -> Unit = {},
     onMoreOptionsClick: (Song) -> Unit,
     onClick: () -> Unit
@@ -254,22 +256,15 @@ fun EnhancedSongListItem(
                         Modifier
                     }
                 )
-                .pointerInput(isSelectionMode) {
-                    detectTapGestures(
-                        onTap = { 
-                            if (isSelectionMode) {
-                                // In selection mode, tap toggles selection
-                                onLongPress()
-                            } else {
-                                onClick() 
-                            }
-                        },
-                        onLongPress = {
-                            // Long press always activates/toggles selection
+                .bounceClick(
+                    onClick = {
+                        if (isSelectionMode) {
                             onLongPress()
+                        } else {
+                            onClick()
                         }
-                    )
-                },
+                    }
+                ),
             shape = surfaceShape,
             color = containerColor,
         ) {
@@ -349,13 +344,24 @@ fun EnhancedSongListItem(
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = song.displayArtist,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = contentColor.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = song.displayArtist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = contentColor.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (sourceLabel != null) {
+                            Text(
+                                text = " • $sourceLabel",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
                 
                 val showPlayingIndicator = isCurrentSong && !isSelectionMode

@@ -37,9 +37,9 @@ class GlobalSettingsModuleHandler @Inject constructor(
         val entries: List<PreferenceBackupEntry> = gson.fromJson(payload, type)
         // Clear only the keys this handler owns (exclude playlist, quickfill, equalizer keys)
         userPreferencesRepository.clearPreferencesExceptKeys(
-            PlaylistsModuleHandler.PLAYLIST_KEYS +
+            (PlaylistsModuleHandler.PLAYLIST_KEYS +
             QuickFillModuleHandler.QUICK_FILL_KEYS +
-            EqualizerModuleHandler.EQUALIZER_KEYS
+            EqualizerModuleHandler.EQUALIZER_KEYS).toList()
         )
         if (entries.isNotEmpty()) {
             userPreferencesRepository.importPreferencesFromBackup(entries, clearExisting = false)

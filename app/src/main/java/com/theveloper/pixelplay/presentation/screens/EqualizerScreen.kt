@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset // Added
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize // Added
 import androidx.compose.foundation.layout.size
@@ -1188,7 +1189,7 @@ private fun EffectControlsSection(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .height(androidx.compose.foundation.layout.IntrinsicSize.Max) // Ensure equal heights
+            .heightIn(min = 160.dp) // Removed IntrinsicSize.Max to prevent lazy layout crashes
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {

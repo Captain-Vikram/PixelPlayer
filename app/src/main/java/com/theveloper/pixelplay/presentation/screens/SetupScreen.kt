@@ -55,6 +55,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -1793,7 +1794,7 @@ private fun SetupRestoreDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(bottom = 12.dp)
                     ) {
-                        items(availableModules) { section ->
+                        items(availableModules, key = { it.ordinal }) { section ->
                             val detail = plan.moduleDetails[section]
                             val selected = section in plan.selectedModules
                             SetupRestoreSectionRow(

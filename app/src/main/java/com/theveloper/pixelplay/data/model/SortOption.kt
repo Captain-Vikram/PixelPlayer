@@ -428,6 +428,17 @@ sealed class SortOption(
         return resolveForDirection(targetDirection)
     }
 
+    fun supportsTab(tabId: LibraryTabId): Boolean {
+        return when (tabId) {
+            LibraryTabId.SONGS -> SONGS.contains(this)
+            LibraryTabId.ALBUMS -> ALBUMS.contains(this)
+            LibraryTabId.ARTISTS -> ARTISTS.contains(this)
+            LibraryTabId.PLAYLISTS -> PLAYLISTS.contains(this)
+            LibraryTabId.FOLDERS -> FOLDERS.contains(this)
+            LibraryTabId.LIKED -> LIKED.contains(this)
+        }
+    }
+
     companion object {
 
         val SONGS: List<SortOption> by lazy {

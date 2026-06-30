@@ -181,7 +181,9 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         .offset { fullPlayerOffset }
                 ) {
                     val latestInfrequentPlayerState = rememberUpdatedState(infrequentPlayerState)
-                    val latestIsFavorite = rememberUpdatedState(isFavorite)
+                    val isFavorite by playerViewModel.isCurrentSongFavorite.collectAsStateWithLifecycle()
+                    val isDownloadable by playerViewModel.isCurrentSongDownloadable.collectAsStateWithLifecycle()
+
                     val expansionFractionProvider = remember(playerContentExpansionFraction) {
                         { playerContentExpansionFraction.value }
                     }
@@ -204,7 +206,10 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         { latestInfrequentPlayerState.value.lyrics }
                     }
                     val isFavoriteProvider = remember {
-                        { latestIsFavorite.value }
+                        { isFavorite }
+                    }
+                    val isDownloadableProvider = remember {
+                        { isDownloadable }
                     }
                     val onPlayPause = remember(playerViewModel) { playerViewModel::playPause }
                     val onSeek = remember(playerViewModel) { playerViewModel::seekTo }
@@ -218,6 +223,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                     }
                     val onRepeatToggle = remember(playerViewModel) { playerViewModel::cycleRepeatMode }
                     val onFavoriteToggle = remember(playerViewModel) { playerViewModel::toggleFavorite }
+                    val onDownloadClick = remember(playerViewModel) { playerViewModel::downloadCurrentSong }
 
                     FullPlayerContent(
                         currentSong = currentSongNonNull,
@@ -234,6 +240,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         loadingTweaks = fullPlayerLoadingTweaks,
                         isSheetDragGestureActive = isSheetDragGestureActive,
                         playerViewModel = playerViewModel,
+                    userPreferencesRepository = playerViewModel.userPreferencesRepository,
                         currentPositionProvider = currentPositionProvider,
                         isPlayingProvider = isPlayingProvider,
                         playWhenReadyProvider = playWhenReadyProvider,
@@ -255,7 +262,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         onShowCastClicked = onShowCastClicked,
                         onShuffleToggle = onShuffleToggle,
                         onRepeatToggle = onRepeatToggle,
-                        onFavoriteToggle = onFavoriteToggle
+                        onFavoriteToggle = onFavoriteToggle,
+                        onDownloadClick = onDownloadClick
                     )
                 }
             }
@@ -309,6 +317,7 @@ internal fun UnifiedPlayerPrewarmLayer(
                 val totalDurationProvider = remember { { latestInfrequentPlayerState.value.totalDuration } }
                 val lyricsProvider = remember { { latestInfrequentPlayerState.value.lyrics } }
                 val isFavoriteProvider = remember { { latestIsFavorite.value } }
+                val isDownloadableProvider = remember { { false } } // Prewarm doesn't need real download check
                 val onPlayPause = remember(playerViewModel) { playerViewModel::playPause }
                 val onSeek = remember(playerViewModel) { playerViewModel::seekTo }
                 val onNext = remember(playerViewModel) { playerViewModel::nextSong }
@@ -316,6 +325,7 @@ internal fun UnifiedPlayerPrewarmLayer(
                 val onShuffleToggle = remember(playerViewModel) { { playerViewModel.toggleShuffle() } }
                 val onRepeatToggle = remember(playerViewModel) { playerViewModel::cycleRepeatMode }
                 val onFavoriteToggle = remember(playerViewModel) { playerViewModel::toggleFavorite }
+                val onDownloadClick = remember(playerViewModel) { playerViewModel::downloadCurrentSong }
 
                 FullPlayerContent(
                     currentSong = currentSong,
@@ -331,6 +341,7 @@ internal fun UnifiedPlayerPrewarmLayer(
                     carouselStyle = carouselStyle,
                     loadingTweaks = fullPlayerLoadingTweaks,
                     playerViewModel = playerViewModel,
+                    userPreferencesRepository = playerViewModel.userPreferencesRepository,
                     currentPositionProvider = currentPositionProvider,
                     isPlayingProvider = isPlayingProvider,
                     playWhenReadyProvider = playWhenReadyProvider,
@@ -352,8 +363,10 @@ internal fun UnifiedPlayerPrewarmLayer(
                     onShowCastClicked = {},
                     onShuffleToggle = onShuffleToggle,
                     onRepeatToggle = onRepeatToggle,
-                    onFavoriteToggle = onFavoriteToggle
-                )
+                    onFavoriteToggle = onFavoriteToggle,
+                    onDownloadClick = onDownloadClick
+                    )
+
             }
         }
     }
