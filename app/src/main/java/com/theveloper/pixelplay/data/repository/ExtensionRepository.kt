@@ -148,6 +148,14 @@ class ExtensionRepository @Inject constructor(
 
         repositoryScope.launch {
             extensionEngine.current.collect { current ->
+                // Clear feed lists and cache instantly to prevent stale UI transitions
+                _shelves.value = emptyList()
+                _yourMixSongsFromExtension.value = emptyList()
+                _dailyMixSongsFromExtension.value = emptyList()
+                if (current != null) {
+                    clearCache(current.metadata.id)
+                }
+
                 _currentMusicExtension.value = current
                 if (current != null) {
                     loadHomeFeed()

@@ -118,16 +118,16 @@ fun SourceSelectionBottomSheet(
                     )
                 }
 
-                if (musicExtensions.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Extensions",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 12.dp, top = 8.dp)
-                        )
-                    }
+                item {
+                    Text(
+                        text = "Extensions",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 12.dp, top = 8.dp)
+                    )
+                }
 
+                if (musicExtensions.isNotEmpty()) {
                     // Extensions
                     items(musicExtensions, key = { it.metadata.id }) { extension ->
                         val isSelected = extension.metadata.id == currentMusicExtension?.metadata?.id
@@ -161,6 +161,17 @@ fun SourceSelectionBottomSheet(
                             shape = itemShape
                         )
                     }
+                }
+
+                item {
+                    SourceRow(
+                        title = "Manage Extensions",
+                        subtitle = "Install more from the store",
+                        iconVector = Icons.Rounded.Extension,
+                        iconTint = MaterialTheme.colorScheme.secondary,
+                        onClick = onNavigateToStore,
+                        shape = itemShape
+                    )
                 }
 
                 if (lyricsExtensions.isNotEmpty()) {
@@ -252,21 +263,7 @@ fun SourceSelectionBottomSheet(
                     )
                 }
 
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                // Management shortcut
-                item {
-                    SourceRow(
-                        title = "Manage Sources",
-                        subtitle = "Install more from the store",
-                        iconVector = Icons.Rounded.Extension,
-                        iconTint = MaterialTheme.colorScheme.secondary,
-                        onClick = onNavigateToStore,
-                        shape = itemShape
-                    )
-                }
+                // Removed bottom Manage Sources shortcut (moved under Extensions section)
             }
         }
     }

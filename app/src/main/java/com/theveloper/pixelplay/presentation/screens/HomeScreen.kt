@@ -593,9 +593,11 @@ fun HomeScreen(
         
         val musicExtensions = remember(allExtensions) {
             allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.MusicExtension>()
+                .filter { it.metadata.isEnabled }
         }
         val lyricsExtensions = remember(allExtensions) {
             allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.LyricsExtension>()
+                .filter { it.metadata.isEnabled }
         }
 
         val isNeteaseLoggedIn by neteaseViewModel.isLoggedIn.collectAsStateWithLifecycle() 

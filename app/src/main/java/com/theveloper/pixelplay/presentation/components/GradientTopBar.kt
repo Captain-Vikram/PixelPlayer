@@ -222,7 +222,7 @@ fun HomeGradientTopBar(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
+                            imageVector = Icons.Rounded.Storage,
                             contentDescription = "Source Selection",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)

@@ -532,7 +532,10 @@ class MainActivity : ComponentActivity() {
                 Screen.RecentlyPlayed.route,
                 Screen.DeviceCapabilities.route,
                 Screen.EasterEgg.route,
-                Screen.WordDelimiterConfig.route
+                Screen.WordDelimiterConfig.route,
+                Screen.Extensions.route,
+                Screen.ExtensionSettings.route,
+                Screen.ExtensionLogin.route
             )
         }
         val shouldHideNavigationBar by remember(currentRoute, isSearchBarActive) {
@@ -796,7 +799,15 @@ class MainActivity : ComponentActivity() {
                                 .map { it.currentSong?.id != null }
                                 .distinctUntilChanged()
                         }.collectAsStateWithLifecycle(initialValue = false)
-                        val routesWithHiddenMiniPlayer = remember { setOf(Screen.NavBarCrRad.route, Screen.DJSpace.route) }
+                        val routesWithHiddenMiniPlayer = remember {
+                            setOf(
+                                Screen.NavBarCrRad.route,
+                                Screen.DJSpace.route,
+                                Screen.Extensions.route,
+                                Screen.ExtensionSettings.route,
+                                Screen.ExtensionLogin.route
+                            )
+                        }
                         val shouldHideMiniPlayer by remember(currentRoute) {
                             derivedStateOf { currentRoute in routesWithHiddenMiniPlayer }
                         }
