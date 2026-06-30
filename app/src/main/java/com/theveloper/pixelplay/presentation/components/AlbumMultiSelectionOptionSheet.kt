@@ -178,7 +178,7 @@ fun AlbumMultiSelectionOptionSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
+                    .heightIn(min = 66.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {

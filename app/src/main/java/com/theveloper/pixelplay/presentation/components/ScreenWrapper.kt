@@ -204,11 +204,14 @@ fun ScreenWrapper(
         content()
 
         // Dim Layer Overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = animatedDimAlpha }
-                .background(Color.Black)
-        )
+        // Conditionally composed based on targetDim to ensure no touch blocking when inactive.
+        if (animatedDimAlpha > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = animatedDimAlpha }
+                    .background(Color.Black)
+            )
+        }
     }
 }

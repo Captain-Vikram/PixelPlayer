@@ -30,11 +30,11 @@ sealed class Screen(val route: String) {
     // La ruta base es "album_detail". La ruta completa con el argumento se define en AppNavigation.
     object AlbumDetail : Screen("album_detail/{albumId}") {
         // Función de ayuda para construir la ruta de navegación con el ID del álbum.
-        fun createRoute(albumId: Long) = "album_detail/$albumId"
+        fun createRoute(albumId: String) = "album_detail/$albumId"
     }
 
     object ArtistDetail : Screen("artist_detail/{artistId}") {
-        fun createRoute(artistId: Long) = "artist_detail/$artistId"
+        fun createRoute(artistId: String) = "artist_detail/$artistId"
     }
 
     object EditTransition : Screen("edit_transition?playlistId={playlistId}") {
@@ -55,5 +55,13 @@ sealed class Screen(val route: String) {
     object QqMusicDashboard : Screen("qqmusic_dashboard")
     object NavidromeDashboard : Screen("navidrome_dashboard")
     object JellyfinDashboard : Screen("jellyfin_dashboard")
+
+    object Extensions : Screen("extensions")
+    object ExtensionSettings : Screen("extension_settings/{extensionId}") {
+        fun createRoute(extensionId: String) = "extension_settings/$extensionId"
+    }
+    object ExtensionLogin : Screen("extension_login/{extensionId}") {
+        fun createRoute(extensionId: String) = "extension_login/$extensionId"
+    }
 
 }

@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.data.service
 
+import com.theveloper.pixelplay.extensions.core.toSong
 import android.app.AlarmManager
 import android.app.BackgroundServiceStartNotAllowedException
 import android.app.ForegroundServiceStartNotAllowedException
@@ -147,6 +148,8 @@ class MusicService : MediaLibraryService() {
     lateinit var controller: TransitionController
     @Inject
     lateinit var musicRepository: MusicRepository
+    @Inject
+    lateinit var extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
     @Inject
     lateinit var userPreferencesRepository: UserPreferencesRepository
     @Inject
@@ -2696,17 +2699,31 @@ class MusicService : MediaLibraryService() {
     private suspend fun resolveMediaItemsByIds(
         requestedItems: List<MediaItem>
     ): TrustedMediaItemsResolution {
-        val songIds = requestedItems.map { it.mediaId }
-        val songs = musicRepository.getSongsByIds(songIds).first()
-        val songMap = songs.associateBy { it.id }
+        val resolvedMediaItems = mutableListOf<MediaItem>()
+
+        for (item in requestedItems) {
+            val resolved = if (item.mediaId.startsWith("extension:")) {
+                try {
+                    engine.resolveMediaItem(item)
+                } catch (e: Exception) {
+                    Timber.tag("MusicService").e(e, "Error resolving extension song: ${item.mediaId}")
+                    item
+                }
+            } else {
+                val song = musicRepository.getSongsByIds(listOf(item.mediaId)).first().firstOrNull()
+                if (song != null) {
+                    MediaItemBuilder.buildForExternalController(this, song)
+                } else {
+                    item
+                }
+            }
+            resolvedMediaItems.add(resolved)
+        }
 
         return resolveMediaItemsWithTrustedArtworkGrants(requestedItems) { mediaId ->
-            songMap[mediaId]?.let { song ->
-                MediaItemBuilder.buildForExternalController(this, song)
-            }
+            resolvedMediaItems.find { it.mediaId == mediaId }
         }
     }
-
     private fun grantArtworkUriPermissions(
         targetPackage: String,
         mediaItems: List<MediaItem>

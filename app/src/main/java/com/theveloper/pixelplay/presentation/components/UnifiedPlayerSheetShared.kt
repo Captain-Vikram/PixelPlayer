@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import coil.size.Size
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import com.theveloper.pixelplay.presentation.utils.bounceClick
 
 internal val LocalMaterialTheme = compositionLocalOf<ColorScheme> { error("No ColorScheme provided") }
 
@@ -154,14 +155,10 @@ internal fun MiniPlayerContentInternal(
                 .size(36.dp)
                 .clip(CircleShape)
                 .background(LocalMaterialTheme.current.onPrimary)
-                .clickable(
-                    interactionSource = previousInteraction,
-                    indication = miniPlayerIndication,
-                    enabled = controlsEnabled
-                ) {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onPrevious()
-                },
+                .bounceClick(
+                    enabled = controlsEnabled,
+                    onClick = onPrevious
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -179,14 +176,10 @@ internal fun MiniPlayerContentInternal(
                 .size(36.dp)
                 .clip(CircleShape)
                 .background(LocalMaterialTheme.current.primary)
-                .clickable(
-                    interactionSource = playPauseInteraction,
-                    indication = miniPlayerIndication,
-                    enabled = controlsEnabled
-                ) {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onPlayPause()
-                },
+                .bounceClick(
+                    enabled = controlsEnabled,
+                    onClick = onPlayPause
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -204,11 +197,10 @@ internal fun MiniPlayerContentInternal(
                 .size(36.dp)
                 .clip(CircleShape)
                 .background(LocalMaterialTheme.current.onPrimary)
-                .clickable(
-                    interactionSource = nextInteraction,
-                    indication = miniPlayerIndication,
-                    enabled = controlsEnabled
-                ) { onNext() },
+                .bounceClick(
+                    enabled = controlsEnabled,
+                    onClick = onNext
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(

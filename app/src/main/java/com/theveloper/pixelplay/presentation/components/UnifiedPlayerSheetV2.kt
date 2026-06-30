@@ -47,8 +47,11 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository.Companion.sanitizeNavBarCornerRadius
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import com.theveloper.pixelplay.presentation.utils.bounceClick
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -63,7 +66,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 import com.theveloper.pixelplay.data.model.Song
-import com.theveloper.pixelplay.data.preferences.sanitizeNavBarCornerRadius
 import com.theveloper.pixelplay.presentation.components.scoped.PlayerAlbumNavigationEffect
 import com.theveloper.pixelplay.presentation.components.scoped.PlayerArtistNavigationEffect
 import com.theveloper.pixelplay.presentation.components.scoped.PlayerSheetPredictiveBackHandler
@@ -734,13 +736,12 @@ fun UnifiedPlayerSheetV2(
                                 enabled = sheetInteractionState.canDragSheet,
                                 handler = sheetInteractionState.sheetVerticalDragGestureHandler
                             )
-                            .clickable(
+                            .bounceClick(
                                 enabled = tapBackgroundClosesPlayer || currentSheetContentState == PlayerSheetState.COLLAPSED,
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                playerViewModel.togglePlayerSheetState()
-                            }
+                                onClick = {
+                                    playerViewModel.togglePlayerSheetState()
+                                }
+                            )
                             .semantics {
                                 contentDescription = playerSheetSemanticsDescription
                             }

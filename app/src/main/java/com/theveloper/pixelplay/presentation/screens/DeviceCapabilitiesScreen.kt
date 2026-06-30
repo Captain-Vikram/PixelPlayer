@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -529,7 +530,7 @@ private fun PlaybackReadinessCard(
             }
 
             Row(
-                modifier = Modifier.height(IntrinsicSize.Min),
+                modifier = Modifier.wrapContentHeight(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 HeroMetricTile(
@@ -591,7 +592,7 @@ private fun LocalMusicStorageCard(
         modifier = modifier
     ) {
         Row(
-            modifier = Modifier.height(IntrinsicSize.Min),
+            modifier = Modifier.wrapContentHeight(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             InfoTile(
@@ -674,7 +675,7 @@ private fun PlaybackPathCard(
         modifier = modifier
     ) {
         Row(
-            modifier = Modifier.height(IntrinsicSize.Min),
+            modifier = Modifier.wrapContentHeight(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             InfoTile(
@@ -695,7 +696,7 @@ private fun PlaybackPathCard(
         }
 
         Row(
-            modifier = Modifier.height(IntrinsicSize.Min),
+            modifier = Modifier.wrapContentHeight(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             InfoTile(
@@ -740,7 +741,7 @@ private fun PlaybackPathCard(
         exoPlayerInfo?.let { exo ->
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             Row(
-                modifier = Modifier.height(IntrinsicSize.Min),
+                modifier = Modifier.wrapContentHeight(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 InfoTile(
@@ -773,7 +774,7 @@ private fun FormatCompatibilityCard(
         )
         rows.forEachIndexed { index, rowFormats ->
             Row(
-                modifier = Modifier.height(IntrinsicSize.Min),
+                modifier = Modifier.wrapContentHeight(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 rowFormats.forEach { format ->
@@ -906,7 +907,7 @@ private fun DeviceInfoPanel(
         val rows = localized.chunked(2)
         rows.forEachIndexed { index, entries ->
             Row(
-                modifier = Modifier.height(IntrinsicSize.Min),
+                modifier = Modifier.wrapContentHeight(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 entries.forEach { (label, value) ->

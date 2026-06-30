@@ -3,77 +3,88 @@ package com.theveloper.pixelplay.presentation.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.media3.common.util.UnstableApi
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.presentation.components.SmartImage
 import com.theveloper.pixelplay.presentation.viewmodel.DeckState
 import com.theveloper.pixelplay.presentation.viewmodel.MashupViewModel
+import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import androidx.compose.ui.res.stringResource
 
-@androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MashupScreen(
-    mashupViewModel: MashupViewModel = hiltViewModel()
+    onNavigateBack: () -> Unit,
+    mashupViewModel: MashupViewModel = hiltViewModel(),
+    playerViewModel: PlayerViewModel = hiltViewModel()
 ) {
-    val mashupUiState by mashupViewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by mashupViewModel.uiState.collectAsStateWithLifecycle()
+    val deck1Progress by mashupViewModel.deck1Progress.collectAsStateWithLifecycle()
+    val deck2Progress by mashupViewModel.deck2Progress.collectAsStateWithLifecycle()
+    val allSongs by mashupViewModel.uiState.map { it.allSongs }.collectAsStateWithLifecycle(initialValue = emptyList())
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
 
+    // Smartly pause global music when entering the DJ Mashup page to avoid audio overlapping
+    LaunchedEffect(Unit) {
+        playerViewModel.pause()
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.mashup_title)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
+            CenterAlignedTopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.AutoAwesome, null, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            stringResource(R.string.mashup_title),
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, null)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                )
             )
         }
     ) { paddingValues ->
@@ -88,17 +99,26 @@ fun MashupScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Spacer(Modifier.height(8.dp))
+                
+                Text(
+                    stringResource(R.string.presentation_batch_d_mashup_subtitle),
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    val isLoading1 = mashupUiState.deck1.song == null && mashupUiState.showSongPickerForDeck == 1
-                    val isLoading2 = mashupUiState.deck2.song == null && mashupUiState.showSongPickerForDeck == 2
+                    val isLoading1 = uiState.deck1.song == null && uiState.showSongPickerForDeck == 1
+                    val isLoading2 = uiState.deck2.song == null && uiState.showSongPickerForDeck == 2
 
-                    // El resto de la UI (DeckUi, Crossfader) permanece igual
                     DeckUi(
                         deckNumber = 1,
-                        deckState = mashupUiState.deck1,
+                        deckState = uiState.deck1,
+                        progressProvider = { deck1Progress },
                         isLoading = isLoading1,
                         loadingMessage = stringResource(R.string.mashup_loading),
                         onPlayPause = { mashupViewModel.playPause(1) },
@@ -108,9 +128,11 @@ fun MashupScreen(
                         onSpeedChange = { speed -> mashupViewModel.setSpeed(1, speed) },
                         onNudge = { amount -> mashupViewModel.nudge(1, amount) }
                     )
+                    
                     DeckUi(
                         deckNumber = 2,
-                        deckState = mashupUiState.deck2,
+                        deckState = uiState.deck2,
+                        progressProvider = { deck2Progress },
                         isLoading = isLoading2,
                         loadingMessage = stringResource(R.string.mashup_loading),
                         onPlayPause = { mashupViewModel.playPause(2) },
@@ -123,26 +145,28 @@ fun MashupScreen(
                 }
 
                 Crossfader(
-                    value = mashupUiState.crossfaderValue,
+                    value = uiState.crossfaderValue,
                     onValueChange = { mashupViewModel.onCrossfaderChange(it) },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(Modifier.height(8.dp))
+                
+                Spacer(Modifier.height(32.dp))
             }
 
-            if (mashupUiState.showSongPickerForDeck != null) {
+            if (uiState.showSongPickerForDeck != null) {
                 ModalBottomSheet(
                     onDismissRequest = { mashupViewModel.closeSongPicker() },
                     sheetState = sheetState
                 ) {
                     SongPickerSheet(
-                        songs = mashupUiState.allSongs,
+                        songs = allSongs,
                         onSongSelected = { song ->
                             scope.launch {
-                                val deck = mashupUiState.showSongPickerForDeck ?: return@launch
+                                val deck = uiState.showSongPickerForDeck ?: return@launch
                                 mashupViewModel.loadSong(deck, song)
                             }
-                        }
+                        },
+                        playerViewModel = playerViewModel
                     )
                 }
             }
@@ -150,13 +174,11 @@ fun MashupScreen(
     }
 }
 
-
-
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DeckUi(
     deckNumber: Int,
     deckState: DeckState,
+    progressProvider: () -> Float,
     isLoading: Boolean,
     loadingMessage: String,
     onPlayPause: () -> Unit,
@@ -168,29 +190,34 @@ private fun DeckUi(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(4.dp)
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (deckState.song != null) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = stringResource(R.string.mashup_deck_n, deckNumber),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    textAlign = TextAlign.Center
+                        .padding(bottom = 12.dp),
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .size(100.dp)
-                            .clip(MaterialTheme.shapes.medium)
+                            .clip(RoundedCornerShape(16.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .clickable(enabled = !isLoading) { onSelectSong() },
                         contentAlignment = Alignment.Center
@@ -206,11 +233,23 @@ private fun DeckUi(
                         }
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(deckState.song?.title ?: stringResource(R.string.mashup_no_song_loaded), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(deckState.song?.artist ?: stringResource(R.string.mashup_artist_placeholder), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            deckState.song?.title ?: stringResource(R.string.mashup_no_song_loaded), 
+                            style = MaterialTheme.typography.titleMedium, 
+                            fontWeight = FontWeight.Bold, 
+                            maxLines = 1, 
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            deckState.song?.artist ?: stringResource(R.string.mashup_artist_placeholder), 
+                            style = MaterialTheme.typography.bodyMedium, 
+                            maxLines = 1, 
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Spacer(Modifier.height(8.dp))
                         Slider(
-                            value = deckState.progress,
+                            value = progressProvider(),
                             onValueChange = onSeek,
                             valueRange = 0f..1f,
                             enabled = deckState.song != null,
@@ -223,33 +262,78 @@ private fun DeckUi(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 12.dp, bottom = 4.dp)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(16.dp),
+                            .padding(top = 16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(stringResource(R.string.mashup_stem_separation_unavailable), style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            stringResource(R.string.mashup_stem_separation_unavailable), 
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceAround,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    OutlinedButton(onClick = { onNudge(-100) }, enabled = deckState.song != null) { Text("<<", maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    IconButton(onClick = onPlayPause, enabled = deckState.song != null, modifier = Modifier.size(56.dp)) {
-                        Icon(painter = painterResource(if (deckState.isPlaying) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24), contentDescription = stringResource(R.string.mashup_cd_play_pause), modifier = Modifier.fillMaxSize())
+                    OutlinedButton(
+                        onClick = { onNudge(-100) }, 
+                        enabled = deckState.song != null,
+                        shape = RoundedCornerShape(12.dp)
+                    ) { 
+                        Text("<<", maxLines = 1, overflow = TextOverflow.Ellipsis) 
                     }
-                    OutlinedButton(onClick = { onNudge(100) }, enabled = deckState.song != null) { Text(">>", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    
+                    FilledIconButton(
+                        onClick = onPlayPause, 
+                        enabled = deckState.song != null, 
+                        modifier = Modifier.size(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(if (deckState.isPlaying) R.drawable.rounded_pause_24 else R.drawable.rounded_play_arrow_24), 
+                            contentDescription = stringResource(R.string.mashup_cd_play_pause), 
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    
+                    OutlinedButton(
+                        onClick = { onNudge(100) }, 
+                        enabled = deckState.song != null,
+                        shape = RoundedCornerShape(12.dp)
+                    ) { 
+                        Text(">>", maxLines = 1, overflow = TextOverflow.Ellipsis) 
+                    }
                 }
 
-                Column(modifier = Modifier.padding(top = 8.dp)) {
-                    SliderControl(label = stringResource(R.string.mashup_volume), value = deckState.volume, onValueChange = onVolumeChange, valueRange = 0f..1f, enabled = deckState.song != null)
-                    SliderControl(label = stringResource(R.string.mashup_speed), value = deckState.speed, onValueChange = onSpeedChange, valueRange = 0.5f..2f, steps = 14, enabled = deckState.song != null) {
-                        Text(text = stringResource(R.string.mashup_speed_multiplier, deckState.speed), style = MaterialTheme.typography.labelSmall)
+                Column(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SliderControl(
+                        label = stringResource(R.string.mashup_volume), 
+                        value = deckState.volume, 
+                        onValueChange = onVolumeChange, 
+                        valueRange = 0f..1f, 
+                        enabled = deckState.song != null
+                    )
+                    SliderControl(
+                        label = stringResource(R.string.mashup_speed), 
+                        value = deckState.speed, 
+                        onValueChange = onSpeedChange, 
+                        valueRange = 0.5f..2f, 
+                        steps = 14, 
+                        enabled = deckState.song != null
+                    ) {
+                        Text(
+                            text = stringResource(R.string.mashup_speed_multiplier, deckState.speed), 
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -262,7 +346,7 @@ private fun DeckUi(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(0.8f))
+                    CircularProgressIndicator(modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(16.dp))
                     Text(loadingMessage, style = MaterialTheme.typography.bodyMedium)
                 }
@@ -277,40 +361,128 @@ private fun SliderControl(
     steps: Int = 0, enabled: Boolean, endContent: @Composable (() -> Unit)? = null
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(60.dp), color = if(enabled) LocalContentColor.current else LocalContentColor.current.copy(alpha = 0.38f))
-        Slider(value = value, onValueChange = onValueChange, valueRange = valueRange, steps = steps, modifier = Modifier.weight(1f), enabled = enabled)
+        Text(
+            label, 
+            style = MaterialTheme.typography.labelMedium, 
+            modifier = Modifier.width(64.dp), 
+            color = if(enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        )
+        Slider(
+            value = value, 
+            onValueChange = onValueChange, 
+            valueRange = valueRange, 
+            steps = steps, 
+            modifier = Modifier.weight(1f), 
+            enabled = enabled
+        )
         if (endContent != null) {
-            Box(modifier = Modifier.width(40.dp), contentAlignment = Alignment.Center) { endContent() }
+            Box(modifier = Modifier.width(48.dp), contentAlignment = Alignment.CenterEnd) { endContent() }
         }
     }
 }
 
 @Composable
 private fun Crossfader(value: Float, onValueChange: (Float) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(stringResource(R.string.mashup_crossfader), style = MaterialTheme.typography.titleMedium)
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.mashup_deck_1), style = MaterialTheme.typography.bodyMedium)
-            Slider(value = value, onValueChange = onValueChange, valueRange = -1f..1f, modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp))
-            Text(stringResource(R.string.mashup_deck_2), style = MaterialTheme.typography.bodyMedium)
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                stringResource(R.string.mashup_crossfader), 
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(), 
+                verticalAlignment = Alignment.CenterVertically, 
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    stringResource(R.string.mashup_deck_1), 
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Slider(
+                    value = value, 
+                    onValueChange = onValueChange, 
+                    valueRange = -1f..1f, 
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp)
+                )
+                Text(
+                    stringResource(R.string.mashup_deck_2), 
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun SongPickerSheet(songs: List<Song>, onSongSelected: (Song) -> Unit) {
-    Column(modifier = Modifier.navigationBarsPadding()) {
-        Text(stringResource(R.string.mashup_select_song_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp), textAlign = TextAlign.Center)
-        LazyColumn(modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp)) {
-            items(songs, key = { it.id }) { song ->
+private fun SongPickerSheet(
+    songs: List<Song>,
+    onSongSelected: (Song) -> Unit,
+    playerViewModel: PlayerViewModel
+) {
+    val searchResults by playerViewModel.playerUiState.map { it.searchResults }.collectAsStateWithLifecycle(initialValue = persistentListOf())
+    var searchQuery by remember { mutableStateOf("") }
+    
+    val filteredSongs = remember(songs, searchResults, searchQuery) {
+        if (searchQuery.isBlank()) {
+            songs.sortedByDescending { it.extensionId != null }
+        } else {
+            searchResults.mapNotNull { (it as? com.theveloper.pixelplay.data.model.SearchResultItem.SongItem)?.song }
+        }
+    }
+
+    Column(modifier = Modifier.navigationBarsPadding().fillMaxHeight(0.85f)) {
+        Text(
+            text = stringResource(R.string.mashup_select_song_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { 
+                searchQuery = it
+                playerViewModel.searchStateHolder.performSearch(it) 
+            },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            placeholder = { Text("Search songs for mashup...") },
+            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { 
+                        searchQuery = ""
+                        playerViewModel.searchStateHolder.performSearch("") 
+                    }) {
+                        Icon(Icons.Rounded.Close, null)
+                    }
+                }
+            },
+            shape = RoundedCornerShape(16.dp),
+            singleLine = true
+        )
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(horizontal = 8.dp)
+        ) {
+            items(filteredSongs, key = { it.id }) { song ->
                 SongPickerItem(song = song, onClick = { onSongSelected(song) })
-                HorizontalDivider()
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
     }
@@ -318,22 +490,40 @@ private fun SongPickerSheet(songs: List<Song>, onSongSelected: (Song) -> Unit) {
 
 @Composable
 private fun SongPickerItem(song: Song, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        SmartImage(
-            model = song.albumArtUriString,
-            contentDescription = stringResource(R.string.mashup_cd_song_cover),
-            modifier = Modifier.size(40.dp)
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold)
-            Text(text = song.displayArtist, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-        }
-    }
+    ListItem(
+        modifier = Modifier.clickable { onClick() },
+        leadingContent = {
+            SmartImage(
+                model = song.albumArtUriString,
+                contentDescription = stringResource(R.string.mashup_cd_song_cover),
+                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp))
+            )
+        },
+        headlineContent = { 
+            Text(
+                song.title, 
+                maxLines = 1, 
+                overflow = TextOverflow.Ellipsis, 
+                fontWeight = FontWeight.Bold
+            ) 
+        },
+        supportingContent = { 
+            Text(
+                song.displayArtist, 
+                maxLines = 1, 
+                overflow = TextOverflow.Ellipsis, 
+                style = MaterialTheme.typography.bodyMedium
+            ) 
+        },
+        trailingContent = if (song.extensionId != null) {
+            {
+                Icon(
+                    Icons.Rounded.AutoAwesome, 
+                    contentDescription = null, 
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        } else null
+    )
 }
