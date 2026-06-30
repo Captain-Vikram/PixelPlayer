@@ -84,19 +84,11 @@ class TransitionRepositoryImpl @Inject constructor(
     }
 
     override fun getGlobalSettings(): Flow<TransitionSettings> {
-        return userPreferences.transitionSettingsFlow.map { settingsStr ->
-            settingsStr?.let {
-                runCatching {
-                    kotlinx.serialization.json.Json.decodeFromString<TransitionSettings>(it)
-                }.getOrNull()
-            } ?: TransitionSettings()
-        }
+        return userPreferences.globalTransitionSettingsFlow
     }
 
     override suspend fun saveGlobalSettings(settings: TransitionSettings) {
-        userPreferences.saveTransitionSettings(
-            kotlinx.serialization.json.Json.encodeToString(settings)
-        )
+        userPreferences.saveGlobalTransitionSettings(settings)
     }
 
     // --- Mappers ---

@@ -37,6 +37,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.data.ai.SongMetadata
 import com.theveloper.pixelplay.data.media.CoverArtUpdate
 import com.theveloper.pixelplay.data.model.Album
 import com.theveloper.pixelplay.data.model.Artist
@@ -174,19 +175,20 @@ private fun moveQueueIndex(index: Int, fromIndex: Int, toIndex: Int): Int {
     }
 }
 
-private data class AiUiSnapshot(
-    val showAiPlaylistSheet: Boolean,
-    val isGeneratingAiPlaylist: Boolean,
-    val aiStatus: String?,
-    val aiError: String?,
-)
-
 private data class SortOptionsSnapshot(
     val songSort: SortOption,
     val albumSort: SortOption,
     val artistSort: SortOption,
     val folderSort: SortOption,
     val favoriteSort: SortOption,
+)
+
+private data class AiUiSnapshot(
+    val showAiPlaylistSheet: Boolean,
+    val isGeneratingAiPlaylist: Boolean,
+    val aiStatus: String?,
+    val aiError: String?,
+    val isGeneratingAiMetadata: Boolean,
 )
 
 @UnstableApi
@@ -478,6 +480,10 @@ class PlayerViewModel @Inject constructor(
     val aiStatus: StateFlow<String?> = aiStateHolder.aiStatus
     val aiError: StateFlow<String?> = aiStateHolder.aiError
 
+    // AI Metadata Generation States
+    val isGeneratingAiMetadata: StateFlow<Boolean> = aiStateHolder.isGeneratingMetadata
+    val aiMetadataSuccess: StateFlow<Boolean> = aiStateHolder.aiMetadataSuccess
+
     private val _selectedSongForInfo = MutableStateFlow<Song?>(null)
     val selectedSongForInfo: StateFlow<Song?> = _selectedSongForInfo.asStateFlow()
 
@@ -532,10 +538,7 @@ class PlayerViewModel @Inject constructor(
         aiPreferencesRepository.nvidiaApiKey,
         aiPreferencesRepository.kimiApiKey,
         aiPreferencesRepository.glmApiKey,
-        aiPreferencesRepository.openaiApiKey,
-        aiPreferencesRepository.ollamaApiKey,
-        aiPreferencesRepository.customApiKey,
-        aiPreferencesRepository.openrouterApiKey
+        aiPreferencesRepository.openaiApiKey
     ) { values ->
         val provider = values[0]
         val gemini = values[1]
@@ -546,11 +549,7 @@ class PlayerViewModel @Inject constructor(
         val kimi = values[6]
         val glm = values[7]
         val openai = values[8]
-        val ollama = values[9]
-        val custom = values[10]
-        val openrouter = values[11]
         when (provider) {
-            "GEMINI" -> gemini.isNotBlank()
             "DEEPSEEK" -> deepseek.isNotBlank()
             "GROQ" -> groq.isNotBlank()
             "MISTRAL" -> mistral.isNotBlank()
@@ -558,10 +557,7 @@ class PlayerViewModel @Inject constructor(
             "KIMI" -> kimi.isNotBlank()
             "GLM" -> glm.isNotBlank()
             "OPENAI" -> openai.isNotBlank()
-            "OPENROUTER" -> openrouter.isNotBlank()
-            "OLLAMA" -> ollama.isNotBlank()
-            "CUSTOM" -> custom.isNotBlank()
-            else -> false
+            else -> gemini.isNotBlank()
         }
     }.distinctUntilChanged()
         .stateIn(
@@ -1667,11 +1663,10 @@ class PlayerViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.foldersSourceFlow.collect { preferredSourceKey ->
-                val preferredSource = com.theveloper.pixelplay.data.model.FolderSource.entries.find { it.storageKey == preferredSourceKey } ?: com.theveloper.pixelplay.data.model.FolderSource.INTERNAL
+            userPreferencesRepository.foldersSourceFlow.collect { preferredSource ->
                 val resolved = resolveFolderSourceState(preferredSource)
-                if (resolved.source.storageKey != preferredSourceKey) {
-                    userPreferencesRepository.setFoldersSource(resolved.source.storageKey)
+                if (resolved.source != preferredSource) {
+                    userPreferencesRepository.setFoldersSource(resolved.source)
                 }
 
                 _playerUiState.update { currentState ->
@@ -1691,7 +1686,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 userPreferencesRepository.folderBackGestureNavigationFlow,
-                userPreferencesRepository.albumsListViewFlow.map { it == "LIST" },
+                userPreferencesRepository.isAlbumsListViewFlow,
             ) { gestureNav: Boolean, albumsList: Boolean ->
                 Pair(gestureNav, albumsList)
             }.collect { (gestureNav, albumsList) ->
@@ -1905,28 +1900,25 @@ class PlayerViewModel @Inject constructor(
             openPlayerSheetCallback = { _isSheetVisible.value = true }
         )
 
-        // Collect AiStateHolder flows for playlist generation state
+        // Collect AiStateHolder flows
         viewModelScope.launch {
             combine(
                 aiStateHolder.showAiPlaylistSheet,
                 aiStateHolder.isGeneratingAiPlaylist,
                 aiStateHolder.aiStatus,
                 aiStateHolder.aiError,
-            ) { show, generating, status, error ->
+                aiStateHolder.isGeneratingMetadata,
+            ) { show, generating, status, error, generatingMetadata ->
                 AiUiSnapshot(
                     showAiPlaylistSheet = show,
                     isGeneratingAiPlaylist = generating,
                     aiStatus = status,
-                    aiError = error
+                    aiError = error,
+                    isGeneratingAiMetadata = generatingMetadata
                 )
             }.collect { snapshot ->
                 _playerUiState.update {
-                    it.copy(
-                        showAiPlaylistSheet = snapshot.showAiPlaylistSheet,
-                        isGeneratingAiPlaylist = snapshot.isGeneratingAiPlaylist,
-                        aiStatus = snapshot.aiStatus,
-                        aiError = snapshot.aiError
-                    )
+                    it.copy(isGeneratingAiMetadata = snapshot.isGeneratingAiMetadata)
                 }
             }
         }
@@ -2616,7 +2608,7 @@ class PlayerViewModel @Inject constructor(
     fun setFoldersSource(source: FolderSource) {
         if (!ENABLE_FOLDERS_SOURCE_SWITCHING) return
         viewModelScope.launch {
-            userPreferencesRepository.setFoldersSource(source.storageKey)
+            userPreferencesRepository.setFoldersSource(source)
         }
     }
 
@@ -2657,7 +2649,7 @@ class PlayerViewModel @Inject constructor(
 
     fun setAlbumsListView(isList: Boolean) {
         viewModelScope.launch {
-            userPreferencesRepository.setAlbumsListView(if (isList) "LIST" else "GRID")
+            userPreferencesRepository.setAlbumsListView(isList)
         }
     }
 
@@ -2735,6 +2727,10 @@ class PlayerViewModel @Inject constructor(
 
     fun retryLastPlaylistGeneration() {
         aiStateHolder.retryLastPlaylistGeneration()
+    }
+
+    fun retryLastMetadataGeneration() {
+        aiStateHolder.retryLastMetadataGeneration()
     }
 
     fun clearQueueExceptCurrent() {
@@ -3008,6 +3004,10 @@ class PlayerViewModel @Inject constructor(
         }.getOrDefault(false)
     }
 
+    suspend fun generateAiMetadata(song: Song, fields: List<String>): Result<SongMetadata> {
+        return aiStateHolder.generateAiMetadata(song, fields)
+    }
+
     private fun updateSongInStates(
         updatedSong: Song,
         newLyrics: Lyrics? = null,
@@ -3161,6 +3161,7 @@ class PlayerViewModel @Inject constructor(
         )
 
     val customGenreIcons: StateFlow<Map<String, String>> = userPreferencesRepository.customGenreIconsFlow
+        .map { map -> map.mapValues { it.value.toString() } }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -3184,7 +3185,7 @@ class PlayerViewModel @Inject constructor(
 
     fun addCustomGenre(genre: String, iconResId: String? = null) {
         viewModelScope.launch {
-            userPreferencesRepository.addCustomGenre(genre, iconResId)
+            userPreferencesRepository.addCustomGenre(genre, iconResId?.toIntOrNull())
         }
     }
 }

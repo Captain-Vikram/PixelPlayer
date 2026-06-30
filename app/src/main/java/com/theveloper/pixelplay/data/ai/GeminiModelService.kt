@@ -15,7 +15,7 @@ data class GeminiModel(
 
 @Singleton
 class GeminiModelService @Inject constructor(
-    private val handler: AiHandler,
+    private val orchestrator: AiOrchestrator,
     private val digestGenerator: UserProfileDigestGenerator,
     private val musicRepository: MusicRepository,
     private val workerManager: AiWorkerManager
@@ -122,7 +122,7 @@ class GeminiModelService @Inject constructor(
                 digestGenerator.generateDigest(allSongs)
             } else ""
 
-            return handler.generateContent(
+            return orchestrator.generateContent(
                 prompt = prompt,
                 type = type,
                 temperature = temperature,

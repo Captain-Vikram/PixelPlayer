@@ -983,7 +983,7 @@ class MusicRepositoryImpl @Inject constructor(
             userPreferencesRepository.allowedDirectoriesFlow,
             userPreferencesRepository.blockedDirectoriesFlow,
             userPreferencesRepository.isFolderFilterActiveFlow,
-            userPreferencesRepository.foldersSourceFlow.map { key -> FolderSource.entries.find { it.storageKey == key } ?: FolderSource.INTERNAL }
+            userPreferencesRepository.foldersSourceFlow
         ) { allowedDirs, blockedDirs, isFolderFilterActive, folderSource ->
             FolderFlowConfig(
                 allowedDirs = allowedDirs,

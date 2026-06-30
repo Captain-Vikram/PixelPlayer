@@ -422,7 +422,7 @@ class AppDataBackupManager @Inject constructor(
             }
             restoreGlobals -> {
                 if (globalEntries.isNotEmpty()) {
-                    userPreferencesRepository.clearPreferencesExceptKeys(playlistPreferenceKeys.toList())
+                    userPreferencesRepository.clearPreferencesExceptKeys(playlistPreferenceKeys)
                     userPreferencesRepository.importPreferencesFromBackup(
                         entries = globalEntries,
                         clearExisting = false
@@ -431,7 +431,7 @@ class AppDataBackupManager @Inject constructor(
             }
             restorePlaylists -> {
                 if (playlistEntries.isNotEmpty()) {
-                    userPreferencesRepository.clearPreferencesByKeys(playlistPreferenceKeys.toList())
+                    userPreferencesRepository.clearPreferencesByKeys(playlistPreferenceKeys)
                     userPreferencesRepository.importPreferencesFromBackup(
                         entries = playlistEntries,
                         clearExisting = false
