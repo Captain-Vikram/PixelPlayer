@@ -60,6 +60,7 @@ data class PlayerUiState(
     val searchHistory: ImmutableList<SearchHistoryItem> = persistentListOf(),
     val searchQuery: String = "",
     val isSyncingLibrary: Boolean = false,
+    val isGeneratingAiMetadata: Boolean = false,
     val selectedSearchFilter: SearchFilterType = SearchFilterType.ALL,
     val currentSourceScope: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All,
     val searchFeedShelves: ImmutableList<dev.brahmkshatriya.echo.common.models.Shelf> = persistentListOf(),

@@ -213,6 +213,24 @@ class PlaylistPreferencesRepository @Inject constructor(
         }
     }
 
+    suspend fun removeSongsFromPlaylist(playlistId: String, songIds: List<String>) {
+        editMutex.withLock {
+            ensureMigratedIfNeeded()
+            val existing = userPlaylistsFlow.first().find { it.id == playlistId } ?: return
+            val updated = existing.copy(songIds = existing.songIds.filterNot { it in songIds })
+            updatePlaylistLocked(updated)
+        }
+    }
+
+    suspend fun reorderPlaylist(playlistId: String, newSongIds: List<String>) {
+        editMutex.withLock {
+            ensureMigratedIfNeeded()
+            val existing = userPlaylistsFlow.first().find { it.id == playlistId } ?: return
+            val updated = existing.copy(songIds = newSongIds)
+            updatePlaylistLocked(updated)
+        }
+    }
+
     suspend fun resetPlaylistPreferencesToDefaults() {
         setPlaylistSongOrderModes(emptyMap())
         setPlaylistsSortOption(SortOption.PlaylistNameAZ.storageKey)

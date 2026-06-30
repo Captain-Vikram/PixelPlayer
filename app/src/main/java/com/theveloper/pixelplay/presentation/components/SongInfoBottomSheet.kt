@@ -92,6 +92,7 @@ import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.theveloper.pixelplay.data.media.CoverArtUpdate
+import com.theveloper.pixelplay.data.ai.SongMetadata
 import com.theveloper.pixelplay.ui.theme.MontserratFamily
 import com.theveloper.pixelplay.presentation.viewmodel.SongInfoBottomSheetViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.SongInfoBottomSheetViewModel.ToneTarget
@@ -142,6 +143,7 @@ fun SongInfoBottomSheet(
         replayGainAlbumGainDb: String,
         coverArtUpdate: CoverArtUpdate?
     ) -> Unit,
+    generateAiMetadata: suspend (List<String>) -> Result<SongMetadata> = { Result.failure(Exception("AI Metadata generation not supported")) },
     removeFromListTrigger: () -> Unit,
     isGeneratingMetadata: Boolean = false,
     aiMetadataSuccess: Boolean = false,

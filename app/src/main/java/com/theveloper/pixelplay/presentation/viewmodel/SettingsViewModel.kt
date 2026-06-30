@@ -569,8 +569,7 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.collagePatternFlow.collect { patternStr ->
-                val pattern = com.theveloper.pixelplay.data.preferences.CollagePattern.entries.find { it.storageKey == patternStr } ?: com.theveloper.pixelplay.data.preferences.CollagePattern.COSMIC_SWIRL
+            userPreferencesRepository.collagePatternFlow.collect { pattern ->
                 _uiState.update { it.copy(collagePattern = pattern) }
             }
         }
@@ -902,7 +901,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setCollagePattern(pattern: CollagePattern) {
         viewModelScope.launch {
-            userPreferencesRepository.setCollagePattern(pattern.storageKey)
+            userPreferencesRepository.setCollagePattern(pattern)
         }
     }
 

@@ -35,7 +35,7 @@ class EqualizerModuleHandler @Inject constructor(
     override suspend fun restore(payload: String) = withContext(Dispatchers.IO) {
         val type = TypeToken.getParameterized(List::class.java, PreferenceBackupEntry::class.java).type
         val entries: List<PreferenceBackupEntry> = gson.fromJson(payload, type)
-        userPreferencesRepository.clearPreferencesByKeys(EQUALIZER_KEYS.toList())
+        userPreferencesRepository.clearPreferencesByKeys(EQUALIZER_KEYS)
         if (entries.isNotEmpty()) {
             userPreferencesRepository.importPreferencesFromBackup(entries, clearExisting = false)
         }
