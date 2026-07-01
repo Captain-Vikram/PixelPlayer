@@ -74,6 +74,8 @@ class ExtensionRepository @Inject constructor(
 
     private val _homeFeed = MutableStateFlow<Feed<Shelf>?>(null)
     val homeFeed: StateFlow<Feed<Shelf>?> = _homeFeed.asStateFlow()
+    private val _selectedHomeTab = MutableStateFlow<dev.brahmkshatriya.echo.common.models.Tab?>(null)
+    val selectedHomeTab = _selectedHomeTab.asStateFlow()
 
     private val _shelves = MutableStateFlow<List<Shelf>>(emptyList())
     val shelves: StateFlow<List<Shelf>> = _shelves.asStateFlow()
@@ -300,8 +302,10 @@ class ExtensionRepository @Inject constructor(
     }
 
     fun clearCache(extensionId: String) {
-        homeFeedShelvesCache.remove(extensionId)
+        val keysToRemove = homeFeedShelvesCache.keys.filter { it.startsWith(extensionId) }
+        keysToRemove.forEach { homeFeedShelvesCache.remove(it) }
         libraryFeedShelvesCache.remove(extensionId)
+        _selectedHomeTab.value = null
     }
 
     fun refreshFeeds() {
@@ -309,36 +313,43 @@ class ExtensionRepository @Inject constructor(
         loadLibraryFeed(forceRefresh = true)
     }
 
-    fun loadHomeFeed(forceRefresh: Boolean = false) {
+    fun loadHomeFeed(forceRefresh: Boolean = false, tab: dev.brahmkshatriya.echo.common.models.Tab? = null) {
         val extension = _currentMusicExtension.value ?: return
         val extensionId = extension.metadata.id
         
-        if (!forceRefresh && homeFeedShelvesCache.containsKey(extensionId)) {
-            val cachedShelves = homeFeedShelvesCache[extensionId]!!
-            _shelves.value = cachedShelves
-            extractSongsFromShelves(cachedShelves, extensionId)
-            return
-        }
-
         repositoryScope.launch {
             val client = extension.instance.value().getOrNull()
             if (client is HomeFeedClient) {
                 _isLoadingFeed.value = true
                 try {
-                    val feed = client.loadHomeFeed()
+                    val feed = if (forceRefresh || _homeFeed.value == null) {
+                        client.loadHomeFeed()
+                    } else {
+                        _homeFeed.value!!
+                    }
                     _homeFeed.value = feed
 
-                    // Try to find the best tab for home feed
                     val tabs = feed.tabs
-                    val bestTab = tabs.find { it.title.lowercase().contains("home") }
+                    val activeTab = tab ?: _selectedHomeTab.value ?: tabs.find { it.title.lowercase().contains("home") }
                         ?: tabs.find { it.title.lowercase().contains("for you") }
                         ?: tabs.firstOrNull()
+                    
+                    _selectedHomeTab.value = activeTab
 
-                    val pagedData = feed.getPagedData(bestTab)
+                    val cacheKey = "${extensionId}_${activeTab?.id ?: ""}"
+                    if (!forceRefresh && homeFeedShelvesCache.containsKey(cacheKey)) {
+                        val cachedShelves = homeFeedShelvesCache[cacheKey]!!
+                        _shelves.value = cachedShelves
+                        extractSongsFromShelves(cachedShelves, extensionId)
+                        _isLoadingFeed.value = false
+                        return@launch
+                    }
+
+                    val pagedData = feed.getPagedData(activeTab)
                     var firstPage = pagedData.pagedData.loadPage(null)
                     
                     // Fallback: If best tab is empty, try the very first tab if different
-                    if (firstPage.data.isEmpty() && tabs.isNotEmpty() && bestTab != tabs.first()) {
+                    if (firstPage.data.isEmpty() && tabs.isNotEmpty() && activeTab != tabs.first()) {
                         try {
                             firstPage = feed.getPagedData(tabs.first()).pagedData.loadPage(null)
                         } catch (e: Exception) {
@@ -350,7 +361,7 @@ class ExtensionRepository @Inject constructor(
 
                     val loadedShelves = firstPage.data.deduplicate()
                     _shelves.value = loadedShelves
-                    homeFeedShelvesCache[extensionId] = loadedShelves
+                    homeFeedShelvesCache[cacheKey] = loadedShelves
                     extractSongsFromShelves(loadedShelves, extensionId)
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -373,7 +384,9 @@ class ExtensionRepository @Inject constructor(
                 homeFeedContinuationToken = null
                 _yourMixSongsFromExtension.value = emptyList()
                 _dailyMixSongsFromExtension.value = emptyList()
-                homeFeedShelvesCache.remove(extensionId)
+                _selectedHomeTab.value = null
+                val keysToRemove = homeFeedShelvesCache.keys.filter { it.startsWith(extensionId) }
+                keysToRemove.forEach { homeFeedShelvesCache.remove(it) }
             }
         }
     }
@@ -387,19 +400,17 @@ class ExtensionRepository @Inject constructor(
             if (client is HomeFeedClient) {
                 try {
                     val feed = _homeFeed.value ?: return@launch
-                    val tabs = feed.tabs
-                    val bestTab = tabs.find { it.title.lowercase().contains("home") }
-                        ?: tabs.find { it.title.lowercase().contains("for you") }
-                        ?: tabs.firstOrNull()
+                    val activeTab = _selectedHomeTab.value
                         
-                    val pagedData = feed.getPagedData(bestTab)
+                    val pagedData = feed.getPagedData(activeTab)
                     val nextPage = pagedData.pagedData.loadPage(token)
                     homeFeedContinuationToken = nextPage.continuation
                     
                     val newShelves = nextPage.data
                     val updatedShelves = (_shelves.value + newShelves).deduplicate()
                     _shelves.value = updatedShelves
-                    homeFeedShelvesCache[extension.metadata.id] = updatedShelves
+                    val cacheKey = "${extension.metadata.id}_${activeTab?.id ?: ""}"
+                    homeFeedShelvesCache[cacheKey] = updatedShelves
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }

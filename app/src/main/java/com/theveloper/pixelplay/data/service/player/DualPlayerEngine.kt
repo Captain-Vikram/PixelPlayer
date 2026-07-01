@@ -658,6 +658,45 @@ class DualPlayerEngine @Inject constructor(
                 lastSeekAtMs = SystemClock.elapsedRealtime()
             }
         }
+
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            val mediaItem = playerA.currentMediaItem
+            val uri = mediaItem?.localConfiguration?.uri
+            Timber.tag("DualPlayerEngine").e(error, "Playback error on URI: %s", uri)
+            
+            if (uri != null) {
+                val uriString = uri.toString()
+                resolvedUriCache.remove(uriString)
+                Timber.tag("DualPlayerEngine").d("Evicted %s from resolvedUriCache due to playback error", uriString)
+            }
+            
+            if (mediaItem != null) {
+                val mediaId = mediaItem.mediaId
+                if (lastErrorMediaId == mediaId) {
+                    errorRetryCount++
+                } else {
+                    lastErrorMediaId = mediaId
+                    errorRetryCount = 1
+                }
+                
+                if (errorRetryCount <= 3) {
+                    val position = playerA.currentPosition
+                    Timber.tag("DualPlayerEngine").i("Attempting automatic retry (%d/3) for mediaId %s at position %d", errorRetryCount, mediaId, position)
+                    scope.launch {
+                        delay(1000)
+                        if (::playerA.isInitialized) {
+                            val resolvedMediaItem = resolveMediaItem(mediaItem)
+                            playerA.setMediaItem(resolvedMediaItem, false)
+                            playerA.seekTo(position)
+                            playerA.prepare()
+                            playerA.play()
+                        }
+                    }
+                } else {
+                    Timber.tag("DualPlayerEngine").w("Max retries exceeded for mediaId %s", mediaId)
+                }
+            }
+        }
     }
 
     private fun addMasterPlayerListeners(player: ExoPlayer) {
@@ -775,6 +814,8 @@ class DualPlayerEngine @Inject constructor(
     private var isReleased = false
     private val resolvedUriCache = LruCache<String, ResolvedMedia>(100)
     private val rawSourceMap = LruCache<String, dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw>(20)
+    private var lastErrorMediaId: String? = null
+    private var errorRetryCount = 0
 
     // Whether the OS classifies this as a low-RAM device. Used to cap the player's max
     // prefetch depth so hi-res/lossless buffering (and the second player during a crossfade)
@@ -1154,7 +1195,12 @@ class DualPlayerEngine @Inject constructor(
             }
         }
         
-        val okhttpFactory = OkHttpDataSource.Factory(okHttpClient)
+        val playerOkHttpClient = okHttpClient.newBuilder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        val okhttpFactory = OkHttpDataSource.Factory(playerOkHttpClient)
+            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
         val defaultFactory = DefaultDataSource.Factory(context, okhttpFactory)
         val rawFactory = com.theveloper.pixelplay.data.service.player.RawDataSource.Factory()
         val baseDataSourceFactory = androidx.media3.datasource.DataSource.Factory {

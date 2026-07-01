@@ -96,22 +96,27 @@ data class QuickPickItem(
 @Composable
 fun ExtensionShelvesSection(
     shelves: List<Shelf>,
+    showGrid: Boolean = true,
     onItemClick: (EchoMediaItem) -> Unit
 ) {
-    val (quickPicks, regularShelves) = remember(shelves) {
+    val (quickPicks, regularShelves) = remember(shelves, showGrid) {
         val picks = mutableListOf<QuickPickItem>()
         val regulars = mutableListOf<Shelf>()
 
         shelves.forEach { shelf ->
-            val singleMediaItem: EchoMediaItem? = when (shelf) {
-                is dev.brahmkshatriya.echo.common.models.Shelf.Item -> shelf.media
-                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> {
-                    if (shelf.list.size == 1) shelf.list[0] else null
+            val singleMediaItem: EchoMediaItem? = if (showGrid) {
+                when (shelf) {
+                    is dev.brahmkshatriya.echo.common.models.Shelf.Item -> shelf.media
+                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> {
+                        if (shelf.list.size == 1) shelf.list[0] else null
+                    }
+                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> {
+                        if (shelf.list.size == 1) shelf.list[0] else null
+                    }
+                    else -> null
                 }
-                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> {
-                    if (shelf.list.size == 1) shelf.list[0] else null
-                }
-                else -> null
+            } else {
+                null
             }
 
             if (singleMediaItem != null) {
@@ -321,17 +326,49 @@ fun ExtensionShelf(
 
         when (shelf) {
             is Shelf.Lists<*> -> {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(shelf.list, key = { (it as? EchoMediaItem)?.id ?: it.hashCode() }) { item ->
-                        if (item is EchoMediaItem) {
-                            ExtensionMediaItemCard(
-                                item = item,
-                                onClick = { onItemClick(item) },
-                                isFeatured = isTrending || isCharts
-                            )
+                if (shelf.type == Shelf.Lists.Type.Grid) {
+                    val gridItems = shelf.list.filterIsInstance<EchoMediaItem>()
+                    val rows = gridItems.chunked(2)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        rows.forEach { rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                rowItems.forEach { item ->
+                                    QuickPickTile(
+                                        item = QuickPickItem(
+                                            title = item.title,
+                                            mediaItem = item
+                                        ),
+                                        onClick = { onItemClick(item) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                if (rowItems.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(shelf.list, key = { (it as? EchoMediaItem)?.id ?: it.hashCode() }) { item ->
+                            if (item is EchoMediaItem) {
+                                ExtensionMediaItemCard(
+                                    item = item,
+                                    onClick = { onItemClick(item) },
+                                    isFeatured = isTrending || isCharts
+                                )
+                            }
                         }
                     }
                 }

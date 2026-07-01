@@ -230,6 +230,7 @@ class UserPreferencesRepository @Inject constructor(
         val SHOW_LYRICS_TRANSLATION = booleanPreferencesKey("show_lyrics_translation")
         val SHOW_LYRICS_ROMANIZATION = booleanPreferencesKey("show_lyrics_romanization")
         val KEEP_SCREEN_ON_LYRICS = booleanPreferencesKey("keep_screen_on_lyrics")
+        val COMPACT_GRID_MODE = booleanPreferencesKey("compact_grid_mode")
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────
@@ -338,6 +339,13 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun setKeepPlayingInBackground(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.KEEP_PLAYING_IN_BACKGROUND] = enabled }
+    }
+
+    val compactGridModeFlow: Flow<Boolean> =
+        pref { it[PreferencesKeys.COMPACT_GRID_MODE] ?: true }
+
+    suspend fun setCompactGridMode(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.COMPACT_GRID_MODE] = enabled }
     }
 
     val disableCastAutoplayFlow: Flow<Boolean> =

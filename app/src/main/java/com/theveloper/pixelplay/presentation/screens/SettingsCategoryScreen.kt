@@ -584,6 +584,13 @@ fun SettingsCategoryScreen(
                                     onCheckedChange = { settingsViewModel.setShowScrollbar(it) },
                                     leadingIcon = { Icon(Icons.Rounded.UnfoldMore, null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
+                                SwitchSettingItem(
+                                    title = "Compact Grid Layout",
+                                    subtitle = "Collapse single-item shelves into a 2-column shortcut grid on the Home feed",
+                                    checked = uiState.compactGridMode,
+                                    onCheckedChange = { settingsViewModel.setCompactGridMode(it) },
+                                    leadingIcon = { Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.secondary) }
+                                )
                             }
 
                             SettingsSubsection(title = stringResource(R.string.settings_now_playing_section)) {

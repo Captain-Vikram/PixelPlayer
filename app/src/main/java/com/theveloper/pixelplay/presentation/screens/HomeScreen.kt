@@ -9,8 +9,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
@@ -121,6 +124,8 @@ fun HomeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val yourMixSongsFromExtension by extensionsViewModel.yourMixSongsFromExtension.collectAsStateWithLifecycle()
+    val homeFeed by extensionsViewModel.homeFeed.collectAsStateWithLifecycle()
+    val selectedHomeTab by extensionsViewModel.selectedHomeTab.collectAsStateWithLifecycle()
     val dailyMixSongsFromExtension by extensionsViewModel.dailyMixSongsFromExtension.collectAsStateWithLifecycle()
     val extensionCapabilities by extensionsViewModel.extensionCapabilities.collectAsStateWithLifecycle()
     val loggedInExtensions by extensionsViewModel.loggedInExtensionIds.collectAsStateWithLifecycle()
@@ -371,42 +376,44 @@ fun HomeScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                if (yourMixSongs.isEmpty()) {
-                    item(key = "your_mix_placeholder") {
-                        if (shouldShowYourMixLoadingPlaceholder) {
-                            YourMixLoadingPlaceholder()
-                        } else {
-                            YourMixEmptyPlaceholder(
-                                onRefresh = {
-                                    homePlaceholderRefreshGeneration++
-                                    settingsViewModel.refreshLibrary()
-                                    playerViewModel.forceUpdateDailyMix()
+                if (currentMusicExtension == null) {
+                    if (yourMixSongs.isEmpty()) {
+                        item(key = "your_mix_placeholder") {
+                            if (shouldShowYourMixLoadingPlaceholder) {
+                                YourMixLoadingPlaceholder()
+                            } else {
+                                YourMixEmptyPlaceholder(
+                                    onRefresh = {
+                                        homePlaceholderRefreshGeneration++
+                                        settingsViewModel.refreshLibrary()
+                                        playerViewModel.forceUpdateDailyMix()
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        item(key = "your_mix_header") {
+                            YourMixHeader(
+                                song = yourMixSong,
+                                isShuffleEnabled = isShuffleEnabled,
+                                onPlayShuffled = {
+                                    if (usesFallbackHomeMix) {
+                                        playerViewModel.shuffleAllSongs(queueName = "Your Mix")
+                                    } else {
+                                        playerViewModel.playSongsShuffled(
+                                            songsToPlay = yourMixSongs,
+                                            queueName = "Your Mix",
+                                            startAtZero = true,
+                                        )
+                                    }
                                 }
                             )
                         }
                     }
-                } else {
-                    item(key = "your_mix_header") {
-                        YourMixHeader(
-                            song = yourMixSong,
-                            isShuffleEnabled = isShuffleEnabled,
-                            onPlayShuffled = {
-                                if (usesFallbackHomeMix) {
-                                    playerViewModel.shuffleAllSongs(queueName = "Your Mix")
-                                } else {
-                                    playerViewModel.playSongsShuffled(
-                                        songsToPlay = yourMixSongs,
-                                        queueName = "Your Mix",
-                                        startAtZero = true,
-                                    )
-                                }
-                            }
-                        )
-                    }
                 }
 
                 // Collage
-                if (yourMixSongs.isNotEmpty()) {
+                if (currentMusicExtension == null && yourMixSongs.isNotEmpty()) {
                     item(key = "album_art_collage") {
                         val basePattern = settingsUiState.collagePattern
                         val isAutoRotate = settingsUiState.collageAutoRotate
@@ -440,7 +447,7 @@ fun HomeScreen(
                 }
 
                 // Daily Mix
-                if (dailyMixSongs.isNotEmpty()) {
+                if (currentMusicExtension == null && dailyMixSongs.isNotEmpty()) {
                     item(key = "daily_mix_section") {
                         DailyMixSection(
                             songs = dailyMixSongs.toImmutableList(),
@@ -486,10 +493,48 @@ fun HomeScreen(
                         }
                     }
 
+                    if (currentMusicExtension != null && homeFeed != null && homeFeed!!.tabs.size > 1) {
+                        item(key = "extension_home_tabs") {
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(homeFeed!!.tabs) { tab ->
+                                    val isSelected = selectedHomeTab?.id == tab.id
+                                    Surface(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable { extensionsViewModel.selectHomeTab(tab) },
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceContainerLow
+                                        },
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text(
+                                            text = tab.title,
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     if (shelves.isNotEmpty()) {
                         item(key = "extension_shelves") {
                             com.theveloper.pixelplay.presentation.components.ExtensionShelvesSection(
                                 shelves = shelves,
+                                showGrid = settingsUiState.compactGridMode,
                                 onItemClick = { item ->
                                     com.theveloper.pixelplay.presentation.components.handleEchoItemClick(
                                         item = item,
