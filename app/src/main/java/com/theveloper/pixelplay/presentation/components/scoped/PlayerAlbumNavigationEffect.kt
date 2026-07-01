@@ -24,7 +24,7 @@ internal fun PlayerAlbumNavigationEffect(
             playerViewModel.collapsePlayerSheet()
 
             navController.navigateSafelyReplacing(
-                route = Screen.AlbumDetail.createRoute(albumId.toString()),
+                route = Screen.AlbumDetail.createRoute(albumId),
                 patternToPop = Screen.AlbumDetail.route
             )
         }

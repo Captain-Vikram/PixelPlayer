@@ -112,7 +112,8 @@ data class SettingsUiState(
     val replayGainEnabled: Boolean = false,
     val replayGainUseAlbumGain: Boolean = false,
     val isSafeTokenLimitEnabled: Boolean = true,
-    val showScrollbar: Boolean = true
+    val showScrollbar: Boolean = true,
+    val compactGridMode: Boolean = true
 )
 
 data class FailedSongInfo(
@@ -150,7 +151,8 @@ private sealed interface SettingsUiUpdate {
         val libraryNavigationMode: String,
         val carouselStyle: String,
         val launchTab: String,
-        val showPlayerFileInfo: Boolean
+        val showPlayerFileInfo: Boolean,
+        val compactGridMode: Boolean
     ) : SettingsUiUpdate
     
     data class Group2(
@@ -606,7 +608,8 @@ class SettingsViewModel @Inject constructor(
                 userPreferencesRepository.libraryNavigationModeFlow,
                 userPreferencesRepository.carouselStyleFlow,
                 userPreferencesRepository.launchTabFlow,
-                userPreferencesRepository.showPlayerFileInfoFlow
+                userPreferencesRepository.showPlayerFileInfoFlow,
+                userPreferencesRepository.compactGridModeFlow
             ) { values ->
                 SettingsUiUpdate.Group1(
                     appRebrandDialogShown = values[0] as Boolean,
@@ -621,7 +624,8 @@ class SettingsViewModel @Inject constructor(
                     libraryNavigationMode = values[9] as String,
                     carouselStyle = values[10] as String,
                     launchTab = values[11] as String,
-                    showPlayerFileInfo = values[12] as Boolean
+                    showPlayerFileInfo = values[12] as Boolean,
+                    compactGridMode = values[13] as Boolean
                 )
             }.collect { update ->
                 _uiState.update { state ->
@@ -638,7 +642,8 @@ class SettingsViewModel @Inject constructor(
                         libraryNavigationMode = update.libraryNavigationMode,
                         carouselStyle = update.carouselStyle,
                         launchTab = update.launchTab,
-                        showPlayerFileInfo = update.showPlayerFileInfo
+                        showPlayerFileInfo = update.showPlayerFileInfo,
+                        compactGridMode = update.compactGridMode
                     )
                 }
             }
@@ -950,6 +955,12 @@ class SettingsViewModel @Inject constructor(
     fun setShowPlayerFileInfo(show: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setShowPlayerFileInfo(show)
+        }
+    }
+
+    fun setCompactGridMode(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setCompactGridMode(enabled)
         }
     }
 

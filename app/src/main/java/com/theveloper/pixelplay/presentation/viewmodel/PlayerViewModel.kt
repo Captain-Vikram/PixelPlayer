@@ -689,7 +689,7 @@ class PlayerViewModel @Inject constructor(
     // Owned by SongRemovalStateHolder (the only producer/consumer); re-exposed here for the UI.
     val deletePermissionRequest: SharedFlow<android.content.IntentSender> = songRemovalStateHolder.deletePermissionRequest
 
-    private val _albumNavigationRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
+    private val _albumNavigationRequests = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val albumNavigationRequests = _albumNavigationRequests.asSharedFlow()
     private val _artistNavigationRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val artistNavigationRequests = _artistNavigationRequests.asSharedFlow()
@@ -2208,8 +2208,8 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun triggerAlbumNavigationFromPlayer(albumId: Long) {
-        if (albumId == -1L) {
+    fun triggerAlbumNavigationFromPlayer(albumId: String) {
+        if (albumId == "-1" || albumId == "-2" || albumId.isBlank()) {
             Log.d("AlbumDebug", "triggerAlbumNavigationFromPlayer ignored invalid albumId=$albumId")
             return
         }

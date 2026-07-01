@@ -45,6 +45,7 @@ data class Song(
     val extensionId: String? = null, // ID of the extension that provided this song
     val backgroundUriString: String? = null, // URL for video loop/canvas background
     val subtitleUriString: String? = null, // URL for synchronized subtitles
+    val albumMediaId: String? = null,
 ) : Parcelable {
     /**
      * Returns the display string for artists.

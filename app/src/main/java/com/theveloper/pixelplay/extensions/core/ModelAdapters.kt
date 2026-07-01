@@ -50,7 +50,8 @@ fun Track.toSong(extensionId: String, streamUrl: String? = null): Song {
         sampleRate = 0,
         extensionId = extensionId,
         backgroundUriString = backgroundStream?.id,
-        subtitleUriString = subtitleStream?.id
+        subtitleUriString = subtitleStream?.id,
+        albumMediaId = albumSyntheticId
     )
 }
 

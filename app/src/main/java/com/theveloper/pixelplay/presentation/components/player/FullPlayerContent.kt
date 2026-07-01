@@ -592,7 +592,8 @@ fun FullPlayerContent(
             requestedScrollIndex = pendingCarouselIndex,
             onSongSelected = onAlbumSongSelected,
             onAlbumClick = { albumSong ->
-                playerViewModel.triggerAlbumNavigationFromPlayer(albumSong.albumId)
+                val targetId = albumSong.albumMediaId ?: albumSong.albumId.toString()
+                playerViewModel.triggerAlbumNavigationFromPlayer(targetId)
             },
             modifier = modifier
         )
