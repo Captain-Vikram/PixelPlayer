@@ -24,6 +24,7 @@ class ExtensionsViewModel @Inject constructor(
 
     val currentMusicExtension: StateFlow<MusicExtension?> = repository.currentMusicExtension
     val homeFeed: StateFlow<Feed<Shelf>?> = repository.homeFeed
+    val selectedHomeTab: StateFlow<dev.brahmkshatriya.echo.common.models.Tab?> = repository.selectedHomeTab
     val shelves: StateFlow<List<Shelf>> = repository.shelves
     val isLoadingFeed: StateFlow<Boolean> = repository.isLoadingFeed
     val yourMixSongsFromExtension: StateFlow<List<com.theveloper.pixelplay.data.model.Song>> = repository.yourMixSongsFromExtension
@@ -41,6 +42,7 @@ class ExtensionsViewModel @Inject constructor(
     fun installExtension(item: com.theveloper.pixelplay.extensions.core.ExtensionStoreItem) = repository.installExtension(item)
     fun selectMusicExtension(extension: MusicExtension?) = repository.selectMusicExtension(extension)
     fun loadHomeFeed() = repository.loadHomeFeed()
+    fun selectHomeTab(tab: dev.brahmkshatriya.echo.common.models.Tab) = repository.loadHomeFeed(tab = tab)
     fun loadLibraryFeed() = repository.loadLibraryFeed()
     
     fun filterRecentlyPlayedByExtension(allRecentlyPlayed: List<com.theveloper.pixelplay.data.model.Song>): List<com.theveloper.pixelplay.data.model.Song> {
