@@ -58,6 +58,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -85,6 +86,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.data.model.ExtensionCapabilities
 import com.theveloper.pixelplay.presentation.components.subcomps.AutoSizingTextToFill
 import com.theveloper.pixelplay.utils.formatDuration
 import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
@@ -153,6 +155,28 @@ fun SongInfoBottomSheet(
     playerViewModel: com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val extensionCapabilities by playerViewModel.extensionCapabilities.collectAsStateWithLifecycle()
+    val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
+    val downloads by playerViewModel.downloads.collectAsStateWithLifecycle()
+    val completedDownloads by playerViewModel.completedDownloads.collectAsStateWithLifecycle()
+
+    val songCaps = remember(song.extensionId, extensionCapabilities) {
+        song.extensionId?.let { extensionCapabilities[it] }
+    }
+    var isDownloadable by remember { mutableStateOf(false) }
+    LaunchedEffect(song.id, allExtensions) {
+        isDownloadable = song.extensionId != null && allExtensions.any { extension ->
+            val client = extension.instance.value().getOrNull()
+            client is dev.brahmkshatriya.echo.common.clients.DownloadClient
+        }
+    }
+    val downloadProgress = remember(song.id, downloads) {
+        downloads[song.id]
+    }
+    val isDownloaded = remember(song.id, completedDownloads) {
+        completedDownloads.contains(song.id)
+    }
+
     val ringtonePermissionMissingMsg = stringResource(R.string.song_info_ringtone_permission_missing)
     val ringtoneFailedFormat = stringResource(R.string.song_info_ringtone_failed)
     val shareChooserTitle = stringResource(R.string.song_info_share_chooser_title)
@@ -169,6 +193,14 @@ fun SongInfoBottomSheet(
     val isWatchAvailabilityResolved by songInfoViewModel.isWatchAvailabilityResolved.collectAsStateWithLifecycle()
     val isSendingToWatch by songInfoViewModel.isSendingToWatch.collectAsStateWithLifecycle()
     val watchTransfers by songInfoViewModel.watchTransfers.collectAsStateWithLifecycle()
+    val recommendedSongs by songInfoViewModel.recommendedSongs.collectAsStateWithLifecycle()
+    val isLoadingRecommendations by songInfoViewModel.isLoadingRecommendations.collectAsStateWithLifecycle()
+
+    LaunchedEffect(song.id) {
+        if (song.extensionId != null) {
+            songInfoViewModel.loadRecommendations(song)
+        }
+    }
     val watchSongIds by songInfoViewModel.watchSongIds.collectAsStateWithLifecycle()
     val reachableWatchNodeIds by songInfoViewModel.reachableWatchNodeIds.collectAsStateWithLifecycle()
     val latestSongWatchTransfer = remember(song.id, watchTransfers) {
@@ -511,28 +543,38 @@ fun SongInfoBottomSheet(
                                             onPlaySong = onPlaySong,
                                             onToggleFavorite = onToggleFavorite,
                                             onShareClick = {
-                                                try {
-                                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                        type = "audio/*"
-                                                        putExtra(Intent.EXTRA_STREAM, song.contentUriString.toUri())
-                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                    }
-                                                    context.startActivity(
-                                                        Intent.createChooser(
-                                                            shareIntent,
-                                                            shareChooserTitle
-                                                        )
-                                                    )
-                                                } catch (e: Exception) {
-                                                    Toast.makeText(
+                                                if (song.extensionId != null) {
+                                                    playerViewModel.shareExtensionSong(
+                                                        song,
                                                         context,
-                                                        errorShareSongFormat.format(e.localizedMessage ?: ""),
-                                                        Toast.LENGTH_LONG
-                                                    ).show()
+                                                        shareChooserTitle,
+                                                        errorShareSongFormat
+                                                    )
+                                                } else {
+                                                    try {
+                                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                            type = "audio/*"
+                                                            putExtra(Intent.EXTRA_STREAM, song.contentUriString.toUri())
+                                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                        }
+                                                        context.startActivity(
+                                                            Intent.createChooser(
+                                                                shareIntent,
+                                                                shareChooserTitle
+                                                            )
+                                                        )
+                                                    } catch (e: Exception) {
+                                                        Toast.makeText(
+                                                            context,
+                                                            errorShareSongFormat.format(e.localizedMessage ?: ""),
+                                                            Toast.LENGTH_LONG
+                                                        ).show()
+                                                    }
                                                 }
                                             },
                                             playButtonShape = playButtonShape,
-                                            evenCornerRadiusElems = evenCornerRadiusElems
+                                            evenCornerRadiusElems = evenCornerRadiusElems,
+                                            showFavorite = (song.extensionId == null || isDownloaded)
                                         )
 
                                         Row2Actions(
@@ -541,23 +583,31 @@ fun SongInfoBottomSheet(
                                         )
 
                                         Row3Actions(
-                                            isExtension = song.extensionId != null,
-                                            onAddToPlaylist = onAddToPlayList,
-                                            onDelete = {
-                                                (context as? Activity)?.let { activity ->
-                                                    onDeleteFromDevice(activity, song) { result ->
-                                                        if (result) {
-                                                            removeFromListTrigger()
-                                                            onDismiss()
-                                                        }
-                                                    }
-                                                }
-                                                onDismiss()
-                                            },
-                                            onStartRadio = {
-                                                /* playerViewModel.startRadio(song) */
-                                            }
-                                        )
+                                             isExtension = song.extensionId != null,
+                                             caps = songCaps,
+                                             isDownloadable = isDownloadable,
+                                             isDownloaded = isDownloaded,
+                                             downloadProgress = downloadProgress,
+                                             onAddToPlaylist = onAddToPlayList,
+                                             onDelete = {
+                                                 (context as? Activity)?.let { activity ->
+                                                     onDeleteFromDevice(activity, song) { result ->
+                                                         if (result) {
+                                                             removeFromListTrigger()
+                                                             onDismiss()
+                                                         }
+                                                     }
+                                                 }
+                                                 onDismiss()
+                                             },
+                                             onStartRadio = {
+                                                 playerViewModel.startRadio(song)
+                                                 onDismiss()
+                                             },
+                                             onDownloadClick = {
+                                                 playerViewModel.downloadSpecificSong(song)
+                                             }
+                                         )
 
                                         val shouldRenderWatchTransferRow =
                                             currentSongTransfer != null ||
@@ -679,6 +729,87 @@ fun SongInfoBottomSheet(
                                                 ),
                                                 shape = infoSegmentItemShape,
                                             )
+
+                                            if (song.extensionId != null) {
+                                                Spacer(Modifier.height(16.dp))
+                                                Text(
+                                                    text = "You Might Also Like",
+                                                    style = MaterialTheme.typography.titleMedium.copy(
+                                                        fontFamily = GoogleSansRounded,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                                                )
+                                                if (isLoadingRecommendations) {
+                                                    Box(
+                                                        modifier = Modifier.fillMaxWidth().height(100.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        CircularProgressIndicator(
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                                                    }
+                                                } else if (recommendedSongs.isEmpty()) {
+                                                    Text(
+                                                        text = "No recommendations available",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.padding(horizontal = 8.dp)
+                                                    )
+                                                } else {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .clip(infoSegmentContainerShape)
+                                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        recommendedSongs.take(5).forEach { recSong ->
+                                                            Row(
+                                                                modifier = Modifier
+                                                                    .fillMaxWidth()
+                                                                    .clickable {
+                                                                        playerViewModel.playSongs(listOf(recSong), recSong, queueName = "Recommendations")
+                                                                        onDismiss()
+                                                                    }
+                                                                    .padding(8.dp),
+                                                                verticalAlignment = Alignment.CenterVertically
+                                                            ) {
+                                                                SmartImage(
+                                                                    model = recSong.albumArtUriString,
+                                                                    contentDescription = stringResource(R.string.common_album_art),
+                                                                    shape = RoundedCornerShape(8.dp),
+                                                                    modifier = Modifier.size(48.dp),
+                                                                    contentScale = ContentScale.Crop
+                                                                )
+                                                                Spacer(Modifier.width(12.dp))
+                                                                Column(modifier = Modifier.weight(1f)) {
+                                                                    Text(
+                                                                        text = recSong.title,
+                                                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                                        maxLines = 1,
+                                                                        color = MaterialTheme.colorScheme.onSurface
+                                                                    )
+                                                                    Text(
+                                                                        text = recSong.displayArtist,
+                                                                        style = MaterialTheme.typography.bodySmall,
+                                                                        maxLines = 1,
+                                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                    )
+                                                                }
+                                                                Icon(
+                                                                    imageVector = Icons.Rounded.PlayArrow,
+                                                                    contentDescription = "Play",
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    modifier = Modifier.size(24.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                         Spacer(Modifier.height(80.dp))
                                     }
@@ -1148,7 +1279,8 @@ private fun Row1Actions(
     onToggleFavorite: () -> Unit,
     onShareClick: () -> Unit,
     playButtonShape: Shape,
-    evenCornerRadiusElems: androidx.compose.ui.unit.Dp
+    evenCornerRadiusElems: androidx.compose.ui.unit.Dp,
+    showFavorite: Boolean = true
 ) {
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var clickPending by remember { mutableStateOf(false) }
@@ -1210,9 +1342,17 @@ private fun Row1Actions(
         label = "SharePressFraction"
     )
 
-    val weightPlay = (0.5f + 0.08f * pressFractionPlay - 0.05f * pressFractionFavorite - 0.05f * pressFractionShare).coerceAtLeast(0.1f)
+    val weightPlay = if (showFavorite) {
+        (0.5f + 0.08f * pressFractionPlay - 0.05f * pressFractionFavorite - 0.05f * pressFractionShare).coerceAtLeast(0.1f)
+    } else {
+        (0.7f + 0.08f * pressFractionPlay - 0.08f * pressFractionShare).coerceAtLeast(0.1f)
+    }
     val weightFavorite = (0.25f + 0.08f * pressFractionFavorite - 0.04f * pressFractionPlay - 0.03f * pressFractionShare).coerceAtLeast(0.05f)
-    val weightShare = (0.25f + 0.08f * pressFractionShare - 0.04f * pressFractionPlay - 0.03f * pressFractionFavorite).coerceAtLeast(0.05f)
+    val weightShare = if (showFavorite) {
+        (0.25f + 0.08f * pressFractionShare - 0.04f * pressFractionPlay - 0.03f * pressFractionFavorite).coerceAtLeast(0.05f)
+    } else {
+        (0.3f + 0.08f * pressFractionShare - 0.08f * pressFractionPlay).coerceAtLeast(0.05f)
+    }
 
     // Local favorite button animations
     val favoriteButtonCornerRadius by animateDpAsState(
@@ -1282,36 +1422,38 @@ private fun Row1Actions(
             )
         }
 
-        FilledIconButton(
-            modifier = Modifier
-                .weight(weightFavorite)
-                .fillMaxHeight(),
-            onClick = {
-                if (clickPending) return@FilledIconButton
-                clickPending = true
-                favoriteVisualPressed = true
-                android.util.Log.d("PixelPlayerDebug", "Row1Actions: Favorite clicked")
-                coroutineScope.launch {
-                    kotlinx.coroutines.delay(180)
-                    favoriteVisualPressed = false
-                    clickPending = false
-                    onToggleFavorite()
-                }
-            },
-            shape = favoriteButtonShape,
-            interactionSource = favoriteInteractionSource,
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = favoriteButtonContainerColor,
-                contentColor = favoriteButtonContentColor
-            )
-        ) {
-            Icon(
-                modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
-                imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                contentDescription = stringResource(
-                    if (isFavorite) R.string.song_info_cd_remove_from_favorites else R.string.song_info_cd_add_to_favorites
+        if (showFavorite) {
+            FilledIconButton(
+                modifier = Modifier
+                    .weight(weightFavorite)
+                    .fillMaxHeight(),
+                onClick = {
+                    if (clickPending) return@FilledIconButton
+                    clickPending = true
+                    favoriteVisualPressed = true
+                    android.util.Log.d("PixelPlayerDebug", "Row1Actions: Favorite clicked")
+                    coroutineScope.launch {
+                        kotlinx.coroutines.delay(180)
+                        favoriteVisualPressed = false
+                        clickPending = false
+                        onToggleFavorite()
+                    }
+                },
+                shape = favoriteButtonShape,
+                interactionSource = favoriteInteractionSource,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = favoriteButtonContainerColor,
+                    contentColor = favoriteButtonContentColor
                 )
-            )
+            ) {
+                Icon(
+                    modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
+                    imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    contentDescription = stringResource(
+                        if (isFavorite) R.string.song_info_cd_remove_from_favorites else R.string.song_info_cd_add_to_favorites
+                    )
+                )
+            }
         }
 
         FilledTonalIconButton(
@@ -1481,55 +1623,22 @@ private fun Row2Actions(
 @Composable
 private fun Row3Actions(
     isExtension: Boolean,
+    caps: ExtensionCapabilities?,
+    isDownloadable: Boolean,
+    isDownloaded: Boolean,
+    downloadProgress: Int?,
     onAddToPlaylist: () -> Unit,
     onDelete: () -> Unit,
-    onStartRadio: () -> Unit
+    onStartRadio: () -> Unit,
+    onDownloadClick: () -> Unit
 ) {
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var clickPending by remember { mutableStateOf(false) }
 
-    val playlistInteractionSource = remember { MutableInteractionSource() }
-    val isPlaylistPressed by playlistInteractionSource.collectIsPressedAsState()
-    var playlistVisualPressed by remember { mutableStateOf(false) }
-    LaunchedEffect(isPlaylistPressed) {
-        if (isPlaylistPressed) {
-            playlistVisualPressed = true
-        } else {
-            kotlinx.coroutines.delay(180)
-            playlistVisualPressed = false
-        }
-    }
-
-    val tertiaryInteractionSource = remember { MutableInteractionSource() }
-    val isTertiaryPressed by tertiaryInteractionSource.collectIsPressedAsState()
-    var tertiaryVisualPressed by remember { mutableStateOf(false) }
-    LaunchedEffect(isTertiaryPressed) {
-        if (isTertiaryPressed) {
-            tertiaryVisualPressed = true
-        } else {
-            kotlinx.coroutines.delay(180)
-            tertiaryVisualPressed = false
-        }
-    }
-
-    val pressSpec = spring<Float>(
-        dampingRatio = 0.8f,
-        stiffness = 300f
-    )
-
-    val pressFractionPlaylist by animateFloatAsState(
-        targetValue = if (playlistVisualPressed) 1f else 0f,
-        animationSpec = pressSpec,
-        label = "PlaylistPressFraction"
-    )
-    val pressFractionTertiary by animateFloatAsState(
-        targetValue = if (tertiaryVisualPressed) 1f else 0f,
-        animationSpec = pressSpec,
-        label = "TertiaryPressFraction"
-    )
-
-    val weightPlaylist = (0.5f + 0.08f * pressFractionPlaylist - 0.08f * pressFractionTertiary).coerceAtLeast(0.1f)
-    val weightTertiary = (0.5f + 0.08f * pressFractionTertiary - 0.08f * pressFractionPlaylist).coerceAtLeast(0.1f)
+    val showPlaylist = !isExtension || (caps?.canEditPlaylists == true)
+    val showDelete = !isExtension
+    val showRadio = isExtension && (caps?.canRadio == true)
+    val showDownload = isExtension && isDownloadable
 
     Row(
         modifier = Modifier
@@ -1538,64 +1647,56 @@ private fun Row3Actions(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        FilledTonalButton(
-            modifier = Modifier
-                .weight(weightPlaylist)
-                .heightIn(min = 66.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-            ),
-            contentPadding = PaddingValues(horizontal = 10.dp),
-            shape = CircleShape,
-            interactionSource = playlistInteractionSource,
-            onClick = {
-                if (clickPending) return@FilledTonalButton
-                clickPending = true
-                playlistVisualPressed = true
-                android.util.Log.d("PixelPlayerDebug", "Row3Actions: AddToPlaylist clicked")
-                coroutineScope.launch {
-                    kotlinx.coroutines.delay(180)
-                    playlistVisualPressed = false
-                    clickPending = false
-                    onAddToPlaylist()
+        val commonModifier = Modifier.weight(1f).heightIn(min = 66.dp)
+
+        if (showPlaylist) {
+            FilledTonalButton(
+                modifier = commonModifier,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ),
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                shape = CircleShape,
+                onClick = {
+                    if (clickPending) return@FilledTonalButton
+                    clickPending = true
+                    coroutineScope.launch {
+                        kotlinx.coroutines.delay(180)
+                        clickPending = false
+                        onAddToPlaylist()
+                    }
                 }
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    contentDescription = stringResource(R.string.song_info_cd_add_to_playlist)
+                )
+                Spacer(Modifier.width(6.dp))
+                TightWrapText(
+                    text = stringResource(R.string.common_playlist),
+                    modifier = Modifier.padding(end = 4.dp),
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    lineHeight = 20.sp
+                )
             }
-        ) {
-            Icon(
-                Icons.AutoMirrored.Rounded.PlaylistAdd,
-                contentDescription = stringResource(R.string.song_info_cd_add_to_playlist)
-            )
-            Spacer(Modifier.width(6.dp))
-            TightWrapText(
-                text = stringResource(R.string.common_playlist),
-                modifier = Modifier.padding(end = 4.dp),
-                overflow = TextOverflow.Ellipsis,
-                maxLines = 2,
-                lineHeight = 20.sp
-            )
         }
 
-        if (!isExtension) {
+        if (showDelete) {
             FilledTonalButton(
-                modifier = Modifier
-                    .weight(weightTertiary)
-                    .heightIn(min = 66.dp),
+                modifier = commonModifier,
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer
                 ),
                 contentPadding = PaddingValues(horizontal = 10.dp),
                 shape = CircleShape,
-                interactionSource = tertiaryInteractionSource,
                 onClick = {
                     if (clickPending) return@FilledTonalButton
                     clickPending = true
-                    tertiaryVisualPressed = true
-                    android.util.Log.d("PixelPlayerDebug", "Row3Actions: Delete clicked")
                     coroutineScope.launch {
                         kotlinx.coroutines.delay(180)
-                        tertiaryVisualPressed = false
                         clickPending = false
                         onDelete()
                     }
@@ -1610,30 +1711,26 @@ private fun Row3Actions(
                     text = stringResource(R.string.song_info_action_delete),
                     modifier = Modifier.padding(end = 4.dp),
                     overflow = TextOverflow.Ellipsis,
-                    maxLines = 2,
+                    maxLines = 1,
                     lineHeight = 20.sp
                 )
             }
-        } else {
+        }
+
+        if (showRadio) {
             FilledTonalButton(
-                modifier = Modifier
-                    .weight(weightTertiary)
-                    .heightIn(min = 66.dp),
+                modifier = commonModifier,
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                 ),
                 contentPadding = PaddingValues(horizontal = 10.dp),
                 shape = CircleShape,
-                interactionSource = tertiaryInteractionSource,
                 onClick = {
                     if (clickPending) return@FilledTonalButton
                     clickPending = true
-                    tertiaryVisualPressed = true
-                    android.util.Log.d("PixelPlayerDebug", "Row3Actions: Start Radio clicked")
                     coroutineScope.launch {
                         kotlinx.coroutines.delay(180)
-                        tertiaryVisualPressed = false
                         clickPending = false
                         onStartRadio()
                     }
@@ -1651,6 +1748,60 @@ private fun Row3Actions(
                     maxLines = 1,
                     lineHeight = 20.sp
                 )
+            }
+        }
+
+        if (showDownload) {
+            val enabled = downloadProgress == null && !isDownloaded
+            FilledTonalButton(
+                modifier = commonModifier,
+                enabled = enabled,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = if (isDownloaded) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = if (isDownloaded) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                shape = CircleShape,
+                onClick = {
+                    if (enabled) {
+                        onDownloadClick()
+                    }
+                }
+            ) {
+                if (downloadProgress != null) {
+                    CircularProgressIndicator(
+                        progress = { downloadProgress / 100f },
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        strokeWidth = 3.dp
+                    )
+                } else if (isDownloaded) {
+                    Icon(
+                        imageVector = Icons.Rounded.CheckCircle,
+                        contentDescription = "Downloaded"
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    TightWrapText(
+                        text = "Downloaded",
+                        modifier = Modifier.padding(end = 4.dp),
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        lineHeight = 20.sp
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.outline_save_24),
+                        contentDescription = "Download"
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    TightWrapText(
+                        text = "Download",
+                        modifier = Modifier.padding(end = 4.dp),
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        lineHeight = 20.sp
+                    )
+                }
             }
         }
     }

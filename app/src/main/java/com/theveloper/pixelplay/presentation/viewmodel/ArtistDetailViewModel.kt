@@ -38,6 +38,9 @@ data class ArtistDetailUiState(
     val songs: List<Song> = emptyList(),
     val albumSections: List<ArtistAlbumSection> = emptyList(),
     val effectiveImageUrl: String? = null,
+    val relatedArtists: List<Artist> = emptyList(),
+    val shelves: List<dev.brahmkshatriya.echo.common.models.Shelf> = emptyList(),
+    val canRadio: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -105,8 +108,10 @@ class ArtistDetailViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             val result = extensionRepository.loadArtistDetails(id)
             if (result != null) {
-                val artist = result.first
-                val songs = result.second
+                val artist = result.artist
+                val songs = result.songs
+                val related = result.relatedArtists
+                val shelves = result.shelves
 
                 val albumSections = buildAlbumSections(songs)
                 val orderedSongs = albumSections.flatMap { it.songs }
@@ -120,12 +125,19 @@ class ArtistDetailViewModel @Inject constructor(
                     }
                 } else null
 
+                val extensionId = id.split(":").getOrNull(1) ?: ""
+                val caps = extensionRepository.extensionCapabilities.value[extensionId]
+                val canRadio = caps?.canRadio ?: false
+
                 _artistColorScheme.value = newScheme
                 _uiState.value = ArtistDetailUiState(
                     artist = artist,
                     songs = orderedSongs,
                     albumSections = albumSections,
                     effectiveImageUrl = effectiveUrl,
+                    relatedArtists = related,
+                    shelves = shelves,
+                    canRadio = canRadio,
                     isLoading = false
                 )
             } else {

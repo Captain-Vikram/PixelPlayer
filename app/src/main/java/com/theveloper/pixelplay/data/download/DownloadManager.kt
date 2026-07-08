@@ -30,17 +30,40 @@ class DownloadManager @Inject constructor(
                 .associate { it.songId to it.progress.toInt() }
         }
 
+    // Expose set of successfully downloaded song IDs whose files actually exist on disk
+    val completedDownloads: Flow<Set<String>> = downloadDao.getAllDownloads()
+        .map { list ->
+            list.filter { entity ->
+                if (entity.status != DownloadStatus.COMPLETED || entity.downloadPath == null) return@filter false
+                // MediaStore URI (content://): the entry exists as long as MediaStore
+                // keeps it — treat it as present without a File.exists() check.
+                // Legacy absolute paths: verify the file still exists on disk.
+                entity.downloadPath.startsWith("content://") || java.io.File(entity.downloadPath).exists()
+            }
+                .map { it.songId }
+                .toSet()
+        }
+
     suspend fun downloadSong(song: Song) {
         if (!song.id.startsWith("extension:")) return
         val parts = song.id.split(":")
-        if (parts.size < 3) return
+        if (parts.size < 4) return
         val extId = parts[1]
-        val trackId = parts[2]
+        var trackId = parts.drop(3).joinToString(":")
+        if (extId == "spotify" && !trackId.contains(":")) {
+            trackId = "spotify:track:$trackId"
+        }
 
-        // Check if already downloading or downloaded
+        // Check if already downloading or downloaded (verifying file presence on disk)
         val existing = downloadDao.getDownloadBySongId(song.id)
-        if (existing != null && (existing.status == DownloadStatus.COMPLETED || existing.status == DownloadStatus.DOWNLOADING)) {
-            return
+        if (existing != null) {
+            if (existing.status == DownloadStatus.DOWNLOADING || existing.status == DownloadStatus.PENDING) {
+                return
+            }
+            if (existing.status == DownloadStatus.COMPLETED && existing.downloadPath != null &&
+                (existing.downloadPath.startsWith("content://") || java.io.File(existing.downloadPath).exists())) {
+                return
+            }
         }
 
         val download = DownloadEntity(

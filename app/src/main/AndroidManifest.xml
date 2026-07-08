@@ -38,6 +38,7 @@
     <application
         android:name=".PixelPlayApplication"
         android:allowBackup="true"
+        android:appCategory="audio"
         android:enableOnBackInvokedCallback="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -221,7 +222,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- *** AÑADE ESTE BLOQUE PARA DESHABILITAR EL INICIALIZADOR POR DEFECTO *** -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
@@ -233,6 +233,11 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <receiver android:name=".ui.glancewidget.WidgetUpdateReceiver" android:exported="false">
             <intent-filter>

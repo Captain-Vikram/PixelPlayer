@@ -337,14 +337,16 @@ class LyricsStateHolder @Inject constructor(
                 query = "${song.title} - ${song.displayArtist}",
                 results = emptyList(),
                 availableExtensions = availableExtensions,
-                selectedExtensionId = extensionId
+                selectedExtensionId = extensionId,
+                isLoading = true
             )
             
             if (extensionId == null) {
                 musicRepository.searchRemoteLyricsByQuery(song.title, song.displayArtist)
                     .onSuccess { (q, results) ->
                         _searchUiState.value = (_searchUiState.value as LyricsSearchUiState.PickResult).copy(
-                            results = results
+                            results = results,
+                            isLoading = false
                         )
                     }
                     .onFailure { error -> handleError(error, availableExtensions) }
@@ -382,7 +384,8 @@ class LyricsStateHolder @Inject constructor(
                     }
                     
                     _searchUiState.value = (_searchUiState.value as LyricsSearchUiState.PickResult).copy(
-                        results = results
+                        results = results,
+                        isLoading = false
                     )
                 } catch (e: Exception) {
                     handleError(e, availableExtensions)

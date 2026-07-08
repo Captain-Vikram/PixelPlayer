@@ -3,16 +3,20 @@ package com.theveloper.pixelplay.data.telegram
 import android.content.Context
 import com.theveloper.pixelplay.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 import timber.log.Timber
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,12 +26,102 @@ class TelegramClientManager @Inject constructor(
 ) {
 
     companion object {
-        init {
+        private var isLibraryLoaded = false
+
+        @Synchronized
+        fun loadLibrary(context: Context): Boolean {
+            if (isLibraryLoaded) return true
+            val pluginFile = File(context.filesDir, "plugins/libtdjni.so")
+            if (pluginFile.exists()) {
+                try {
+                    System.load(pluginFile.absolutePath)
+                    isLibraryLoaded = true
+                    Timber.d("TDLib: Successfully loaded dynamic plugin from ${pluginFile.absolutePath}")
+                    return true
+                } catch (e: UnsatisfiedLinkError) {
+                    Timber.e(e, "TDLib: Failed to load dynamic plugin from ${pluginFile.absolutePath}")
+                }
+            }
             try {
                 System.loadLibrary("tdjni")
+                isLibraryLoaded = true
+                Timber.d("TDLib: Successfully loaded bundled library")
+                return true
             } catch (e: UnsatisfiedLinkError) {
-                Timber.e(e, "Failed to load TDLib native library")
+                Timber.w("TDLib: Bundled library not found (requires plugin download)")
             }
+            return false
+        }
+    }
+
+    private val _downloadProgress = MutableStateFlow<Float?>(null)
+    val downloadProgress = _downloadProgress.asStateFlow()
+
+    fun isPluginInstalled(): Boolean {
+        return isLibraryLoaded || File(context.filesDir, "plugins/libtdjni.so").exists()
+    }
+
+    fun getPluginDownloadUrl(): String? {
+        val abi = android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: return null
+        return "https://github.com/Konstantin/tdlib-binaries/raw/main/android/$abi/libtdjni.so"
+    }
+
+    suspend fun downloadAndInstallPlugin(): Result<Unit> = withContext(Dispatchers.IO) {
+        val urlStr = getPluginDownloadUrl() ?: return@withContext Result.failure(
+            Exception("Unsupported CPU architecture")
+        )
+        _downloadProgress.value = 0f
+        try {
+            val url = URL(urlStr)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 15000
+            connection.readTimeout = 15000
+            connection.connect()
+
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw Exception("Server returned HTTP ${connection.responseCode}")
+            }
+
+            val fileLength = connection.contentLength
+            val input = connection.inputStream
+            val pluginDir = File(context.filesDir, "plugins")
+            if (!pluginDir.exists()) {
+                pluginDir.mkdirs()
+            }
+            val tempFile = File(pluginDir, "libtdjni.so.tmp")
+            val output = tempFile.outputStream()
+
+            val data = ByteArray(4096)
+            var total = 0L
+            var count: Int
+            while (input.read(data).also { count = it } != -1) {
+                total += count
+                if (fileLength > 0) {
+                    _downloadProgress.value = total.toFloat() / fileLength
+                } else {
+                    _downloadProgress.value = 0.5f
+                }
+                output.write(data, 0, count)
+            }
+            output.flush()
+            output.close()
+            input.close()
+
+            val finalFile = File(pluginDir, "libtdjni.so")
+            if (tempFile.renameTo(finalFile)) {
+                _downloadProgress.value = null
+                if (loadLibrary(context)) {
+                    initializeClient()
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("Failed to load downloaded library"))
+                }
+            } else {
+                Result.failure(Exception("Failed to rename temporary file"))
+            }
+        } catch (e: Exception) {
+            _downloadProgress.value = null
+            Result.failure(e)
         }
     }
 
@@ -44,7 +138,6 @@ class TelegramClientManager @Inject constructor(
     @Volatile
     private var recreateClientAfterClose = false
 
-    // Handler for incoming updates from TDLib
     private val updateHandler = Client.ResultHandler { update ->
         if (update is TdApi.Update) {
             when (update) {
@@ -52,12 +145,10 @@ class TelegramClientManager @Inject constructor(
                     onAuthorizationStateUpdated(update.authorizationState)
                 }
                 is TdApi.UpdateUser -> {
-                    // Handle user updates if needed
                 }
                 is TdApi.UpdateFile -> {
                     _updates.tryEmit(update)
                 }
-                // Add other update handlers here
                 else -> {}
             }
         } else if (update is TdApi.Error) {
@@ -66,21 +157,24 @@ class TelegramClientManager @Inject constructor(
     }
 
     init {
-        initializeClient()
+        if (loadLibrary(context)) {
+            initializeClient()
+        }
     }
 
     @Synchronized
     private fun initializeClient() {
         if (client != null) return
-        // Set log verbosity to 1 (Errors only) to prevent heavy logging
+        if (!loadLibrary(context)) {
+            Timber.w("initializeClient: Library not loaded, skipping initialization")
+            return
+        }
         try {
             Client.execute(TdApi.SetLogVerbosityLevel(1))
+            client = Client.create(updateHandler, null, null)
         } catch (e: Exception) {
-            Timber.e(e, "Failed to set TDLib log verbosity")
+            Timber.e(e, "Failed to create TDLib Client")
         }
-
-        // Create a new instance of TDLib Client
-        client = Client.create(updateHandler, null, null)
     }
 
     private fun onAuthorizationStateUpdated(authState: TdApi.AuthorizationState) {

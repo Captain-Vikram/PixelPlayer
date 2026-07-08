@@ -40,7 +40,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity::class,
         dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser::class
     ],
-    version = 45,
+    version = 46,
     exportSchema = true
 )
 @androidx.room.TypeConverters(PixelPlayDatabase.ExtensionTypeConverters::class)
@@ -1602,6 +1602,13 @@ abstract class PixelPlayDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE songs ADD COLUMN background_uri_string TEXT DEFAULT NULL")
                 db.execSQL("ALTER TABLE songs ADD COLUMN subtitle_uri_string TEXT DEFAULT NULL")
+            }
+        }
+
+        val MIGRATION_45_46 = object : Migration(45, 46) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_engagements_last_played_timestamp` ON `song_engagements` (`last_played_timestamp`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_search_history_timestamp` ON `search_history` (`timestamp`)")
             }
         }
 

@@ -60,12 +60,21 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 
+import com.theveloper.pixelplay.extensions.core.loadAll
+
 import com.theveloper.pixelplay.data.netease.NeteaseStreamProxy
 import com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy
 import com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy
 import androidx.core.net.toUri
+import android.net.ConnectivityManager
+import com.theveloper.pixelplay.data.model.StreamingQuality
+import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import kotlinx.coroutines.flow.first
+import kotlin.math.abs
 import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 
 data class ActiveDecoderInfo(
@@ -235,7 +244,8 @@ class DualPlayerEngine @Inject constructor(
     private val connectivityStateHolder: com.theveloper.pixelplay.presentation.viewmodel.ConnectivityStateHolder,
     private val extensionHost: com.theveloper.pixelplay.extensions.PixelPlayExtensionHost,
     private val extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) {
     private companion object {
         private const val AUDIO_OFFLOAD_STALL_FALLBACK_MS = 4_000L
@@ -268,6 +278,7 @@ class DualPlayerEngine @Inject constructor(
     private var bufferingFallbackJob: Job? = null
     private var transitionRunning = false
     private var preResolutionJob: Job? = null
+    private val activeResolutions = java.util.concurrent.ConcurrentHashMap<String, Deferred<ResolvedMedia>>()
     private var queueSnapshot: List<MediaItem> = emptyList()
     private var activeWindowStartIndex = 0
     private var activePlayerUsesWindowedQueue = false
@@ -293,6 +304,103 @@ class DualPlayerEngine @Inject constructor(
 
     private val _activeDecoderInfo = MutableStateFlow<ActiveDecoderInfo?>(null)
     val activeDecoderInfo: StateFlow<ActiveDecoderInfo?> = _activeDecoderInfo.asStateFlow()
+
+    // Temporary Quality Override Flow (resets/lives per session in memory)
+    private val _temporaryQualityOverride = MutableStateFlow<StreamingQuality?>(null)
+    val temporaryQualityOverrideFlow: StateFlow<StreamingQuality?> = _temporaryQualityOverride.asStateFlow()
+
+    val temporaryQualityOverride: StreamingQuality?
+        get() = _temporaryQualityOverride.value
+
+    fun setTemporaryQualityOverride(quality: StreamingQuality?) {
+        _temporaryQualityOverride.value = quality
+        scope.launch {
+            if (::playerA.isInitialized) {
+                val currentMediaItem = playerA.currentMediaItem
+                if (currentMediaItem != null && currentMediaItem.mediaId.startsWith("extension:")) {
+                    val wasPlaying = playerA.playWhenReady || playerA.isPlaying
+                    val position = playerA.currentPosition
+                    // Evict the cache so resolveCloudUri fetches a fresh stream URL
+                    // at the chosen quality tier.
+                    currentMediaItem.localConfiguration?.uri?.let { uri ->
+                        resolvedUriCache.remove(uri.toString())
+                    }
+                    // Resolve to the real HTTP URL NOW, on the coroutine thread, and
+                    // build a MediaItem that has the actual URL baked in.  This avoids
+                    // the JIT runBlocking path in ResolvingDataSource.resolver which
+                    // races with replaceMediaItem/prepare/seekTo and breaks UI controls.
+                    val extensionUri = currentMediaItem.localConfiguration?.uri
+                    if (extensionUri != null) {
+                        val resolved = resolveCloudUri(extensionUri)
+                        // Persist headers so ResolvingDataSource applies them when
+                        // OkHttp opens the resolved HTTPS URL.
+                        if (resolved.headers.isNotEmpty()) {
+                            resolvedHeadersCache.put(resolved.uri.toString(), resolved.headers)
+                        }
+                        val resolvedMediaItem = currentMediaItem.buildUpon()
+                            .setUri(resolved.uri)
+                            .setMimeType(resolved.mimeType)
+                            .build()
+                        playerA.replaceMediaItem(playerA.currentMediaItemIndex, resolvedMediaItem)
+                        playerA.prepare()
+                        playerA.seekTo(position)
+                        if (wasPlaying) {
+                            playerA.play()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Dynamic Track Sources Flow (matches Echo capability to pick specific bitrate/codec)
+    private val _currentTrackSources = MutableStateFlow<List<dev.brahmkshatriya.echo.common.models.Streamable.Source>>(emptyList())
+    val currentTrackSources: StateFlow<List<dev.brahmkshatriya.echo.common.models.Streamable.Source>> = _currentTrackSources.asStateFlow()
+
+    private val _currentSelectedSource = MutableStateFlow<dev.brahmkshatriya.echo.common.models.Streamable.Source?>(null)
+    val currentSelectedSource: StateFlow<dev.brahmkshatriya.echo.common.models.Streamable.Source?> = _currentSelectedSource.asStateFlow()
+
+    private var manualSelectedSource: dev.brahmkshatriya.echo.common.models.Streamable.Source? = null
+
+    fun selectTrackSource(source: dev.brahmkshatriya.echo.common.models.Streamable.Source) {
+        manualSelectedSource = source
+        _currentSelectedSource.value = source
+        scope.launch {
+            if (::playerA.isInitialized) {
+                val currentMediaItem = playerA.currentMediaItem
+                if (currentMediaItem != null && currentMediaItem.mediaId.startsWith("extension:")) {
+                    val wasPlaying = playerA.playWhenReady || playerA.isPlaying
+                    val position = playerA.currentPosition
+                    // Evict cache so resolveCloudUri picks the manually-selected source.
+                    currentMediaItem.localConfiguration?.uri?.let { uri ->
+                        resolvedUriCache.remove(uri.toString())
+                    }
+                    // Resolve to the real HTTP URL NOW and bake it into the MediaItem.
+                    // Same reasoning as setTemporaryQualityOverride: avoids the JIT
+                    // runBlocking race in ResolvingDataSource that breaks UI controls.
+                    val extensionUri = currentMediaItem.localConfiguration?.uri
+                    if (extensionUri != null) {
+                        val resolved = resolveCloudUri(extensionUri)
+                        // Persist headers so ResolvingDataSource applies them when
+                        // OkHttp opens the resolved HTTPS URL.
+                        if (resolved.headers.isNotEmpty()) {
+                            resolvedHeadersCache.put(resolved.uri.toString(), resolved.headers)
+                        }
+                        val resolvedMediaItem = currentMediaItem.buildUpon()
+                            .setUri(resolved.uri)
+                            .setMimeType(resolved.mimeType)
+                            .build()
+                        playerA.replaceMediaItem(playerA.currentMediaItemIndex, resolvedMediaItem)
+                        playerA.prepare()
+                        playerA.seekTo(position)
+                        if (wasPlaying) {
+                            playerA.play()
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // Audio Focus Management
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -362,17 +470,37 @@ class DualPlayerEngine @Inject constructor(
      */
     var incomingTrackReplayGainVolume: Float? = null
 
+    private var isDucked = false
+
+    private fun applyDucking() {
+        if (isDucked) return
+        isDucked = true
+        val targetVolume = incomingTrackReplayGainVolume ?: 1f
+        playerA.volume = targetVolume * 0.2f
+        playerB?.let { it.volume = it.volume * 0.2f }
+    }
+
+    private fun removeDucking() {
+        if (!isDucked) return
+        isDucked = false
+        val targetVolume = incomingTrackReplayGainVolume ?: 1f
+        playerA.volume = targetVolume
+        playerB?.let { it.volume = incomingTrackReplayGainVolume ?: 1f }
+    }
+
     private val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
                 Timber.tag("TransitionDebug").d("AudioFocus LOSS. Pausing.")
                 isFocusLossPause = false
+                removeDucking()
                 playerA.playWhenReady = false
                 playerB?.playWhenReady = false
                 abandonAudioFocus()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 Timber.tag("TransitionDebug").d("AudioFocus LOSS_TRANSIENT. Pausing.")
+                removeDucking()
                 val auxiliaryPlayer = playerB
                 isFocusLossPause = shouldResumeAfterTransientAudioFocusLoss(
                     masterPlayWhenReady = playerA.playWhenReady,
@@ -384,8 +512,13 @@ class DualPlayerEngine @Inject constructor(
                 playerA.playWhenReady = false
                 auxiliaryPlayer?.playWhenReady = false
             }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                Timber.tag("TransitionDebug").d("AudioFocus LOSS_TRANSIENT_CAN_DUCK. Ducking.")
+                applyDucking()
+            }
             AudioManager.AUDIOFOCUS_GAIN -> {
-                Timber.tag("TransitionDebug").d("AudioFocus GAIN. Resuming if paused by loss.")
+                Timber.tag("TransitionDebug").d("AudioFocus GAIN. Resuming if paused by loss or unducking.")
+                removeDucking()
                 if (isFocusLossPause) {
                     isFocusLossPause = false
                     playerA.playWhenReady = true
@@ -402,8 +535,14 @@ class DualPlayerEngine @Inject constructor(
                 lastPlayWhenReadyAtMs = SystemClock.elapsedRealtime()
                 requestAudioFocus()
                 scheduleAudioOffloadFallbackIfNeeded(playerA)
+                if (transitionRunning) {
+                    playerB?.playWhenReady = true
+                }
             } else {
                 cancelAudioOffloadFallback()
+                if (transitionRunning) {
+                    playerB?.playWhenReady = false
+                }
                 // Keep focus across user pauses so a quick resume doesn't have to re-acquire it.
                 // Focus is abandoned explicitly on AUDIOFOCUS_LOSS and on release(); anything in
                 // between (user pause/play) keeps the request alive to avoid contention races
@@ -554,6 +693,17 @@ class DualPlayerEngine @Inject constructor(
                 telegramCacheManager.setActivePlayback(null)
             }
             applyWakeModeForCurrentItem()
+            
+            // Eagerly resolve the current media item if it's a cloud proxy scheme
+            if (uri != null && uri.scheme in CLOUD_PROXY_SCHEMES) {
+                scope.launch {
+                    try {
+                        resolveCloudUri(uri)
+                    } catch (e: Exception) {
+                        Timber.tag("DualPlayerEngine").w(e, "Eager transition resolution failed for %s", uri)
+                    }
+                }
+            }
 
             // --- Pre-Resolve Next/Prev Tracks with Debounce to prevent flooding ---
             preResolutionJob?.cancel()
@@ -681,9 +831,14 @@ class DualPlayerEngine @Inject constructor(
                 
                 if (errorRetryCount <= 3) {
                     val position = playerA.currentPosition
-                    Timber.tag("DualPlayerEngine").i("Attempting automatic retry (%d/3) for mediaId %s at position %d", errorRetryCount, mediaId, position)
+                    val delayMs = when (errorRetryCount) {
+                        1 -> 1000L
+                        2 -> 3000L
+                        else -> 8000L
+                    }
+                    Timber.tag("DualPlayerEngine").i("Attempting automatic retry (%d/3) for mediaId %s at position %d in %d ms", errorRetryCount, mediaId, position, delayMs)
                     scope.launch {
-                        delay(1000)
+                        delay(delayMs)
                         if (::playerA.isInitialized) {
                             val resolvedMediaItem = resolveMediaItem(mediaItem)
                             playerA.setMediaItem(resolvedMediaItem, false)
@@ -813,6 +968,10 @@ class DualPlayerEngine @Inject constructor(
 
     private var isReleased = false
     private val resolvedUriCache = LruCache<String, ResolvedMedia>(100)
+    // Per-URL headers that extensions need for quality-changed HTTP streams.
+    // Keyed by the resolved HTTPS/HTTP URI string; entries are evicted together
+    // with the corresponding resolvedUriCache entry on playback error.
+    private val resolvedHeadersCache = LruCache<String, Map<String, String>>(50)
     private val rawSourceMap = LruCache<String, dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw>(20)
     private var lastErrorMediaId: String? = null
     private var errorRetryCount = 0
@@ -1156,20 +1315,46 @@ class DualPlayerEngine @Inject constructor(
             override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
                 val uri = dataSpec.uri
                 val scheme = uri.scheme
+                val originalUri = uri.toString()
+
+                // For extension-resolved HTTP/HTTPS streams that went through a quality
+                // override: headers were stored in resolvedHeadersCache under this URI.
+                if (scheme == "https" || scheme == "http") {
+                    val cachedHeaders = resolvedHeadersCache.get(originalUri)
+                    if (!cachedHeaders.isNullOrEmpty()) {
+                        return dataSpec.buildUpon()
+                            .setHttpRequestHeaders(cachedHeaders)
+                            .build()
+                    }
+                }
+
                 if (scheme in CLOUD_PROXY_SCHEMES) {
-                    val originalUri = uri.toString()
                     val cached = resolvedUriCache.get(originalUri)
                     
                     val resolved = if (cached != null) {
                         cached
                     } else {
-                        // JIT Resolution fallback with timeout
+                        // JIT Resolution fallback with timeout, but interruptible to prevent blocking the loader thread
                         Timber.tag("DualPlayerEngine").d("resolveDataSpec: Cache MISS for %s - attempting JIT resolution", originalUri)
                         runBlocking {
-                            withContext(Dispatchers.IO) {
-                                kotlinx.coroutines.withTimeoutOrNull(10_000) {
-                                    resolveCloudUri(uri)
+                            val job = async(Dispatchers.IO) {
+                                resolveCloudUri(uri)
+                            }
+                            try {
+                                while (!job.isCompleted) {
+                                    if (Thread.currentThread().isInterrupted) {
+                                        job.cancel()
+                                        throw InterruptedException("Loader thread interrupted")
+                                    }
+                                    delay(50)
                                 }
+                                job.await()
+                            } catch (e: InterruptedException) {
+                                Timber.tag("DualPlayerEngine").d("resolveDataSpec: JIT resolution interrupted for %s", originalUri)
+                                null
+                            } catch (e: Exception) {
+                                Timber.tag("DualPlayerEngine").e(e, "resolveDataSpec: JIT resolution failed for %s", originalUri)
+                                null
                             }
                         }
                     }
@@ -1275,7 +1460,7 @@ class DualPlayerEngine @Inject constructor(
                 .setAudioOffloadPreferences(offloadPreferences)
                 .build()
             setHandleAudioBecomingNoisy(true)
-            setWakeMode(C.WAKE_MODE_LOCAL)
+            setWakeMode(C.WAKE_MODE_NETWORK)
             playWhenReady = false
         }
     }
@@ -1324,40 +1509,112 @@ class DualPlayerEngine @Inject constructor(
         rebuildPlayersPreservingMasterState("Hi-Fi mode set to $enabled")
     }
 
-    suspend fun resolveCloudUri(uri: Uri): ResolvedMedia = withContext(Dispatchers.IO) {
+    suspend fun resolveCloudUri(uri: Uri): ResolvedMedia {
         val uriString = uri.toString()
-        resolvedUriCache.get(uriString)?.let { return@withContext it }
+        resolvedUriCache.get(uriString)?.let { return it }
 
-        val resolved: ResolvedMedia? = when (uri.scheme) {
-            "telegram" -> resolveTelegramUriAsync(uri, uriString)?.let { ResolvedMedia(it) }
-            "netease" -> resolveNeteaseUriAsync(uriString)?.let { ResolvedMedia(it) }
-            "qqmusic" -> resolveQqMusicUriAsync(uriString)?.let { ResolvedMedia(it) }
-            "navidrome" -> resolveNavidromeUriAsync(uriString)?.let { ResolvedMedia(it) }
-            "jellyfin" -> resolveJellyfinUriAsync(uriString)?.let { ResolvedMedia(it) }
-            "gdrive" -> resolveGDriveUriAsync(uriString)?.let { ResolvedMedia(it) }
-            "extension" -> resolveExtensionUriAsync(uri, uriString)
-            else -> null
+        val deferred = activeResolutions.computeIfAbsent(uriString) {
+            scope.async(Dispatchers.IO) {
+                val resolved: ResolvedMedia? = when (uri.scheme) {
+                    "telegram" -> resolveTelegramUriAsync(uri, uriString)?.let { ResolvedMedia(it) }
+                    "netease" -> resolveNeteaseUriAsync(uriString)?.let { ResolvedMedia(it) }
+                    "qqmusic" -> resolveQqMusicUriAsync(uriString)?.let { ResolvedMedia(it) }
+                    "navidrome" -> resolveNavidromeUriAsync(uriString)?.let { ResolvedMedia(it) }
+                    "jellyfin" -> resolveJellyfinUriAsync(uriString)?.let { ResolvedMedia(it) }
+                    "gdrive" -> resolveGDriveUriAsync(uriString)?.let { ResolvedMedia(it) }
+                    "extension" -> resolveExtensionUriAsync(uri, uriString)
+                    else -> null
+                }
+                val finalResolved = resolved ?: ResolvedMedia(uri)
+                resolvedUriCache.put(uriString, finalResolved)
+                finalResolved
+            }
         }
 
-        if (resolved != null) {
-            resolvedUriCache.put(uriString, resolved)
-            return@withContext resolved
+        return try {
+            deferred.await()
+        } finally {
+            activeResolutions.remove(uriString)
         }
-        ResolvedMedia(uri)
+    }
+
+    private fun getQualityTierForInt(quality: Int): StreamingQuality {
+        return when {
+            quality <= 0 || quality <= 96 -> StreamingQuality.DATA_SAVER
+            quality == 1 || (quality in 97..160) -> StreamingQuality.STANDARD
+            quality == 2 || (quality in 161..320) -> StreamingQuality.HIGH
+            else -> StreamingQuality.LOSSLESS
+        }
+    }
+
+    /**
+     * Resolves the target streaming quality dynamically at track resolution time.
+     * Note: Quality changes apply starting from the next resolved track (or when Player B
+     * pre-buffers the next track) to avoid immediate playback interruptions and prevent
+     * cellular data waste from discarding the current buffer.
+     */
+    private suspend fun resolveTargetStreamingQuality(): StreamingQuality {
+        // Respect temporary override if set
+        val override = temporaryQualityOverride
+        if (override != null) {
+            return override
+        }
+
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val isMetered = connectivityManager.isActiveNetworkMetered
+        
+        // Read user preferences
+        val wifiPreference = userPreferencesRepository.preferredQualityWifiFlow.first()
+        val cellularPreference = userPreferencesRepository.preferredQualityCellularFlow.first()
+        
+        var targetQuality = if (isMetered) cellularPreference else wifiPreference
+        
+        // Resolve AUTO
+        if (targetQuality == StreamingQuality.AUTO) {
+            targetQuality = if (isMetered) {
+                // Metered (Cellular): default to STANDARD to save data
+                StreamingQuality.STANDARD
+            } else {
+                // Unmetered (Wi-Fi): default to HIGH for best experience
+                StreamingQuality.HIGH
+            }
+        }
+        
+        // Respect system-wide Data Saver mode
+        val isDataSaverActive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            connectivityManager.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+        } else {
+            false
+        }
+        
+        if (isDataSaverActive) {
+            // Cap quality at DATA_SAVER or STANDARD
+            if (targetQuality.rank > StreamingQuality.STANDARD.rank) {
+                targetQuality = StreamingQuality.STANDARD
+            }
+        }
+        
+        return targetQuality
     }
 
     private suspend fun resolveExtensionUriAsync(uri: Uri, uriString: String): ResolvedMedia? = withContext(Dispatchers.IO) {
+        _currentTrackSources.value = emptyList()
+        _currentSelectedSource.value = null
+
         val parts = uriString.split(":")
         if (parts.size < 4 || parts[0] != "extension") return@withContext null
         val extensionId = parts[1]
-        val itemId = parts.drop(3).joinToString(":")
+        var itemId = parts.drop(3).joinToString(":")
+        if (extensionId == "spotify" && !itemId.contains(":")) {
+            itemId = "spotify:track:$itemId"
+        }
 
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return@withContext null
         
         return@withContext try {
             val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.TrackClient ?: return@withContext null
             val echoTrack = dev.brahmkshatriya.echo.common.models.Track(itemId, "")
-            val loadedTrack = client.loadTrack(echoTrack, true)
+            val loadedTrack = client.loadTrack(echoTrack, false)
             
             // Collect all potential sources with their quality
             val potentialSources = mutableListOf<Pair<dev.brahmkshatriya.echo.common.models.Streamable.Source, dev.brahmkshatriya.echo.common.models.Streamable>>()
@@ -1367,7 +1624,7 @@ class DualPlayerEngine @Inject constructor(
             
             for (streamable in allStreamables) {
                 try {
-                    val media = client.loadStreamableMedia(streamable, true)
+                    val media = client.loadStreamableMedia(streamable, false)
                     if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
                         for (source in media.sources) {
                             potentialSources.add(source to streamable)
@@ -1377,29 +1634,107 @@ class DualPlayerEngine @Inject constructor(
                     Timber.tag("DualPlayerEngine").w(e, "Failed to load streamable media for %s", streamable.id)
                 }
             }
+
+            if (potentialSources.isEmpty()) {
+                Timber.tag("DualPlayerEngine").w("No potential sources found for track %s. Running fallback search...", loadedTrack.title)
+                val fallbackExtension = extensionEngine.all.value.firstOrNull { ext ->
+                    ext.metadata.id != extensionId && ext.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.SearchFeedClient
+                }
+                if (fallbackExtension != null) {
+                    val searchClient = fallbackExtension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.SearchFeedClient
+                    val trackClient = fallbackExtension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.TrackClient
+                    if (searchClient != null && trackClient != null) {
+                        val query = "${loadedTrack.title} ${loadedTrack.artists.joinToString(" ") { it.name }}"
+                        try {
+                            val searchFeed = searchClient.loadSearchFeed(query).loadAll()
+                            val fallbackTrack = searchFeed.asSequence()
+                                .flatMap { shelf ->
+                                    when (shelf) {
+                                        is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> shelf.list
+                                        is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> shelf.list.filterIsInstance<dev.brahmkshatriya.echo.common.models.Track>()
+                                        is dev.brahmkshatriya.echo.common.models.Shelf.Item -> {
+                                            val media = shelf.media
+                                            if (media is dev.brahmkshatriya.echo.common.models.Track) listOf(media) else emptyList()
+                                        }
+                                        else -> emptyList()
+                                    }
+                                }
+                                .firstOrNull()
+                            if (fallbackTrack != null) {
+                                val resolvedFallbackTrack = trackClient.loadTrack(fallbackTrack, false)
+                                val fallbackStreamables = (resolvedFallbackTrack.servers.ifEmpty { resolvedFallbackTrack.streamables })
+                                    .sortedByDescending { it.quality }
+                                for (streamable in fallbackStreamables) {
+                                    try {
+                                        val media = trackClient.loadStreamableMedia(streamable, false)
+                                        if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
+                                            for (source in media.sources) {
+                                                potentialSources.add(source to streamable)
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        // ignore
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Timber.tag("DualPlayerEngine").e(e, "Fallback search failed for query: %s", query)
+                        }
+                    }
+                }
+            }
             
-            // Sort potential sources by their own quality, then by streamable quality
-            potentialSources.sortWith(compareByDescending<Pair<dev.brahmkshatriya.echo.common.models.Streamable.Source, dev.brahmkshatriya.echo.common.models.Streamable>> { it.first.quality }
-                .thenByDescending { it.second.quality })
+            val targetTier = resolveTargetStreamingQuality()
+            Timber.tag("DualPlayerEngine").d("Resolving stream with target quality tier: %s", targetTier)
+
+            // Sort potential sources:
+            // 1. Closest tier difference (absolute rank diff) first.
+            // 2. Negative difference (lower quality) preferred over positive difference (higher quality).
+            // 3. Within same tier, higher raw quality/bitrate descending.
+            potentialSources.sortWith(
+                compareBy<Pair<dev.brahmkshatriya.echo.common.models.Streamable.Source, dev.brahmkshatriya.echo.common.models.Streamable>> { pair ->
+                    val maxQual = maxOf(pair.first.quality, pair.second.quality)
+                    val tier = getQualityTierForInt(maxQual)
+                    abs(tier.rank - targetTier.rank)
+                }.thenBy { pair ->
+                    val maxQual = maxOf(pair.first.quality, pair.second.quality)
+                    val tier = getQualityTierForInt(maxQual)
+                    tier.rank - targetTier.rank // Negative diff first
+                }.thenByDescending { pair ->
+                    maxOf(pair.first.quality, pair.second.quality)
+                }
+            )
+
+            // Dynamic tracking
+            _currentTrackSources.value = potentialSources.map { it.first }
             
-            for ((source, _) in potentialSources) {
-                if (source is dev.brahmkshatriya.echo.common.models.Streamable.Source.Http) {
-                    val mimeType = when (source.type) {
+            val activeSource = if (manualSelectedSource != null && potentialSources.any { it.first.id == manualSelectedSource?.id }) {
+                potentialSources.find { it.first.id == manualSelectedSource?.id }?.first
+            } else {
+                manualSelectedSource = null
+                potentialSources.firstOrNull()?.first
+            }
+
+            _currentSelectedSource.value = activeSource
+            
+            if (activeSource != null) {
+                if (activeSource is dev.brahmkshatriya.echo.common.models.Streamable.Source.Http) {
+                    val mimeType = when (activeSource.type) {
                         dev.brahmkshatriya.echo.common.models.Streamable.SourceType.HLS -> androidx.media3.common.MimeTypes.APPLICATION_M3U8
                         dev.brahmkshatriya.echo.common.models.Streamable.SourceType.DASH -> androidx.media3.common.MimeTypes.APPLICATION_MPD
                         else -> null
                     }
                     return@withContext ResolvedMedia(
-                        uri = Uri.parse(source.id),
-                        headers = source.request.headers,
+                        uri = Uri.parse(activeSource.id),
+                        headers = activeSource.request.headers,
                         mimeType = mimeType
                     )
-                } else if (source is dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw) {
-                    val rawUri = "raw://${source.id.hashCode()}"
-                    rawSourceMap.put(rawUri, source)
+                } else if (activeSource is dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw) {
+                    val rawUri = "raw://${activeSource.id.hashCode()}"
+                    rawSourceMap.put(rawUri, activeSource)
                     return@withContext ResolvedMedia(
                         uri = Uri.parse(rawUri),
-                        rawSource = source
+                        rawSource = activeSource
                     )
                 }
             }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -114,7 +115,10 @@ fun SourceSelectionSheet(
                         )
                     }
 
-                    items(installedExtensions, key = { it.metadata.id }) { extension ->
+                    itemsIndexed(
+                        installedExtensions,
+                        key = { index, extension -> "installed_${extension.metadata.id}_$index" }
+                    ) { _, extension ->
                         val iconModel = when (val icon = extension.metadata.icon) {
                             is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
                             is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri

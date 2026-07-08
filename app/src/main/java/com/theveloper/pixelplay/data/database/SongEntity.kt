@@ -177,7 +177,8 @@ private fun parseArtistsJson(json: String?): List<ArtistRef> {
             ArtistRef(
                 id = obj.getLong("id"),
                 name = obj.getString("name"),
-                isPrimary = obj.optBoolean("primary", false)
+                isPrimary = obj.optBoolean("primary", false),
+                artistMediaId = if (obj.has("artistMediaId")) obj.getString("artistMediaId") else null
             )
         }
     } catch (_: Exception) {
@@ -195,6 +196,7 @@ fun serializeArtistRefs(artists: List<ArtistRef>): String {
             put("id", ref.id)
             put("name", ref.name)
             put("primary", ref.isPrimary)
+            ref.artistMediaId?.let { put("artistMediaId", it) }
         })
     }
     return arr.toString()

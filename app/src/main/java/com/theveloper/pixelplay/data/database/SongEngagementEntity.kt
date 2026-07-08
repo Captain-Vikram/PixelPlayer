@@ -14,7 +14,8 @@ import com.google.gson.annotations.SerializedName
 @Entity(
     tableName = "song_engagements",
     indices = [
-        Index(value = ["play_count"], unique = false)
+        Index(value = ["play_count"], unique = false),
+        Index(value = ["last_played_timestamp"], unique = false)
     ]
 )
 data class SongEngagementEntity(
