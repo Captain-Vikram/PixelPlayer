@@ -6,8 +6,6 @@ import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import java.io.File
-
 import androidx.work.ForegroundInfo
 import android.content.pm.ServiceInfo
 
@@ -49,11 +47,11 @@ class DownloadNotificationHelper(private val context: Context) {
         NotificationManagerCompat.from(context).notify(id, builder.build())
     }
 
-    fun showComplete(id: Int, title: String, file: File) {
+    fun showComplete(id: Int, title: String, savedToPath: String) {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(title)
-            .setContentText("Saved to ${file.absolutePath}")
+            .setContentText("Saved to $savedToPath")
             .setProgress(0, 0, false)
             .setAutoCancel(true)
         NotificationManagerCompat.from(context).notify(id, builder.build())

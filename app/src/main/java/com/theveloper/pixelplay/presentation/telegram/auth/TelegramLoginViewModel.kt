@@ -34,6 +34,23 @@ class TelegramLoginViewModel @Inject constructor(
 ) : ViewModel() {
 
     val authorizationState = telegramRepository.authorizationState
+    val downloadProgress = telegramRepository.downloadProgress
+
+    fun isPluginInstalled(): Boolean = telegramRepository.isPluginInstalled()
+
+    fun downloadPlugin() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, loadingMessage = "Downloading TDLib native plugin...") }
+            telegramRepository.downloadAndInstallPlugin()
+                .onSuccess {
+                    _uiState.update { it.copy(isLoading = false) }
+                    _events.tryEmit("TDLib native plugin installed successfully!")
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, inlineError = "Installation failed: ${error.message}") }
+                }
+        }
+    }
 
     private val _uiState = MutableStateFlow(TelegramLoginUiState())
     val uiState = _uiState.asStateFlow()
@@ -82,6 +99,14 @@ class TelegramLoginViewModel @Inject constructor(
 
     fun clearInlineError() {
         _uiState.update { it.copy(inlineError = null) }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, loadingMessage = "Logging out...") }
+            telegramRepository.logout()
+            _uiState.update { it.copy(isLoading = false) }
+        }
     }
 
     fun enablePhoneEditMode() {

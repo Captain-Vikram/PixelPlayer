@@ -54,6 +54,12 @@ class TelegramRepository @Inject constructor(
         Timber.d("TelegramRepository: Memory cache cleared")
     }
 
+    val downloadProgress: Flow<Float?> = clientManager.downloadProgress
+
+    fun isPluginInstalled(): Boolean = clientManager.isPluginInstalled()
+
+    suspend fun downloadAndInstallPlugin(): Result<Unit> = clientManager.downloadAndInstallPlugin()
+
     fun isReady(): Boolean = clientManager.isReady()
 
     suspend fun awaitReady(timeoutMs: Long = 30_000L): Boolean =

@@ -98,9 +98,10 @@ internal fun rememberSheetActionHandlers(
             playerViewModelState.value.collapsePlayerSheet()
             queueSheetControllerState.value.animate(false)
             sheetModalOverlayControllerState.value.updateSelectedSongForInfo(null)
+            val targetArtistId = song.primaryArtist.artistMediaId ?: song.artistId.toString()
             if (song.artistId != -1L) {
                 navController.navigateSafelyReplacing(
-                    route = Screen.ArtistDetail.createRoute(song.artistId.toString()),
+                    route = Screen.ArtistDetail.createRoute(targetArtistId),
                     patternToPop = Screen.ArtistDetail.route
                 )
             }

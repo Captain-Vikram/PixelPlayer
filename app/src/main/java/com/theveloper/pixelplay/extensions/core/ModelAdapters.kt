@@ -17,35 +17,60 @@ suspend fun <T : Any> Feed<T>.loadAll(): List<T> {
     return getPagedData(tabs.firstOrNull()).pagedData.loadAll()
 }
 
-fun Track.toSong(extensionId: String, streamUrl: String? = null): Song {
-    val albumSyntheticId = album?.let { if (it.id.startsWith("extension:")) it.id else "extension:$extensionId:album:${it.id}" }
-    val artistSyntheticId = artists.firstOrNull()?.let { if (it.id.startsWith("extension:")) it.id else "extension:$extensionId:artist:${it.id}" }
-    val mediaId = if (id.startsWith("extension:")) id else "extension:$extensionId:track:$id"
-    
+/**
+ * Normalises any raw extension ID into a canonical "extension:<extensionId>:<type>:<rawId>" form.
+ * Handles the case where an extension returns IDs that already contain the extension slug
+ * (e.g. Spotify returns "spotify:track:xxx" as the raw track id).
+ * We strip any existing "extension:<extensionId>:" prefix before re-attaching it so that
+ * the final id is never double-prefixed (which crashes LazyColumn with duplicate key).
+ */
+private fun normaliseExtensionId(rawId: String, extensionId: String, type: String): String {
+    // Already a fully formed synthetic ID — return as-is
+    if (rawId.startsWith("extension:$extensionId:$type:")) return rawId
+    if (rawId.startsWith("extension:")) return rawId
+    return "extension:$extensionId:$type:$rawId"
+}
+
+fun Track.toSong(
+    extensionId: String,
+    streamUrl: String? = null,
+    albumContext: dev.brahmkshatriya.echo.common.models.Album? = null
+): Song {
+    // Resolve the album — prefer the track's own album, fall back to the context album
+    // (e.g. when loading tracks from an artist's album shelf, the tracks themselves may
+    // carry null album but the shelf's Album header has the correct metadata).
+    val resolvedAlbum = album ?: albumContext
+
+    val albumSyntheticId = resolvedAlbum?.let { normaliseExtensionId(it.id, extensionId, "album") }
+    val artistSyntheticId = artists.firstOrNull()?.let { normaliseExtensionId(it.id, extensionId, "artist") }
+    val mediaId = normaliseExtensionId(id, extensionId, "track")
+
     // Extract video loops (Background) and synced lyrics (Subtitle) if provided directly
     val backgroundStream = backgrounds.firstOrNull()
     val subtitleStream = subtitles.firstOrNull()
-    
+
     return Song(
         id = mediaId,
         title = title,
         artist = artists.joinToString(", ") { it.name },
-        artistId = artistSyntheticId?.hashCode()?.toLong() ?: -2L, 
-        artists = artists.map { artist ->
-            val syntheticArtistId = if (artist.id.startsWith("extension:")) artist.id else "extension:$extensionId:artist:${artist.id}"
+        artistId = artistSyntheticId?.hashCode()?.toLong() ?: -2L,
+        artists = artists.mapIndexed { index, artist ->
+            val syntheticArtistId = normaliseExtensionId(artist.id, extensionId, "artist")
             ArtistRef(
-                id = syntheticArtistId.hashCode().toLong(), 
-                name = artist.name, 
-                isPrimary = true
-            ) 
+                id = syntheticArtistId.hashCode().toLong(),
+                name = artist.name,
+                isPrimary = index == 0, // Only the first artist is primary
+                artistMediaId = syntheticArtistId
+            )
         },
-        album = album?.title ?: "Unknown Album",
+        album = resolvedAlbum?.title?.takeIf { it.isNotBlank() } ?: "Unknown Album",
         albumId = albumSyntheticId?.hashCode()?.toLong() ?: -2L,
         path = streamUrl ?: mediaId,
         contentUriString = streamUrl ?: mediaId,
-        albumArtUriString = (cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url,
+        albumArtUriString = (cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
+            ?: (resolvedAlbum?.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url,
         duration = duration ?: 0L,
-        mimeType = "audio/mpeg", 
+        mimeType = "audio/mpeg",
         bitrate = 0,
         sampleRate = 0,
         extensionId = extensionId,

@@ -197,11 +197,11 @@ fun DailyMixScreen(
             onDeleteFromDevice = playerViewModel::deleteFromDevice,
             onNavigateToAlbum = {
                 // Assuming Screen object has a method to create a route
-                navController.navigateSafely(Screen.AlbumDetail.createRoute(song.albumId.toString()))
+                navController.navigateSafely(Screen.AlbumDetail.createRoute(song.albumMediaId ?: song.albumId.toString()))
                 showSongInfoSheet = false
             },
             onNavigateToArtist = {
-                navController.navigateSafely(Screen.ArtistDetail.createRoute(song.artistId.toString()))
+                navController.navigateSafely(Screen.ArtistDetail.createRoute(song.primaryArtist.artistMediaId ?: song.artistId.toString()))
                 showSongInfoSheet = false
             },
             onNavigateToArtistById = { artistId ->

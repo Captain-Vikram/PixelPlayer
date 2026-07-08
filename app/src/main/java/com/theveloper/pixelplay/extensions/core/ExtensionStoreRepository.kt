@@ -148,6 +148,29 @@ class ExtensionStoreRepository @Inject constructor(
         }
     }
 
+    suspend fun deleteExtension(id: String) = withContext(Dispatchers.IO) {
+        val dir = File(context.filesDir, "extensions")
+        var deleted = false
+        listOf(".apk", ".eapk").forEach { ext ->
+            val file = File(dir, "$id$ext")
+            if (file.exists()) {
+                file.setWritable(true)
+                if (file.delete()) {
+                    deleted = true
+                }
+            }
+        }
+        if (deleted) {
+            updateItemStatus(id, ExtensionStatus.AVAILABLE, 0f)
+            _storeItems.value = _storeItems.value.map {
+                if (it.remote.id == id) it.copy(status = ExtensionStatus.AVAILABLE, localVersion = null) else it
+            }
+            extensionEngine.fileIgnoreFlow.emit(null)
+        } else {
+            extensionEngine.fileIgnoreFlow.emit(null)
+        }
+    }
+
     private fun getDownloadUrlFromGitHub(updateUrl: String): String? {
         try {
             // updateUrl example: https://api.github.com/repos/brahmkshatriya/echo-spotify-extension/releases

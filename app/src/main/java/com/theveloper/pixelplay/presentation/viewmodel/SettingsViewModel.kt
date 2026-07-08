@@ -48,6 +48,7 @@ import com.theveloper.pixelplay.data.ai.provider.AiClientFactory
 import com.theveloper.pixelplay.data.ai.provider.AiProvider
 import com.theveloper.pixelplay.data.preferences.LaunchTab
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.data.model.StreamingQuality
 import com.theveloper.pixelplay.data.service.player.HiFiCapabilityChecker
 import com.theveloper.pixelplay.utils.AppLocaleManager
 import java.io.File
@@ -80,6 +81,7 @@ data class SettingsUiState(
     val lyricsSourcePreference: LyricsSourcePreference = LyricsSourcePreference.EMBEDDED_FIRST,
     val autoScanLrcFiles: Boolean = false,
     val blockedDirectories: Set<String> = emptySet(),
+    val customDownloadDirectory: String? = null,
     val availableModels: List<GeminiModel> = emptyList(),
     val isLoadingModels: Boolean = false,
     val modelsFetchError: String? = null,
@@ -87,6 +89,8 @@ data class SettingsUiState(
     val beta05CleanInstallDisclaimerDismissed: Boolean? = null,
     val fullPlayerLoadingTweaks: FullPlayerLoadingTweaks = FullPlayerLoadingTweaks(),
     val showPlayerFileInfo: Boolean = true,
+    val preferredQualityWifi: StreamingQuality = StreamingQuality.AUTO,
+    val preferredQualityCellular: StreamingQuality = StreamingQuality.AUTO,
     // Developer Options
     val albumArtQuality: AlbumArtQuality = AlbumArtQuality.MEDIUM,
     val albumArtCacheLimitMb: Int = 200,
@@ -175,7 +179,9 @@ private sealed interface SettingsUiUpdate {
         val animatedLyricsBlurEnabled: Boolean,
         val animatedLyricsBlurStrength: Float,
         val disableBlurAllOver: Boolean,
-        val showScrollbar: Boolean
+        val showScrollbar: Boolean,
+        val preferredQualityWifi: StreamingQuality,
+        val preferredQualityCellular: StreamingQuality
     ) : SettingsUiUpdate
 }
 
@@ -671,7 +677,9 @@ class SettingsViewModel @Inject constructor(
                 userPreferencesRepository.animatedLyricsBlurEnabledFlow,
                 userPreferencesRepository.animatedLyricsBlurStrengthFlow,
                 userPreferencesRepository.disableBlurAllOverFlow,
-                userPreferencesRepository.showScrollbarFlow
+                userPreferencesRepository.showScrollbarFlow,
+                userPreferencesRepository.preferredQualityWifiFlow,
+                userPreferencesRepository.preferredQualityCellularFlow
             ) { values ->
                 SettingsUiUpdate.Group2(
                     keepPlayingInBackground = values[0] as Boolean,
@@ -693,7 +701,9 @@ class SettingsViewModel @Inject constructor(
                     animatedLyricsBlurEnabled = values[16] as Boolean,
                     animatedLyricsBlurStrength = values[17] as Float,
                     disableBlurAllOver = values[18] as Boolean,
-                    showScrollbar = values[19] as Boolean
+                    showScrollbar = values[19] as Boolean,
+                    preferredQualityWifi = values[20] as StreamingQuality,
+                    preferredQualityCellular = values[21] as StreamingQuality
                 )
             }.collect { update ->
                 _uiState.update { state ->
@@ -717,7 +727,9 @@ class SettingsViewModel @Inject constructor(
                         animatedLyricsBlurEnabled = update.animatedLyricsBlurEnabled,
                         animatedLyricsBlurStrength = update.animatedLyricsBlurStrength,
                         disableBlurAllOver = update.disableBlurAllOver,
-                        showScrollbar = update.showScrollbar
+                        showScrollbar = update.showScrollbar,
+                        preferredQualityWifi = update.preferredQualityWifi,
+                        preferredQualityCellular = update.preferredQualityCellular
                     )
                 }
             }
@@ -800,6 +812,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.replayGainUseAlbumGainFlow.collect { useAlbum ->
                 _uiState.update { it.copy(replayGainUseAlbumGain = useAlbum) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.customDownloadDirectoryFlow.collect { path ->
+                _uiState.update { it.copy(customDownloadDirectory = path) }
             }
         }
 
@@ -1033,6 +1051,12 @@ class SettingsViewModel @Inject constructor(
     fun setFolderBackGestureNavigation(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setFolderBackGestureNavigation(enabled)
+        }
+    }
+
+    fun setCustomDownloadDirectory(path: String?) {
+        viewModelScope.launch {
+            userPreferencesRepository.setCustomDownloadDirectory(path)
         }
     }
 
@@ -1391,6 +1415,18 @@ class SettingsViewModel @Inject constructor(
     fun setHapticsEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setHapticsEnabled(enabled)
+        }
+    }
+
+    fun setPreferredQualityWifi(quality: StreamingQuality) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPreferredQualityWifi(quality)
+        }
+    }
+
+    fun setPreferredQualityCellular(quality: StreamingQuality) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPreferredQualityCellular(quality)
         }
     }
 

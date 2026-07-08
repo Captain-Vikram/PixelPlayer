@@ -38,6 +38,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import dev.brahmkshatriya.echo.common.clients.RadioClient
+import com.theveloper.pixelplay.extensions.core.toSong
+import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.getAs
+import dev.brahmkshatriya.echo.common.models.ImageHolder.Companion.toImageHolder
+import dev.brahmkshatriya.echo.common.models.Feed.Companion.pagedDataOfFirst
+import com.theveloper.pixelplay.extensions.core.loadAll
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
+import timber.log.Timber
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
@@ -47,6 +55,7 @@ class SongInfoBottomSheetViewModel @Inject constructor(
     private val wearPhoneTransferSender: WearPhoneTransferSender,
     private val transferStateStore: PhoneWatchTransferStateStore,
     private val musicDao: MusicDao,
+    private val extensionRepository: ExtensionRepository,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -94,6 +103,49 @@ class SongInfoBottomSheetViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000L),
             initialValue = null,
         )
+
+    private val _recommendedSongs = MutableStateFlow<List<Song>>(emptyList())
+    val recommendedSongs: StateFlow<List<Song>> = _recommendedSongs.asStateFlow()
+    private val _isLoadingRecommendations = MutableStateFlow(false)
+    val isLoadingRecommendations: StateFlow<Boolean> = _isLoadingRecommendations.asStateFlow()
+
+    fun loadRecommendations(song: Song) {
+        val extensionId = song.extensionId ?: return
+        if (_recommendedSongs.value.isNotEmpty() || _isLoadingRecommendations.value) return
+
+        viewModelScope.launch {
+            _isLoadingRecommendations.value = true
+            try {
+                val extension = extensionRepository.allExtensions.value.find { it.metadata.id == extensionId }
+                if (extension != null) {
+                    val radio = extension.getAs<RadioClient, dev.brahmkshatriya.echo.common.models.Radio> {
+                        val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
+                            id = song.id.substringAfter("extension:$extensionId:track:"),
+                            title = song.title,
+                            cover = song.albumArtUriString?.toImageHolder()
+                        )
+                        radio(echoTrack, null)
+                    }.getOrNull()
+
+                    if (radio != null) {
+                        val pagedData = extension.getAs<RadioClient, dev.brahmkshatriya.echo.common.models.Feed<dev.brahmkshatriya.echo.common.models.Track>> {
+                            loadTracks(radio)
+                        }.getOrNull()
+
+                        if (pagedData != null) {
+                            val initialPage = pagedData.pagedDataOfFirst().loadPage(null)
+                            val sortedTracks = extensionRepository.rankTracksByEngagement(initialPage.data, extensionId)
+                            _recommendedSongs.value = sortedTracks.map { it.toSong(extensionId) }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to load recommendations for sheet")
+            } finally {
+                _isLoadingRecommendations.value = false
+            }
+        }
+    }
     val isSendingToWatch: StateFlow<Boolean> = combine(
         _isRequestingToWatch,
         activeWatchTransfer

@@ -379,13 +379,22 @@ class MusicService : MediaLibraryService() {
             ?.getLong(MediaItemBuilder.EXTERNAL_EXTRA_DURATION, 0L)
             ?: 0L
 
+        val title = mediaItem.mediaMetadata.title?.toString()
+        val artist = mediaItem.mediaMetadata.artist?.toString()
+        val album = mediaItem.mediaMetadata.albumTitle?.toString()
+        val genre = mediaItem.mediaMetadata.genre?.toString()
+
         if (forceNewSession) {
             listeningStatsTracker.onTrackChanged(
                 songId = songId,
                 positionMs = positionMs,
                 durationMs = durationMs,
                 fallbackDurationMs = fallbackDurationMs,
-                isPlaying = player.isPlaying
+                isPlaying = player.isPlaying,
+                title = title,
+                artist = artist,
+                album = album,
+                genre = genre
             )
         } else {
             listeningStatsTracker.ensureSession(
@@ -393,7 +402,11 @@ class MusicService : MediaLibraryService() {
                 positionMs = positionMs,
                 durationMs = durationMs,
                 fallbackDurationMs = fallbackDurationMs,
-                isPlaying = player.isPlaying
+                isPlaying = player.isPlaying,
+                title = title,
+                artist = artist,
+                album = album,
+                genre = genre
             )
         }
     }
@@ -411,7 +424,7 @@ class MusicService : MediaLibraryService() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 throwable is ForegroundServiceStartNotAllowedException
             ) {
-                Timber.tag(TAG).w(throwable, "Suppressed ForegroundServiceStartNotAllowedException from Media3/Cast internal path")
+                Timber.tag(TAG).e(throwable, "Critical: Suppressed ForegroundServiceStartNotAllowedException from Media3/Cast internal path")
             } else {
                 existingHandler?.uncaughtException(thread, throwable)
             }
@@ -2434,9 +2447,9 @@ class MusicService : MediaLibraryService() {
             return try {
                 super.startForegroundService(serviceIntent)
             } catch (e: ForegroundServiceStartNotAllowedException) {
-                Timber.tag(TAG).w(
+                Timber.tag(TAG).e(
                     e,
-                    "startForegroundService not allowed; ignoring redundant self-start request"
+                    "Critical: startForegroundService not allowed; ignoring redundant self-start request"
                 )
                 serviceIntent?.component ?: ComponentName(this, javaClass)
             } catch (e: BackgroundServiceStartNotAllowedException) {

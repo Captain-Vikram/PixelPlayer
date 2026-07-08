@@ -35,7 +35,7 @@ interface EngagementDao {
     @Query("DELETE FROM song_engagements WHERE song_id = :songId")
     suspend fun deleteEngagement(songId: String)
 
-    @Query("DELETE FROM song_engagements WHERE song_id NOT IN (SELECT CAST(id AS TEXT) FROM songs)")
+    @Query("DELETE FROM song_engagements WHERE song_id NOT IN (SELECT CAST(id AS TEXT) FROM songs) AND song_id NOT LIKE 'extension:%'")
     suspend fun deleteOrphanedEngagements()
 
     @Query("DELETE FROM song_engagements")

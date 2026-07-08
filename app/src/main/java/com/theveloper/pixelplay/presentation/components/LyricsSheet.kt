@@ -1027,6 +1027,7 @@ fun LyricsSheet(
                         resetImmersiveTimer()
                         onFavoriteToggle()
                     },
+                    showFavorite = currentSong?.extensionId == null,
                 )
             }
         }

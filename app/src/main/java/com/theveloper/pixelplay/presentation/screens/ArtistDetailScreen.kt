@@ -18,11 +18,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AddAPhoto
@@ -77,6 +79,8 @@ import com.theveloper.pixelplay.presentation.components.PlaylistBottomSheet
 import com.theveloper.pixelplay.presentation.components.SmartImageCompactListTargetSize
 import com.theveloper.pixelplay.presentation.components.SmartImage
 import com.theveloper.pixelplay.presentation.components.SongInfoBottomSheet
+import com.theveloper.pixelplay.presentation.components.ExtensionShelf
+import com.theveloper.pixelplay.presentation.components.handleEchoItemClick
 import com.theveloper.pixelplay.presentation.components.resolveNavBarOccupiedHeight
 import com.theveloper.pixelplay.presentation.navigation.Screen
 import com.theveloper.pixelplay.presentation.viewmodel.ArtistDetailViewModel
@@ -92,6 +96,7 @@ import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.delay
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -310,88 +315,166 @@ fun ArtistDetailScreen(
                             bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
                         )
                     ) {
-                        albumSections.forEachIndexed { index, section ->
-                            if (section.songs.isEmpty()) return@forEachIndexed
-
-                            val sectionKey = section.collapseKey()
-                            val isExpanded = expandedSections[sectionKey] ?: true
-                            val sectionSongs = if (isTransitionFinished) section.songs else section.songs.take(5)
-
-                            item(
-                                key = "${sectionKey}_header",
-                                contentType = "artist_section_header"
-                            ) {
-                                CollapsibleAlbumSectionHeader(
-                                    section = section,
-                                    isExpanded = isExpanded,
-                                    onToggleExpanded = {
-                                        expandedSections[sectionKey] = !isExpanded
-                                    },
-                                    onPlayAlbum = {
-                                        section.songs.firstOrNull()?.let { firstSong ->
-                                            playerViewModel.showAndPlaySong(firstSong, section.songs)
-                                        }
-                                    }
-                                )
-                            }
-
-                            if (isExpanded) {
+                        if (isExtensionArtist) {
+                            uiState.shelves.forEachIndexed { index, shelf ->
                                 item(
-                                    key = "${sectionKey}_song_group_spacer",
-                                    contentType = "artist_section_spacer"
+                                    key = "shelf_${index}",
+                                    contentType = "extension_shelf"
                                 ) {
-                                    Box(
+                                    Column(
                                         modifier = Modifier
-                                            .animateItem(
-                                                fadeInSpec = tween(durationMillis = 160),
-                                                fadeOutSpec = tween(durationMillis = 120),
-                                                placementSpec = tween(durationMillis = 180)
-                                            )
                                             .fillMaxWidth()
-                                            .height(10.dp)
-                                            .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f))
-                                    )
+                                            .padding(vertical = 8.dp)
+                                    ) {
+                                        ExtensionShelf(
+                                            shelf = shelf,
+                                            onItemClick = { item ->
+                                                handleEchoItemClick(
+                                                    item = item,
+                                                    playerViewModel = playerViewModel,
+                                                    navController = navController,
+                                                    activeExtensionId = artist.extensionId
+                                                )
+                                            }
+                                        )
+                                    }
                                 }
+                            }
+                        } else {
+                            albumSections.forEachIndexed { index, section ->
+                                if (section.songs.isEmpty()) return@forEachIndexed
 
-                                itemsIndexed(
-                                    items = sectionSongs,
-                                    key = { songIndex, song -> "${sectionKey}_song_${song.id}_$songIndex" },
-                                    contentType = { _, _ -> "artist_section_song" }
-                                ) { songIndex, song ->
-                                    ArtistAlbumSectionSongItem(
-                                        modifier = Modifier.animateItem(
-                                            fadeInSpec = tween(durationMillis = 180),
-                                            fadeOutSpec = tween(durationMillis = 120),
-                                            placementSpec = tween(durationMillis = 200)
-                                        ),
-                                        song = song,
-                                        songIndex = songIndex,
-                                        songCount = section.songs.size,
-                                        isCurrentSong = stablePlayerState.currentSong?.id == song.id,
-                                        isPlaying = stablePlayerState.isPlaying,
-                                        onSongClick = {
-                                            playerViewModel.showAndPlaySong(song, section.songs)
+                                val sectionKey = section.collapseKey()
+                                val isExpanded = expandedSections[sectionKey] ?: true
+                                val sectionSongs = if (isTransitionFinished) section.songs else section.songs.take(5)
+
+                                item(
+                                    key = "${sectionKey}_header",
+                                    contentType = "artist_section_header"
+                                ) {
+                                    CollapsibleAlbumSectionHeader(
+                                        section = section,
+                                        isExpanded = isExpanded,
+                                        onToggleExpanded = {
+                                            expandedSections[sectionKey] = !isExpanded
                                         },
-                                        onMoreOptionsClick = {
-                                            playerViewModel.selectSongForInfo(song)
-                                            showSongInfoBottomSheet = true
+                                        onPlayAlbum = {
+                                            section.songs.firstOrNull()?.let { firstSong ->
+                                                playerViewModel.showAndPlaySong(firstSong, section.songs)
+                                            }
                                         }
                                     )
                                 }
-                            }
 
-                            item(
-                                key = "${sectionKey}_footer",
-                                contentType = "artist_section_footer"
-                            ) {
-                                Spacer(
-                                    modifier = Modifier.height(
-                                        if (index == albumSections.lastIndex) 24.dp else 16.dp
+                                if (isExpanded) {
+                                    item(
+                                        key = "${sectionKey}_song_group_spacer",
+                                        contentType = "artist_section_spacer"
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .animateItem(
+                                                    fadeInSpec = tween(durationMillis = 160),
+                                                    fadeOutSpec = tween(durationMillis = 120),
+                                                    placementSpec = tween(durationMillis = 200)
+                                                )
+                                                .fillMaxWidth()
+                                                .height(10.dp)
+                                                .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f))
+                                        )
+                                    }
+
+                                    itemsIndexed(
+                                        items = sectionSongs,
+                                        key = { songIndex, song -> "${sectionKey}_song_${song.id}_$songIndex" },
+                                        contentType = { _, _ -> "artist_section_song" }
+                                    ) { songIndex, song ->
+                                        ArtistAlbumSectionSongItem(
+                                            modifier = Modifier.animateItem(
+                                                fadeInSpec = tween(durationMillis = 180),
+                                                fadeOutSpec = tween(durationMillis = 120),
+                                                placementSpec = tween(durationMillis = 200)
+                                            ),
+                                            song = song,
+                                            songIndex = songIndex,
+                                            songCount = section.songs.size,
+                                            isCurrentSong = stablePlayerState.currentSong?.id == song.id,
+                                            isPlaying = stablePlayerState.isPlaying,
+                                            onSongClick = {
+                                                playerViewModel.showAndPlaySong(song, section.songs)
+                                            },
+                                            onMoreOptionsClick = {
+                                                playerViewModel.selectSongForInfo(song)
+                                                showSongInfoBottomSheet = true
+                                            }
+                                        )
+                                    }
+                                }
+
+                                item(
+                                    key = "${sectionKey}_footer",
+                                    contentType = "artist_section_footer"
+                                ) {
+                                    Spacer(
+                                        modifier = Modifier.height(
+                                            if (index == albumSections.lastIndex) 24.dp else 16.dp
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
 
+                        if (uiState.relatedArtists.isNotEmpty() && artist.extensionId == null) {
+                            item(key = "related_artists_header") {
+                                Text(
+                                    text = "Fans Also Like",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                )
+                            }
+                            
+                            item(key = "related_artists_shelf") {
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                                ) {
+                                    items(uiState.relatedArtists.size) { i ->
+                                        val relArtist = uiState.relatedArtists[i]
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier
+                                                .width(110.dp)
+                                                .clickable {
+                                                    navController.navigateSafely(Screen.ArtistDetail.createRoute(relArtist.mediaId ?: relArtist.id.toString()))
+                                                }
+                                        ) {
+                                            SmartImage(
+                                                model = relArtist.effectiveImageUrl,
+                                                contentDescription = relArtist.name,
+                                                shape = RoundedCornerShape(percent = 50),
+                                                modifier = Modifier.size(90.dp),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                            Spacer(Modifier.height(8.dp))
+                                            Text(
+                                                text = relArtist.name,
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                                textAlign = TextAlign.Center,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                     }
 
@@ -416,6 +499,7 @@ fun ArtistDetailScreen(
                             headerHeight = currentTopBarHeightDp,
                             headerImageRequestSize = headerImageRequestSize,
                             hasCustomImage = !artist.customImageUri.isNullOrBlank(),
+                            canRadio = uiState.canRadio,
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
                                 if (songs.isNotEmpty()) {
@@ -426,6 +510,7 @@ fun ArtistDetailScreen(
                                     )
                                 }
                             },
+                            onRadioClick = { playerViewModel.startArtistRadio(artist) },
                             onChangeImage = if (!isExtensionArtist) { { imagePickerLauncher.launch("image/*") } } else { {} },
                             onClearCustomImage = if (!isExtensionArtist) { { viewModel.clearCustomImage() } } else { {} }
                         )
@@ -438,6 +523,7 @@ fun ArtistDetailScreen(
                             collapseFraction = collapseFraction,
                             headerHeight = currentTopBarHeightDp,
                             headerImageRequestSize = headerImageRequestSize,
+                            canRadio = uiState.canRadio,
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
                                 if (songs.isNotEmpty()) {
@@ -448,6 +534,7 @@ fun ArtistDetailScreen(
                                     )
                                 }
                             },
+                            onRadioClick = { playerViewModel.startArtistRadio(artist) },
                             onChangeImage = if (!isExtensionArtist) { { imagePickerLauncher.launch("image/*") } } else { {} },
                             onClearCustomImage = if (!isExtensionArtist) { { viewModel.clearCustomImage() } } else { {} }
                         )
@@ -736,8 +823,10 @@ private fun SharedArtistTopBarProbe(
     headerHeight: Dp,
     headerImageRequestSize: Size,
     hasCustomImage: Boolean,
+    canRadio: Boolean,
     onBackPressed: () -> Unit,
     onPlayClick: () -> Unit,
+    onRadioClick: () -> Unit,
     onChangeImage: () -> Unit,
     onClearCustomImage: () -> Unit
 ) {
@@ -887,9 +976,7 @@ private fun SharedArtistTopBarProbe(
             }
         )
 
-        LargeExtendedFloatingActionButton(
-            onClick = onPlayClick,
-            shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
+        Row(
             modifier = Modifier
                 .align(shuffleAlignment)
                 .statusBarsPadding()
@@ -898,9 +985,28 @@ private fun SharedArtistTopBarProbe(
                     scaleX = expandedContentAlpha
                     scaleY = expandedContentAlpha
                     alpha = expandedContentAlpha
-                }
+                },
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.artist_cd_shuffle_play))
+            if (canRadio) {
+                LargeExtendedFloatingActionButton(
+                    onClick = onRadioClick,
+                    shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Radio,
+                        contentDescription = "Start Artist Radio"
+                    )
+                }
+            }
+            LargeExtendedFloatingActionButton(
+                onClick = onPlayClick,
+                shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
+            ) {
+                Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.artist_cd_shuffle_play))
+            }
         }
     }
 }
@@ -915,8 +1021,10 @@ private fun CustomCollapsingTopBar(
     collapseFraction: Float, // 0.0 = expandido, 1.0 = colapsado
     headerHeight: Dp,
     headerImageRequestSize: Size,
+    canRadio: Boolean,
     onBackPressed: () -> Unit,
     onPlayClick: () -> Unit,
+    onRadioClick: () -> Unit,
     onChangeImage: () -> Unit,
     onClearCustomImage: () -> Unit
 ) {
@@ -1109,9 +1217,7 @@ private fun CustomCollapsingTopBar(
                 }
 
                 // Botón de Play
-                LargeExtendedFloatingActionButton(
-                    onClick = onPlayClick,
-                    shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
+                Row(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(16.dp)
@@ -1119,9 +1225,25 @@ private fun CustomCollapsingTopBar(
                             scaleX = fabScale
                             scaleY = fabScale
                             alpha = fabScale
-                        }
+                        },
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
+                    if (canRadio) {
+                        LargeExtendedFloatingActionButton(
+                            onClick = onRadioClick,
+                            shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        ) {
+                            Icon(Icons.Rounded.Radio, contentDescription = "Start Artist Radio")
+                        }
+                    }
+                    LargeExtendedFloatingActionButton(
+                        onClick = onPlayClick,
+                        shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
+                    ) {
+                        Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
+                    }
                 }
             }
         }

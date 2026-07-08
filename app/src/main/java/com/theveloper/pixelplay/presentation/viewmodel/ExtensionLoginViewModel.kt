@@ -4,16 +4,16 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.brahmkshatriya.echo.common.Extension
 import dev.brahmkshatriya.echo.common.clients.LoginClient
 import dev.brahmkshatriya.echo.common.models.User
 import dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
-import dev.brahmkshatriya.echo.extension.loader.db.UserDao
-import dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity.Companion.toCurrentUser
-import dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity.Companion.toEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
 import dev.brahmkshatriya.echo.common.MusicExtension
@@ -31,7 +31,6 @@ sealed class ExtensionLoginState {
 @HiltViewModel
 class ExtensionLoginViewModel @Inject constructor(
     private val extensionLoader: ExtensionLoader,
-    private val userDao: UserDao,
     private val extensionRepository: ExtensionRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -42,7 +41,6 @@ class ExtensionLoginViewModel @Inject constructor(
     val state: StateFlow<ExtensionLoginState> = _state.asStateFlow()
 
     private var loginClient: LoginClient? = null
-    private var extension: MusicExtension? = null
 
     init {
         viewModelScope.launch {
@@ -51,19 +49,19 @@ class ExtensionLoginViewModel @Inject constructor(
     }
 
     private suspend fun loadClient() {
+        _state.value = ExtensionLoginState.Loading
         val ext = extensionLoader.all.value.find { it.metadata.id == extensionId }
         if (ext == null) {
             _state.value = ExtensionLoginState.Error("Extension not found")
             return
         }
-        
-        val instance = ext.instance.value().getOrNull()
-        if (instance !is LoginClient) {
+
+        val instance = waitForLoginClient(ext)
+        if (instance == null) {
             _state.value = ExtensionLoginState.Error("Extension does not support login")
             return
         }
 
-        extension = ext as? MusicExtension
         loginClient = instance
 
         _state.value = when (instance) {
@@ -71,6 +69,20 @@ class ExtensionLoginViewModel @Inject constructor(
             is LoginClient.WebView -> ExtensionLoginState.WebViewRequired(instance.webViewRequest)
             else -> ExtensionLoginState.Error("Unknown login client type")
         }
+    }
+
+    private suspend fun waitForLoginClient(extension: Extension<*>): LoginClient? {
+        val deadlineMs = System.currentTimeMillis() + 10_000L
+
+        while (System.currentTimeMillis() < deadlineMs) {
+            when (val instance = extension.instance.value().getOrNull()) {
+                is LoginClient -> return instance
+                null -> delay(200L)
+                else -> return null
+            }
+        }
+
+        return null
     }
 
     fun loginWithCustomInput(key: String, data: Map<String, String?>) {
@@ -98,25 +110,24 @@ class ExtensionLoginViewModel @Inject constructor(
     }
 
     private suspend fun handleLoginSuccess(users: List<User>) {
-        val ext = extension ?: return
         if (users.isEmpty()) {
             _state.value = ExtensionLoginState.Error("No users returned from login")
             return
         }
 
-        // Save users to database
         val user = users.first()
-        val userEntity = user.toEntity(ext.metadata.type, ext.metadata.id)
-        userDao.insertUser(userEntity)
-        userDao.setCurrentUser(userEntity.toCurrentUser())
+        val extension = extensionLoader.all.value.find { it.metadata.id == extensionId }
 
-        // Notify client
-        loginClient?.setLoginUser(user)
-
-        // Clear feed caches and force reload
-        extensionRepository.clearCache(ext.metadata.id)
-        extensionRepository.loadHomeFeed(forceRefresh = true)
-        extensionRepository.loadLibraryFeed(forceRefresh = true)
+        try {
+            extensionRepository.applyLoginSession(extensionId, user)
+            (extension as? MusicExtension)?.let { musicExtension ->
+                extensionRepository.selectMusicExtension(musicExtension)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to persist extension login session")
+            _state.value = ExtensionLoginState.Error(e.message ?: "Login failed")
+            return
+        }
 
         _state.value = ExtensionLoginState.Success
     }

@@ -23,6 +23,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
 import kotlinx.collections.immutable.toImmutableList
 import dagger.Lazy
 import kotlinx.coroutines.Dispatchers
@@ -100,6 +101,10 @@ class PlayerViewModelTest {
     private val mockMultiSelectionStateHolder: MultiSelectionStateHolder = mockk(relaxed = true)
     private val mockPlaylistSelectionStateHolder: PlaylistSelectionStateHolder = mockk(relaxed = true)
     private val mockMediaMapper: com.theveloper.pixelplay.data.media.MediaMapper = mockk(relaxed = true)
+    private val mockExtensionLoader: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader = mockk(relaxed = true)
+    private val mockExtensionRepository: ExtensionRepository = mockk(relaxed = true)
+    private val mockExtensionWebViewManager: com.theveloper.pixelplay.extensions.webview.ExtensionWebViewManager = mockk(relaxed = true)
+    private val mockDownloadManager: com.theveloper.pixelplay.data.download.DownloadManager = mockk(relaxed = true)
     private lateinit var mockMediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory
 
     private val testDispatcher = StandardTestDispatcher()
@@ -313,6 +318,10 @@ class PlayerViewModelTest {
             mockThemeStateHolder,
             mockMultiSelectionStateHolder,
             mockPlaylistSelectionStateHolder,
+            mockExtensionLoader,
+            mockExtensionRepository,
+            mockExtensionWebViewManager,
+            mockDownloadManager,
             playbackDispatchStateHolder,
             mediaControllerSyncStateHolder,
             sessionToken,

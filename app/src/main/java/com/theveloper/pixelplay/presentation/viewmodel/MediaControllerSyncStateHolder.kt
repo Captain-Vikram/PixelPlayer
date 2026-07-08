@@ -73,6 +73,7 @@ class ControllerSyncCallbacks(
     val resetLyricsSearchState: () -> Unit,
     val loadLyricsForCurrentSong: () -> Unit,
     val toggleShuffle: () -> Unit,
+    val loadMoreRadioTracks: () -> Unit,
 )
 
 /**
@@ -489,12 +490,14 @@ class MediaControllerSyncStateHolder @Inject constructor(
     /** One-time snapshot of the controller's current state when it first attaches. */
     private fun applyInitialControllerState(playerCtrl: MediaController) {
         cb.setTrackVolume(playerCtrl.volume)
+        val initialIsBuffering = playerCtrl.playbackState == Player.STATE_BUFFERING && playerCtrl.playWhenReady
         playbackStateHolder.updateStablePlayerState {
             it.copy(
                 isShuffleEnabled = it.isShuffleEnabled,
                 repeatMode = playerCtrl.repeatMode,
                 isPlaying = playerCtrl.isPlaying,
-                playWhenReady = playerCtrl.playWhenReady
+                playWhenReady = playerCtrl.playWhenReady,
+                isBuffering = initialIsBuffering
             )
         }
         preparePlaybackAudioMetadataForMedia(playerCtrl.currentMediaItem?.mediaId)
@@ -559,10 +562,14 @@ class MediaControllerSyncStateHolder @Inject constructor(
         registerMediaControllerListener(playerCtrl, object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isRemoteSessionControllingPlayback()) return
-                playbackStateHolder.updateStablePlayerState {
-                    it.copy(
+                if (isPlaying) {
+                    bufferingDebounceJob?.cancel()
+                }
+                playbackStateHolder.updateStablePlayerState { state ->
+                    state.copy(
                         isPlaying = isPlaying,
-                        playWhenReady = playerCtrl.playWhenReady
+                        playWhenReady = playerCtrl.playWhenReady,
+                        isBuffering = if (isPlaying) false else state.isBuffering
                     )
                 }
                 val shouldKeepSampling = playerCtrl.playWhenReady &&
@@ -583,13 +590,29 @@ class MediaControllerSyncStateHolder @Inject constructor(
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 if (isRemoteSessionControllingPlayback()) return
-                playbackStateHolder.updateStablePlayerState { it.copy(playWhenReady = playWhenReady) }
+                bufferingDebounceJob?.cancel()
+                if (playWhenReady && playerCtrl.playbackState == Player.STATE_BUFFERING) {
+                    bufferingDebounceJob = cb.scope.launch {
+                        delay(500)
+                        playbackStateHolder.updateStablePlayerState { state ->
+                            state.copy(isBuffering = true)
+                        }
+                    }
+                }
+                playbackStateHolder.updateStablePlayerState { state ->
+                    state.copy(
+                        playWhenReady = playWhenReady,
+                        isBuffering = if (!playWhenReady) false else state.isBuffering
+                    )
+                }
                 if (
                     playWhenReady &&
                     playerCtrl.playbackState != Player.STATE_IDLE &&
                     playerCtrl.playbackState != Player.STATE_ENDED
                 ) {
                     playbackStateHolder.startProgressUpdates()
+                } else {
+                    playbackStateHolder.stopProgressUpdates()
                 }
             }
 
@@ -600,7 +623,7 @@ class MediaControllerSyncStateHolder @Inject constructor(
 
                 // Debounce buffering state to avoid flickering
                 bufferingDebounceJob?.cancel()
-                if (playbackState == Player.STATE_BUFFERING) {
+                if (playbackState == Player.STATE_BUFFERING && playerCtrl.playWhenReady) {
                     bufferingDebounceJob = cb.scope.launch {
                         delay(500) // Wait 500ms before showing buffering indicator
                         playbackStateHolder.updateStablePlayerState { state ->
@@ -752,6 +775,10 @@ class MediaControllerSyncStateHolder @Inject constructor(
                             playbackStateHolder.clearCurrentPositionHints()
                             resetPlaybackAudioMetadata()
                         }
+                    }
+
+                    if (!playerCtrl.hasNextMediaItem()) {
+                        cb.loadMoreRadioTracks()
                     }
                 }
             }

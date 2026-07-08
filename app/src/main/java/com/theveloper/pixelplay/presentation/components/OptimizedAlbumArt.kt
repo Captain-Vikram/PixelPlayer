@@ -85,9 +85,16 @@ fun OptimizedAlbumArt(
         }
     }
     val requestModel = remember(context, uri, requestTargetSize) {
+        val isThumbnail = requestTargetSize.width is coil.size.Dimension.Pixels &&
+                ((requestTargetSize.width as coil.size.Dimension.Pixels).px <= 600)
+        val config = if (isThumbnail) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
+        val precision = if (isThumbnail) coil.size.Precision.INEXACT else coil.size.Precision.EXACT
+
         when (uri) {
             is ImageRequest -> uri.newBuilder(context).apply {
                 size(requestTargetSize)
+                bitmapConfig(config)
+                precision(precision)
                 if (uri.memoryCacheKey == null) {
                     memoryCacheKey(memoryCacheKey)
                 }
@@ -98,6 +105,8 @@ fun OptimizedAlbumArt(
                 .crossfade(350) // Use Coil's native crossfade
                 .error(R.drawable.ic_music_placeholder)
                 .size(requestTargetSize)
+                .bitmapConfig(config)
+                .precision(precision)
                 .memoryCachePolicy(CachePolicy.ENABLED)
                 .diskCachePolicy(if (isStableLocalArtwork) CachePolicy.DISABLED else CachePolicy.ENABLED)
                 .apply {
@@ -112,6 +121,8 @@ fun OptimizedAlbumArt(
         }
     }
     var lastSuccessPainter by remember(requestModel.data) { mutableStateOf<Painter?>(null) }
+    var detectedContentScale by remember(uri) { mutableStateOf<ContentScale?>(null) }
+    val finalContentScale = detectedContentScale ?: ContentScale.Crop
 
     // Use SubcomposeAsyncImage with Coil's native crossfade instead of Crossfade wrapper
     // This avoids recompositions on painter.state changes during scroll.
@@ -119,9 +130,13 @@ fun OptimizedAlbumArt(
         model = requestModel,
         contentDescription = "Album art of $title",
         modifier = modifier,
-        contentScale = ContentScale.Crop,
+        contentScale = finalContentScale,
         onSuccess = { state ->
             lastSuccessPainter = state.painter
+            val size = state.painter.intrinsicSize
+            if (size.width > 0 && size.height > 0 && size.width > size.height * 1.15f) {
+                detectedContentScale = ContentScale.Fit
+            }
         },
         loading = { state ->
             val cachedPainter = state.painter ?: lastSuccessPainter
@@ -132,7 +147,7 @@ fun OptimizedAlbumArt(
                     model = placeholderModel,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+                    contentScale = finalContentScale,
                     loading = { PlaceholderContent(title = title) },
                     error = { PlaceholderContent(title = title) }
                 )

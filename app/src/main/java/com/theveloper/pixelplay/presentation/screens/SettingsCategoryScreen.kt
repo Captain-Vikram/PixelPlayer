@@ -167,6 +167,7 @@ import com.theveloper.pixelplay.data.preferences.NavBarStyle
 import com.theveloper.pixelplay.data.preferences.ThemePreference
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.LyricsSourcePreference
+import com.theveloper.pixelplay.data.model.StreamingQuality
 import com.theveloper.pixelplay.presentation.components.CollapsibleCommonTopBar
 import com.theveloper.pixelplay.presentation.components.ExpressiveTopBarContent
 import com.theveloper.pixelplay.presentation.components.FileExplorerDialog
@@ -239,6 +240,7 @@ fun SettingsCategoryScreen(
     var showRegenerateStatsDialog by remember { mutableStateOf(false) }
     var showRegenerateAllPalettesDialog by remember { mutableStateOf(false) }
     var showExportDataDialog by remember { mutableStateOf(false) }
+    var showDownloadDirDialog by remember { mutableStateOf(false) }
     var showImportFlow by remember { mutableStateOf(false) }
     var exportSections by remember { mutableStateOf(BackupSection.defaultSelection) }
     var importFileUri by remember { mutableStateOf<Uri?>(null) }
@@ -434,6 +436,13 @@ fun SettingsCategoryScreen(
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.settings_cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = { navController.navigateSafely(Screen.ArtistSettings.route) }
                                 )
+                                SettingsItem(
+                                    title = "Custom Download Folder",
+                                    subtitle = uiState.customDownloadDirectory ?: "Default (App-private storage)",
+                                    leadingIcon = { Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.settings_cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                    onClick = { showDownloadDirDialog = true }
+                                )
                             }
 
                             SettingsSubsection(title = stringResource(R.string.settings_filtering_section)) {
@@ -533,6 +542,43 @@ fun SettingsCategoryScreen(
                                     subtitle = stringResource(R.string.settings_reset_imported_lyrics_subtitle),
                                     leadingIcon = { Icon(Icons.Outlined.ClearAll, null, tint = MaterialTheme.colorScheme.secondary) },
                                     onClick = { showClearLyricsDialog = true }
+                                )
+                            }
+
+                            if (showDownloadDirDialog) {
+                                var pathText by remember { mutableStateOf(uiState.customDownloadDirectory ?: "") }
+                                AlertDialog(
+                                    onDismissRequest = { showDownloadDirDialog = false },
+                                    title = { Text("Set Download Folder") },
+                                    text = {
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text(
+                                                "Enter the absolute folder path where extension-downloaded songs should be saved. Leave empty to use default app-private storage.",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            OutlinedTextField(
+                                                value = pathText,
+                                                onValueChange = { pathText = it },
+                                                label = { Text("Folder Path") },
+                                                placeholder = { Text("/storage/emulated/0/Music/PixelDownloads") },
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            settingsViewModel.setCustomDownloadDirectory(pathText.trim().ifEmpty { null })
+                                            showDownloadDirDialog = false
+                                        }) {
+                                            Text(stringResource(R.string.common_done))
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showDownloadDirDialog = false }) {
+                                            Text(stringResource(R.string.common_close))
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -754,6 +800,7 @@ fun SettingsCategoryScreen(
                                 SettingsItem(
                                     title = stringResource(R.string.settings_battery_optimization_title),
                                     subtitle = stringResource(R.string.settings_battery_optimization_subtitle),
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_monitoring_24), null, tint = MaterialTheme.colorScheme.secondary) },
                                     onClick = {
                                         val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
                                         if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
@@ -774,7 +821,40 @@ fun SettingsCategoryScreen(
                                             }
                                         }
                                     },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_all_inclusive_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                )
+                            }
+
+                            SettingsSubsection(title = stringResource(R.string.settings_streaming_quality_section)) {
+                                val qualityOptions = mapOf(
+                                    StreamingQuality.AUTO.name to stringResource(R.string.settings_quality_auto),
+                                    StreamingQuality.DATA_SAVER.name to stringResource(R.string.settings_quality_data_saver),
+                                    StreamingQuality.STANDARD.name to stringResource(R.string.settings_quality_standard),
+                                    StreamingQuality.HIGH.name to stringResource(R.string.settings_quality_high),
+                                    StreamingQuality.LOSSLESS.name to stringResource(R.string.settings_quality_lossless)
+                                )
+                                ThemeSelectorItem(
+                                    label = stringResource(R.string.settings_wifi_quality_title),
+                                    description = stringResource(R.string.settings_wifi_quality_subtitle),
+                                    options = qualityOptions,
+                                    selectedKey = uiState.preferredQualityWifi.name,
+                                    onSelectionChanged = { key ->
+                                        runCatching { StreamingQuality.valueOf(key) }.getOrNull()?.let {
+                                            settingsViewModel.setPreferredQualityWifi(it)
+                                        }
+                                    },
+                                    leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                )
+                                ThemeSelectorItem(
+                                    label = stringResource(R.string.settings_cellular_quality_title),
+                                    description = stringResource(R.string.settings_cellular_quality_subtitle),
+                                    options = qualityOptions,
+                                    selectedKey = uiState.preferredQualityCellular.name,
+                                    onSelectionChanged = { key ->
+                                        runCatching { StreamingQuality.valueOf(key) }.getOrNull()?.let {
+                                            settingsViewModel.setPreferredQualityCellular(it)
+                                        }
+                                    },
+                                    leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
                             }
 

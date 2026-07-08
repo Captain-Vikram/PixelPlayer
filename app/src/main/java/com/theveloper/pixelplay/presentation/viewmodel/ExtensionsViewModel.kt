@@ -56,6 +56,7 @@ class ExtensionsViewModel @Inject constructor(
 
     fun login(extension: MusicExtension) { /* TODO */ }
     fun logout(extension: MusicExtension) { /* TODO */ }
+    fun deleteExtension(extensionId: String) = repository.deleteExtension(extensionId)
     fun refresh() = repository.fetchStoreExtensions()
     fun refreshFeeds() = repository.refreshFeeds()
     fun loadMoreHomeFeed() = repository.loadMoreHomeFeed()

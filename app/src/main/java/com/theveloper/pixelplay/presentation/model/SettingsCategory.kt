@@ -2,10 +2,9 @@ package com.theveloper.pixelplay.presentation.model
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.DeveloperBoard
 import androidx.compose.material.icons.rounded.DeveloperMode
-import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MusicNote
@@ -66,7 +65,7 @@ enum class SettingsCategory(
         id = "equalizer",
         titleRes = R.string.settings_category_equalizer_title,
         subtitleRes = R.string.settings_category_equalizer_subtitle,
-        icon = Icons.Rounded.GraphicEq
+        icon = Icons.Rounded.Equalizer
     ),
     DEVICE_CAPABILITIES(
         id = "device_capabilities",
@@ -78,7 +77,7 @@ enum class SettingsCategory(
         id = "mashup",
         titleRes = R.string.settings_category_dj_mashup_title,
         subtitleRes = R.string.settings_category_dj_mashup_subtitle,
-        icon = Icons.Rounded.AutoAwesome
+        iconRes = R.drawable.instant_mix4
     ),
     ABOUT(
         id = "about",

@@ -102,9 +102,22 @@ fun SmartImage(
         allowHardware,
         requestTargetSize
     ) {
+        val isThumbnail = requestTargetSize.width is coil.size.Dimension.Pixels &&
+                ((requestTargetSize.width as coil.size.Dimension.Pixels).px <= 600)
+        val isLocalResource = when (model) {
+            is Int -> true
+            is String -> model.startsWith("android.resource://")
+            is ImageRequest -> model.data is Int || (model.data is String && (model.data as String).startsWith("android.resource://"))
+            else -> false
+        }
+        val config = if (isThumbnail && !isLocalResource) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
+        val precision = if (isThumbnail) coil.size.Precision.INEXACT else coil.size.Precision.EXACT
+
         if (model is ImageRequest) {
             model.newBuilder(context)
                 .size(requestTargetSize)
+                .bitmapConfig(config)
+                .precision(precision)
                 .build()
         } else {
             ImageRequest.Builder(context)
@@ -114,6 +127,8 @@ fun SmartImage(
                 .memoryCachePolicy(if (useMemoryCache) CachePolicy.ENABLED else CachePolicy.DISABLED)
                 .allowHardware(allowHardware)
                 .size(requestTargetSize)
+                .bitmapConfig(config)
+                .precision(precision)
                 .build()
         }
     }

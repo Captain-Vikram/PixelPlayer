@@ -37,7 +37,8 @@ import timber.log.Timber
 
 @Singleton
 class PlaybackStatsRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val extensionMetadataCache: ExtensionMetadataCache
 ) {
 
     private val gson = Gson()
@@ -260,15 +261,28 @@ class PlaybackStatsRepository @Inject constructor(
 
         val allSongs = segmentsBySong
             .mapNotNull { (songId, segmentsForSong) ->
-                val song = songMap[songId] ?: return@mapNotNull null
-                val title = song.title.takeIf { it.isNotBlank() }
-                    ?: song.path.substringAfterLast('/').ifBlank { return@mapNotNull null }
-                val artist = song.displayArtist.takeIf { it.isNotBlank() } ?: "Unknown Artist"
+                val song = songMap[songId]
+                val title: String
+                val artist: String
+                val albumArtUri: String?
+                if (song != null) {
+                    title = song.title.takeIf { it.isNotBlank() }
+                        ?: song.path.substringAfterLast('/').ifBlank { return@mapNotNull null }
+                    artist = song.displayArtist.takeIf { it.isNotBlank() } ?: "Unknown Artist"
+                    albumArtUri = song.albumArtUriString
+                } else if (songId.startsWith("extension:")) {
+                    val cached = extensionMetadataCache.getMetadata(songId) ?: return@mapNotNull null
+                    title = cached.title
+                    artist = cached.artist ?: "Unknown Artist"
+                    albumArtUri = null
+                } else {
+                    return@mapNotNull null
+                }
                 SongPlaybackSummary(
                     songId = songId,
                     title = title,
                     artist = artist,
-                    albumArtUri = song.albumArtUriString,
+                    albumArtUri = albumArtUri,
                     totalDurationMs = segmentsForSong.sumOf { it.durationMs },
                     playCount = segmentsForSong.size
                 )
@@ -282,14 +296,29 @@ class PlaybackStatsRepository @Inject constructor(
 
         val topGenres = segmentsBySong.entries
             .groupBy { (songId, _) ->
-                val genre = songMap[songId]?.genre
-                if (genre.isNullOrBlank()) "Unknown Genre" else genre
+                val song = songMap[songId]
+                if (song != null) {
+                    if (song.genre.isNullOrBlank()) "Unknown Genre" else song.genre
+                } else if (songId.startsWith("extension:")) {
+                    val cached = extensionMetadataCache.getMetadata(songId)
+                    cached?.genres?.firstOrNull() ?: "Unknown Genre"
+                } else {
+                    "Unknown Genre"
+                }
             }
             .map { (genre, groupedSongs) ->
                 val flattened = groupedSongs.flatMap { it.value }
                 val uniqueArtists = groupedSongs
                     .flatMap { (songId, _) ->
-                        statsArtistNames(songMap[songId])
+                        val song = songMap[songId]
+                        if (song != null) {
+                            statsArtistNames(song)
+                        } else if (songId.startsWith("extension:")) {
+                            val cached = extensionMetadataCache.getMetadata(songId)
+                            listOf(cached?.artist ?: "Unknown Artist")
+                        } else {
+                            listOf("Unknown Artist")
+                        }
                     }
                     .distinctBy { it.normalizedArtistKey() }
                     .size
@@ -355,7 +384,16 @@ class PlaybackStatsRepository @Inject constructor(
 
         val topArtists = segmentsBySong.entries
             .flatMap { (songId, segmentsForSong) ->
-                statsArtistNames(songMap[songId]).map { artist ->
+                val song = songMap[songId]
+                val artists = if (song != null) {
+                    statsArtistNames(song)
+                } else if (songId.startsWith("extension:")) {
+                    val cached = extensionMetadataCache.getMetadata(songId)
+                    listOf(cached?.artist ?: "Unknown Artist")
+                } else {
+                    listOf("Unknown Artist")
+                }
+                artists.map { artist ->
                     ArtistSongPlayback(
                         artist = artist,
                         songId = songId,
@@ -386,7 +424,14 @@ class PlaybackStatsRepository @Inject constructor(
         val topAlbums = segmentsBySong.entries
             .groupBy { (songId, _) ->
                 val song = songMap[songId]
-                song?.album?.takeIf { it.isNotBlank() } ?: "Unknown Album"
+                if (song != null) {
+                    song.album.takeIf { it.isNotBlank() } ?: "Unknown Album"
+                } else if (songId.startsWith("extension:")) {
+                    val cached = extensionMetadataCache.getMetadata(songId)
+                    cached?.album?.takeIf { it.isNotBlank() } ?: "Unknown Album"
+                } else {
+                    "Unknown Album"
+                }
             }
             .map { (album, groupedSongs) ->
                 val flattened = groupedSongs.flatMap { it.value }

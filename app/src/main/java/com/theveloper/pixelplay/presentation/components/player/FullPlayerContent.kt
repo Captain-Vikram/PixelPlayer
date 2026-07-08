@@ -131,6 +131,8 @@ import com.theveloper.pixelplay.presentation.components.AutoScrollingTextOnDeman
 import com.theveloper.pixelplay.presentation.components.LocalMaterialTheme
 import com.theveloper.pixelplay.presentation.components.LyricsSheet
 import com.theveloper.pixelplay.presentation.components.scoped.rememberSmoothProgress
+import com.theveloper.pixelplay.presentation.components.QualityOverrideBottomSheet
+import com.theveloper.pixelplay.data.model.StreamingQuality
 import com.theveloper.pixelplay.presentation.components.subcomps.FetchLyricsDialog
 import com.theveloper.pixelplay.presentation.viewmodel.LyricsSearchUiState
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerSheetState
@@ -306,14 +308,26 @@ fun FullPlayerContent(
 
     val song = currentSong ?: retainedSong ?: return // Keep the player visible while transitioning
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
+    var showQualityOverrideSheet by remember { mutableStateOf(false) }
+    val temporaryQualityOverride by playerViewModel.temporaryQualityOverride.collectAsStateWithLifecycle()
+    val currentTrackSources by playerViewModel.currentTrackSources.collectAsStateWithLifecycle()
+    val currentSelectedSource by playerViewModel.currentSelectedSource.collectAsStateWithLifecycle()
     var showLyricsSheet by remember { mutableStateOf(false) }
     var showArtistPicker by rememberSaveable { mutableStateOf(false) }
     
     val lyricsSearchUiState by playerViewModel.lyricsSearchUiState.collectAsStateWithLifecycle()
 
     val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
-    val lyricsExtensions = remember(allExtensions) {
-        allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.LyricsExtension>()
+    val extensionCapabilities by playerViewModel.extensionCapabilities.collectAsStateWithLifecycle()
+    val lyricsExtensions = remember(allExtensions, extensionCapabilities) {
+        allExtensions.filter { extension ->
+            extensionCapabilities[extension.metadata.id]?.canLyrics == true
+        }.map { extension ->
+            dev.brahmkshatriya.echo.common.LyricsExtension(
+                metadata = extension.metadata,
+                instance = extension.instance.casted()
+            )
+        }
     }
 
     // Single subscription — replaces 11 independent collectAsStateWithLifecycle calls.
@@ -322,6 +336,7 @@ fun FullPlayerContent(
     val fullPlayerSlice by playerViewModel.fullPlayerSlice.collectAsStateWithLifecycle()
     val isDownloadable by playerViewModel.isCurrentSongDownloadable.collectAsStateWithLifecycle()
     val downloadProgress by playerViewModel.currentSongDownloadProgress.collectAsStateWithLifecycle()
+    val completedDownloads by playerViewModel.completedDownloads.collectAsStateWithLifecycle()
     val currentSongArtists = fullPlayerSlice.currentSongArtists
     val lyricsSyncOffset = fullPlayerSlice.lyricsSyncOffset
     val albumArtQuality = fullPlayerSlice.albumArtQuality
@@ -479,7 +494,10 @@ fun FullPlayerContent(
     }
 
     val onSongMetadataArtistClick = {
-        val resolvedArtistId = currentSongArtists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: song.artistId
+        val resolvedArtistId = currentSongArtists.firstOrNull { it.id != 0L && it.id != -1L }?.mediaId
+            ?: currentSongArtists.firstOrNull { it.id != 0L && it.id != -1L }?.id?.toString()
+            ?: song.primaryArtist.artistMediaId
+            ?: song.artistId.toString()
         if (currentSongArtists.size > 1) {
             showArtistPicker = true
         } else {
@@ -623,6 +641,7 @@ fun FullPlayerContent(
 
     val controlsSection: @Composable () -> Unit = {
         FullPlayerControlsSection(
+            song = song,
             loadingTweaks = loadingTweaks,
             isSheetDragGestureActive = isSheetDragGestureActive,
             expansionFractionProvider = expansionFractionProvider,
@@ -639,9 +658,15 @@ fun FullPlayerContent(
             shuffleTransitionInProgress = shuffleTransitionInProgress,
             repeatModeProvider = repeatModeProvider,
             isFavoriteProvider = isFavoriteProvider,
+            isDownloadable = isDownloadable,
+            downloadProgress = downloadProgress,
+            completedDownloads = completedDownloads,
             onShuffleToggle = onShuffleToggle,
             onRepeatToggle = onRepeatToggle,
-            onFavoriteToggle = onFavoriteToggle
+            onFavoriteToggle = onFavoriteToggle,
+            onDownloadClick = onDownloadClick,
+            temporaryQualityOverride = temporaryQualityOverride,
+            onQualityClick = { showQualityOverrideSheet = true }
         )
     }
 
@@ -1072,9 +1097,24 @@ fun FullPlayerContent(
             sheetState = artistPickerSheetState,
             onDismiss = { showArtistPicker = false },
             onArtistClick = { artist ->
-                playerViewModel.triggerArtistNavigationFromPlayer(artist.id)
+                playerViewModel.triggerArtistNavigationFromPlayer(artist.mediaId ?: artist.id.toString())
                 showArtistPicker = false
             }
+        )
+    }
+
+    if (showQualityOverrideSheet) {
+        QualityOverrideBottomSheet(
+            currentOverride = temporaryQualityOverride,
+            onOverrideSelected = { quality ->
+                playerViewModel.setTemporaryQualityOverride(quality)
+            },
+            availableSources = currentTrackSources,
+            selectedSource = currentSelectedSource,
+            onSourceSelected = { source ->
+                playerViewModel.selectTrackSource(source)
+            },
+            onDismiss = { showQualityOverrideSheet = false }
         )
     }
 }
@@ -1189,6 +1229,7 @@ private fun FullPlayerAlbumCoverSection(
 
 @Composable
 private fun FullPlayerControlsSection(
+    song: Song,
     loadingTweaks: FullPlayerLoadingTweaks,
     isSheetDragGestureActive: Boolean,
     expansionFractionProvider: () -> Float,
@@ -1207,10 +1248,13 @@ private fun FullPlayerControlsSection(
     isFavoriteProvider: () -> Boolean,
     isDownloadable: Boolean = false,
     downloadProgress: Int? = null,
+    completedDownloads: Set<String> = emptySet(),
+    temporaryQualityOverride: StreamingQuality? = null,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
-    onDownloadClick: () -> Unit = {}
+    onDownloadClick: () -> Unit = {},
+    onQualityClick: () -> Unit = {}
 ) {
     val motionScheme = remember { MotionScheme.expressive() }
     val controlSpatialSpec = remember { motionScheme.fastSpatialSpec<Float>() }
@@ -1262,6 +1306,7 @@ private fun FullPlayerControlsSection(
             Spacer(modifier = Modifier.height(14.dp))
 
             BottomToggleRow(
+                song = song,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 66.dp, max = 86.dp)
@@ -1273,10 +1318,13 @@ private fun FullPlayerControlsSection(
                 isFavoriteProvider = isFavoriteProvider,
                 isDownloadable = isDownloadable,
                 downloadProgress = downloadProgress,
+                completedDownloads = completedDownloads,
+                temporaryQualityOverride = temporaryQualityOverride,
                 onShuffleToggle = onShuffleToggle,
                 onRepeatToggle = onRepeatToggle,
                 onFavoriteToggle = onFavoriteToggle,
-                onDownloadClick = onDownloadClick
+                onDownloadClick = onDownloadClick,
+                onQualityClick = onQualityClick
             )
         }
     }
@@ -1566,6 +1614,7 @@ private fun SongMetadataDisplaySection(
                 title = currentSong.title,
                 artist = currentSong.displayArtist,
                 artistId = currentSong.artistId,
+                artistMediaId = currentSong.primaryArtist.artistMediaId,
                 artists = currentSongArtists,
                 extensionId = currentSong.extensionId,
                 expansionFractionProvider = expansionFractionProvider,
@@ -2222,6 +2271,7 @@ private fun PlayerSongInfo(
     title: String,
     artist: String,
     artistId: Long,
+    artistMediaId: String?,
     artists: List<Artist>,
     extensionId: String?,
     expansionFractionProvider: () -> Float,
@@ -2235,8 +2285,13 @@ private fun PlayerSongInfo(
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isNavigatingToArtist by remember { mutableStateOf(false) }
-    val resolvedArtistId by remember(artists, artistId) {
-        derivedStateOf { artists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: artistId }
+    val resolvedArtistId by remember(artists, artistId, artistMediaId) {
+        derivedStateOf {
+            artists.firstOrNull { it.id != 0L && it.id != -1L }?.mediaId
+                ?: artists.firstOrNull { it.id != 0L && it.id != -1L }?.id?.toString()
+                ?: artistMediaId
+                ?: artistId.toString()
+        }
     }
     val titleStyle = MaterialTheme.typography.headlineSmall.copy(
         fontWeight = FontWeight.Bold,
@@ -2653,6 +2708,7 @@ private fun expressiveSkipButtonColors(colorScheme: ColorScheme): TransportButto
 
 @Composable
 private fun BottomToggleRow(
+    song: Song,
     modifier: Modifier,
     isShuffleEnabled: Boolean,
     isShuffleTransitionInProgress: Boolean,
@@ -2660,16 +2716,17 @@ private fun BottomToggleRow(
     isFavoriteProvider: () -> Boolean,
     isDownloadable: Boolean = false,
     downloadProgress: Int? = null,
+    completedDownloads: Set<String> = emptySet(),
+    temporaryQualityOverride: StreamingQuality? = null,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
-    onDownloadClick: () -> Unit = {}
+    onDownloadClick: () -> Unit = {},
+    onQualityClick: () -> Unit = {}
 ) {
-    val isFavorite = isFavoriteProvider()
     val rowCorners = 60.dp
     val inactiveBg = LocalMaterialTheme.current.onSurface.copy(alpha = 0.07f)
     val inactiveContentColor = LocalMaterialTheme.current.onSurface
-
 
     Box(
         modifier = modifier.background(
@@ -2739,45 +2796,63 @@ private fun BottomToggleRow(
                 iconId = repeatIcon,
                 contentDesc = "Repetir"
             )
-            ToggleSegmentButton(
-                modifier = commonModifier,
-                active = isFavorite,
-                activeColor = LocalMaterialTheme.current.tertiaryFixed,
-                activeCornerRadius = rowCorners,
-                activeContentColor = LocalMaterialTheme.current.onTertiaryFixed,
-                inactiveColor = inactiveBg,
-                inactiveContentColor = inactiveContentColor,
-                onClick = onFavoriteToggle,
-                iconId = if (isFavorite) R.drawable.round_favorite_24 else R.drawable.rounded_favorite_24,
-                contentDesc = "Favorito"
-            )
 
-            if (isDownloadable) {
+            val isLocal = song.extensionId == null
+            val isDownloaded = completedDownloads.contains(song.id)
+            val isLocalOrDownloaded = isLocal || isDownloaded
+            val showDownloadButton = isLocalOrDownloaded || isDownloadable
+
+            if (showDownloadButton) {
+                val downloadActive = !isLocalOrDownloaded && downloadProgress != null
+                val downloadIcon = if (isLocalOrDownloaded) {
+                    R.drawable.rounded_check_circle_24
+                } else {
+                    R.drawable.outline_save_24
+                }
+                val enabled = isDownloadable && downloadProgress == null && !isDownloaded
+
                 ToggleSegmentButton(
                     modifier = commonModifier,
-                    active = false,
-                    activeColor = LocalMaterialTheme.current.primaryFixed,
+                    active = isLocalOrDownloaded || downloadActive,
+                    enabled = enabled || isLocal,
+                    activeColor = LocalMaterialTheme.current.tertiaryFixed,
                     activeCornerRadius = rowCorners,
                     inactiveColor = inactiveBg,
-                    onClick = onDownloadClick,
+                    onClick = { if (enabled) onDownloadClick() },
                 ) {
                     if (downloadProgress != null) {
                         CircularProgressIndicator(
-                            progress = { downloadProgress!! / 100f },
+                            progress = { downloadProgress / 100f },
                             modifier = Modifier.size(20.dp),
-                            color = LocalMaterialTheme.current.primaryFixed,
+                            color = LocalMaterialTheme.current.onTertiaryFixed,
                             strokeWidth = 3.dp,
                             trackColor = inactiveContentColor.copy(alpha = 0.2f)
                         )
                     } else {
                         Icon(
-                            painter = painterResource(R.drawable.outline_save_24),
-                            contentDescription = "Download",
-                            tint = inactiveContentColor,
+                            painter = painterResource(downloadIcon),
+                            contentDescription = if (isLocalOrDownloaded) "Descargado" else "Descargar",
+                            tint = if (isLocalOrDownloaded || downloadActive) LocalMaterialTheme.current.onTertiaryFixed else inactiveContentColor.copy(alpha = if (enabled) 1f else 0.38f),
                             modifier = Modifier.size(24.dp)
                         )
                     }
                 }
+            }
+
+            if (song.extensionId != null) {
+                val hasOverride = temporaryQualityOverride != null
+                ToggleSegmentButton(
+                    modifier = commonModifier,
+                    active = hasOverride,
+                    activeColor = LocalMaterialTheme.current.secondaryFixedDim,
+                    activeCornerRadius = rowCorners,
+                    activeContentColor = LocalMaterialTheme.current.onSecondaryFixed,
+                    inactiveColor = inactiveBg,
+                    inactiveContentColor = inactiveContentColor,
+                    onClick = onQualityClick,
+                    iconId = R.drawable.outline_high_quality_24,
+                    contentDesc = "Calidad"
+                )
             }
         }
     }

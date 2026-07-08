@@ -63,8 +63,15 @@ internal fun PlayerArtistPickerBottomSheet(
         val primaryArtist = song.primaryArtist
         val computedItems = artists.mapIndexed { index, artist ->
             val isPrimary = when {
-                primaryArtist.id != 0L && primaryArtist.id != -1L -> artist.id == primaryArtist.id
-                primaryArtist.name.isNotBlank() -> artist.name.equals(primaryArtist.name, ignoreCase = true)
+                // Match by mediaId first (reliable for extension artists)
+                primaryArtist.artistMediaId != null && artist.mediaId != null ->
+                    artist.mediaId == primaryArtist.artistMediaId
+                // Match by id for local artists
+                primaryArtist.id != 0L && primaryArtist.id != -1L && primaryArtist.id != -2L ->
+                    artist.id == primaryArtist.id
+                // Match by name as fallback
+                primaryArtist.name.isNotBlank() ->
+                    artist.name.equals(primaryArtist.name, ignoreCase = true)
                 else -> index == 0
             }
             PlayerArtistShortcutItem(

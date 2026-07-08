@@ -173,7 +173,8 @@ object AppModule {
             PixelPlayDatabase.MIGRATION_41_42,
             PixelPlayDatabase.MIGRATION_42_43,
             PixelPlayDatabase.MIGRATION_43_44,
-            PixelPlayDatabase.MIGRATION_44_45
+            PixelPlayDatabase.MIGRATION_44_45,
+            PixelPlayDatabase.MIGRATION_45_46
         )
             .addCallback(PixelPlayDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
@@ -381,7 +382,8 @@ object AppModule {
         songRepository: SongRepository,
         favoritesDao: FavoritesDao,
         artistImageRepository: ArtistImageRepository,
-        folderTreeBuilder: FolderTreeBuilder
+        folderTreeBuilder: FolderTreeBuilder,
+        extensionRepository: Lazy<com.theveloper.pixelplay.data.repository.ExtensionRepository>
     ): MusicRepository {
         return MusicRepositoryImpl(
             context = context,
@@ -396,9 +398,9 @@ object AppModule {
             songRepository = songRepository,
             favoritesDao = favoritesDao,
             artistImageRepository = artistImageRepository,
-            folderTreeBuilder = folderTreeBuilder
+            folderTreeBuilder = folderTreeBuilder,
+            extensionRepositoryProvider = extensionRepository
         )
-
     }
 
     @Provides

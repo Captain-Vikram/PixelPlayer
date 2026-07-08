@@ -20,18 +20,6 @@
 # hide the original source file name.
 -renamesourcefileattribute SourceFile
 
-# Keep javax.lang.model classes (often needed by annotation processors or code generation libraries)
--keep class javax.lang.model.** { *; }
--keep interface javax.lang.model.** { *; }
-
-# Keep javax.sound.sampled classes (for audio processing libraries like JFLAC)
--keep class javax.sound.sampled.** { *; }
--keep interface javax.sound.sampled.** { *; }
-
-# Specific rules for JavaPoet if the above is not enough
--keep class com.squareup.javapoet.** { *; }
--keep interface com.squareup.javapoet.** { *; }
-
 # Specific rules for AutoValue if it's directly used or a transitive dependency
 # (though usually AutoValue is a compile-time dependency and shouldn't need this)
 # -keep class com.google.auto.value.** { *; }
@@ -41,7 +29,7 @@
 -keep class com.kyant.taglib.** { *; }
 
 # Rules for JAudioTagger (fallback metadata reader)
--keep class org.jaudiotagger.** { *; }
+-dontwarn org.jaudiotagger.**
 
 # [NUEVO] Regla general para mantener metadatos de Kotlin, puede ayudar a R8
 -keep class kotlin.Metadata { *; }
@@ -175,13 +163,9 @@
 -keep class kotlin.reflect.** { *; }
 
 # Kuromoji
--keep class com.atilika.kuromoji.** { *; }
--keepnames class com.atilika.kuromoji.** { *; }
 -dontwarn com.atilika.kuromoji.**
 
 # Pinyin4J
--keep class net.sourceforge.pinyin4j.** { *; }
--keepclassmembers class net.sourceforge.pinyin4j.** { *; }
 -dontwarn net.sourceforge.pinyin4j.**
 
 # Glance Widget
@@ -209,8 +193,6 @@
 -dontwarn okio.**
 
 # HTML Parsing (Required by YouTube/NewPipeExtractor)
--keep class org.jsoup.** { *; }
--keep interface org.jsoup.** { *; }
 -dontwarn org.jsoup.**
 
 # Echo Extension Loader & Common

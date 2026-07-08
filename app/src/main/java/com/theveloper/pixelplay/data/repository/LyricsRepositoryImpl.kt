@@ -612,6 +612,20 @@ class LyricsRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun isRealLyrics(lyrics: Lyrics): Boolean {
+        val allText = lyrics.plain?.joinToString("\n") ?: ""
+        val text = allText.lowercase().trim()
+        if (text.isEmpty()) return false
+        val placeholders = listOf(
+            "lyrics not found", 
+            "no lyrics available", 
+            "could not find lyrics", 
+            "no lyrics found",
+            "error loading lyrics"
+        )
+        return placeholders.none { text.contains(it) }
+    }
+
     private suspend fun fetchFromExtensionsProviders(song: Song): Lyrics? = withContext(Dispatchers.IO) {
         try {
             val extensions = extensionLoader.lyrics.value
@@ -633,22 +647,41 @@ class LyricsRepositoryImpl @Inject constructor(
                 duration = song.duration
             )
 
-            for (ext in extensions) {
-                if (!ext.isEnabled) continue
-                val client = ext.instance.value ?: continue
-                runCatching {
-                    val feed = client.searchTrackLyrics(ext.metadata.id, track)
-                    val items = feed.loadAll()
-                    for (candidate in items) {
-                        val loaded = client.loadLyrics(candidate)
-                        val converted = loaded.toAppLyrics()
-                        if (converted.isValid()) return@withContext converted
-                    }
-                }.onFailure {
-                    Log.w(TAG, "Extension lyrics provider ${ext.metadata.id} failed: ${it.message}")
+            val resultChannel = kotlinx.coroutines.channels.Channel<Lyrics?>(extensions.size)
+            val jobs = extensions.map { ext ->
+                launch {
+                    val lyrics = runCatching {
+                        if (!ext.isEnabled) return@runCatching null
+                        val client = ext.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.LyricsClient ?: return@runCatching null
+                        val feed = client.searchTrackLyrics(ext.metadata.id, track)
+                        val items = feed.loadAll()
+                        for (candidate in items) {
+                            val loaded = client.loadLyrics(candidate)
+                            val converted = loaded.toAppLyrics()
+                            if (converted.isValid() && isRealLyrics(converted)) {
+                                return@runCatching converted
+                            }
+                        }
+                        null
+                    }.getOrNull()
+                    resultChannel.send(lyrics)
                 }
             }
-            return@withContext null
+
+            var result: Lyrics? = null
+            var completedCount = 0
+            while (completedCount < jobs.size) {
+                val res = resultChannel.receive()
+                completedCount++
+                if (res != null) {
+                    result = res
+                    break
+                }
+            }
+            // Cancel remaining active jobs to release network/extension resources
+            jobs.forEach { it.cancel() }
+            
+            return@withContext result
         } catch (e: Exception) {
             Log.w(TAG, "fetchFromExtensionsProviders failed: ${e.message}")
             return@withContext null

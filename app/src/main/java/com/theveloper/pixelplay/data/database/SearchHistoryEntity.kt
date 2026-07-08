@@ -6,7 +6,14 @@ import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
 import com.theveloper.pixelplay.data.model.SearchHistoryItem
 
-@Entity(tableName = "search_history")
+import androidx.room.Index
+
+@Entity(
+    tableName = "search_history",
+    indices = [
+        Index(value = ["timestamp"], unique = false)
+    ]
+)
 data class SearchHistoryEntity(
     @PrimaryKey(autoGenerate = true)
     @SerializedName("id")

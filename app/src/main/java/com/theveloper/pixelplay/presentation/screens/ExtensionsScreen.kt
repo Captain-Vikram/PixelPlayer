@@ -62,6 +62,7 @@ fun ExtensionsScreen(
     val tabs = listOf("Installed", "Available")
 
     val snackbarHostState = remember { SnackbarHostState() }
+    var extensionToDelete by remember { mutableStateOf<dev.brahmkshatriya.echo.common.Extension<*>?>(null) }
     
     // Filter out already installed extensions from store items
     val filteredStoreItems = remember(storeItems, extensions) {
@@ -283,6 +284,9 @@ fun ExtensionsScreen(
                             onSettingsClick = {
                                 onOpenExtensionSettings(extension.metadata.id)
                             },
+                            onDeleteClick = {
+                                extensionToDelete = extension
+                            },
                             shape = getGroupShape(index, extensions.size)
                         )
                     }
@@ -293,6 +297,34 @@ fun ExtensionsScreen(
                 }
             }
         }
+    }
+
+    if (extensionToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { extensionToDelete = null },
+            title = { Text("Delete Extension") },
+            text = { Text("Are you sure you want to delete \"${extensionToDelete?.metadata?.name}\"? This will uninstall the extension and remove its cached data.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        extensionToDelete?.metadata?.id?.let { id ->
+                            viewModel.deleteExtension(id)
+                        }
+                        extensionToDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { extensionToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -306,6 +338,7 @@ fun ExpressiveExtensionItem(
     onClick: () -> Unit,
     onActionClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     shape: androidx.compose.ui.graphics.Shape
 ) {
     val isLoginNeeded = caps.isLoginNeeded
@@ -390,6 +423,15 @@ fun ExpressiveExtensionItem(
                 )
             ) {
                 Icon(Icons.Rounded.Settings, contentDescription = "Settings")
+            }
+
+            IconButton(
+                onClick = onDeleteClick,
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.error
+                )
+            ) {
+                Icon(Icons.Rounded.Delete, contentDescription = "Delete")
             }
         }
     }

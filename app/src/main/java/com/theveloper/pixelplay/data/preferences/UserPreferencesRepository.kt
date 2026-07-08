@@ -23,6 +23,7 @@ import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.model.StorageFilter
 import com.theveloper.pixelplay.data.model.SourceScope
 import com.theveloper.pixelplay.data.model.TransitionSettings
+import com.theveloper.pixelplay.data.model.StreamingQuality
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -223,6 +224,8 @@ class UserPreferencesRepository @Inject constructor(
         val REPLAYGAIN_USE_ALBUM_GAIN = booleanPreferencesKey("replaygain_use_album_gain")
         val PAUSE_ON_VOLUME_ZERO = booleanPreferencesKey("pause_on_volume_zero")
         val SHOW_SCROLLBAR = booleanPreferencesKey("show_scrollbar")
+        val PREFERRED_QUALITY_WIFI = stringPreferencesKey("preferred_quality_wifi")
+        val PREFERRED_QUALITY_CELLULAR = stringPreferencesKey("preferred_quality_cellular")
         val USER_PLAYLISTS_JSON_V1 = stringPreferencesKey("user_playlists_json_v1")
         val EXTENSION_MEDIA_CACHE_LIMIT_MB = intPreferencesKey("extension_media_cache_limit_mb")
         val EXTENSION_REGISTRIES = stringSetPreferencesKey("extension_registries")
@@ -231,6 +234,7 @@ class UserPreferencesRepository @Inject constructor(
         val SHOW_LYRICS_ROMANIZATION = booleanPreferencesKey("show_lyrics_romanization")
         val KEEP_SCREEN_ON_LYRICS = booleanPreferencesKey("keep_screen_on_lyrics")
         val COMPACT_GRID_MODE = booleanPreferencesKey("compact_grid_mode")
+        val CUSTOM_DOWNLOAD_DIRECTORY = stringPreferencesKey("custom_download_directory")
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────
@@ -1236,6 +1240,28 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.edit { it[PreferencesKeys.HAPTICS_ENABLED] = enabled }
     }
 
+    val preferredQualityWifiFlow: Flow<StreamingQuality> =
+        pref { preferences ->
+            preferences[PreferencesKeys.PREFERRED_QUALITY_WIFI]
+                ?.let { runCatching { StreamingQuality.valueOf(it) }.getOrNull() }
+                ?: StreamingQuality.AUTO
+        }
+
+    suspend fun setPreferredQualityWifi(quality: StreamingQuality) {
+        dataStore.edit { it[PreferencesKeys.PREFERRED_QUALITY_WIFI] = quality.name }
+    }
+
+    val preferredQualityCellularFlow: Flow<StreamingQuality> =
+        pref { preferences ->
+            preferences[PreferencesKeys.PREFERRED_QUALITY_CELLULAR]
+                ?.let { runCatching { StreamingQuality.valueOf(it) }.getOrNull() }
+                ?: StreamingQuality.AUTO
+        }
+
+    suspend fun setPreferredQualityCellular(quality: StreamingQuality) {
+        dataStore.edit { it[PreferencesKeys.PREFERRED_QUALITY_CELLULAR] = quality.name }
+    }
+
     // ─── Backup / restore ─────────────────────────────────────────────────────
 
     val advancedPerformanceDiagnosticsSettingsFlow: Flow<AdvancedPerformanceDiagnosticsSettings> =
@@ -1418,6 +1444,17 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
     val keepScreenOnLyricsFlow: Flow<Boolean> = pref { it[PreferencesKeys.KEEP_SCREEN_ON_LYRICS] ?: false }
     suspend fun setKeepScreenOnLyrics(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.KEEP_SCREEN_ON_LYRICS] = enabled }
+    }
+
+    val customDownloadDirectoryFlow: Flow<String?> = pref { it[PreferencesKeys.CUSTOM_DOWNLOAD_DIRECTORY] }.distinctUntilChanged()
+    suspend fun setCustomDownloadDirectory(path: String?) {
+        dataStore.edit { preferences ->
+            if (path == null) {
+                preferences.remove(PreferencesKeys.CUSTOM_DOWNLOAD_DIRECTORY)
+            } else {
+                preferences[PreferencesKeys.CUSTOM_DOWNLOAD_DIRECTORY] = path
+            }
+        }
     }
 
     // ─── Companion ────────────────────────────────────────────────────────────

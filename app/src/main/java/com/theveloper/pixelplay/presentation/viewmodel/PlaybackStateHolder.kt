@@ -428,13 +428,30 @@ class PlaybackStateHolder @Inject constructor(
             }
         } else {
             val controller = activeLocalPlayer()
-            if (controller.isPlaying) {
+            val shouldPause = controller.isPlaying || controller.playWhenReady
+            if (shouldPause) {
+                val pausedPosition = controller.currentPosition.coerceAtLeast(0L)
                 controller.pause()
+                _stablePlayerState.update {
+                    it.copy(
+                        isPlaying = false,
+                        playWhenReady = false,
+                        isBuffering = false
+                    )
+                }
+                stopProgressUpdates()
+                syncCurrentPositionFromPlayer(controller.currentMediaItem?.mediaId, pausedPosition)
             } else {
                 if (controller.playbackState == Player.STATE_IDLE && controller.mediaItemCount > 0) {
                     controller.prepare()
                 }
                 controller.play()
+                _stablePlayerState.update {
+                    it.copy(
+                        playWhenReady = true
+                    )
+                }
+                startProgressUpdates()
             }
         }
     }
@@ -694,8 +711,10 @@ class PlaybackStateHolder @Inject constructor(
                          val hasMediaMismatch = visibleSong?.id != null &&
                              currentMediaId != null &&
                              visibleSong.id != currentMediaId
+                         val isStreamingSource = visibleSong?.id?.startsWith("extension:") == true ||
+                             visibleSong?.id?.startsWith("raw:") == true
 
-                         if (hasMediaMismatch) {
+                         if (hasMediaMismatch && !isStreamingSource) {
                             Timber.tag(TAG).v(
                                  "Skipping local progress tick due media mismatch (visible=%s, player=%s)",
                                  visibleSong?.id,

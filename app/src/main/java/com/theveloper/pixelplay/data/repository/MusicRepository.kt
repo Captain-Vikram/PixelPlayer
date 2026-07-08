@@ -372,4 +372,6 @@ interface MusicRepository {
      * in progress under the same unique work name.
      */
     fun requestTelegramUnifiedSync()
+
+    suspend fun getExtensionShareUrl(extensionId: String, songId: String): String?
 }
