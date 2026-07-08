@@ -261,12 +261,6 @@ fun HomeScreen(
     val shelves by extensionsViewModel.shelves.collectAsStateWithLifecycle()
     val isLoadingFeed by extensionsViewModel.isLoadingFeed.collectAsStateWithLifecycle()
 
-    LaunchedEffect(currentMusicExtension) {
-        if (currentMusicExtension != null) {
-            extensionsViewModel.loadHomeFeed()
-        }
-    }
-
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val density = LocalDensity.current
     val scrollThresholdPx = remember(density) { with(density) { 180.dp.toPx() } }
@@ -410,10 +404,24 @@ fun HomeScreen(
                             )
                         }
                     }
+                } else if (isExtensionLoggedIn && yourMixSongs.isNotEmpty()) {
+                    item(key = "your_mix_header") {
+                        YourMixHeader(
+                            song = yourMixSong,
+                            isShuffleEnabled = isShuffleEnabled,
+                            onPlayShuffled = {
+                                playerViewModel.playSongsShuffled(
+                                    songsToPlay = yourMixSongs,
+                                    queueName = "Your Mix",
+                                    startAtZero = true,
+                                )
+                            }
+                        )
+                    }
                 }
 
                 // Collage
-                if (currentMusicExtension == null && yourMixSongs.isNotEmpty()) {
+                if ((currentMusicExtension == null || isExtensionLoggedIn) && yourMixSongs.isNotEmpty()) {
                     item(key = "album_art_collage") {
                         val basePattern = settingsUiState.collagePattern
                         val isAutoRotate = settingsUiState.collageAutoRotate
@@ -447,20 +455,20 @@ fun HomeScreen(
                 }
 
                 // Daily Mix
-                if (currentMusicExtension == null && dailyMixSongs.isNotEmpty()) {
+                if ((currentMusicExtension == null || isExtensionLoggedIn) && dailyMixSongs.isNotEmpty()) {
                     item(key = "daily_mix_section") {
                         DailyMixSection(
                             songs = dailyMixSongs.toImmutableList(),
                             onClickOpen = { navController.navigateSafely(Screen.DailyMixScreen.route) },
                             onNavigateToAlbum = { song ->
                                 navController.navigateSafelyReplacing(
-                                    route = Screen.AlbumDetail.createRoute(song.albumId.toString()),
+                                    route = Screen.AlbumDetail.createRoute(song.albumMediaId ?: song.albumId.toString()),
                                     patternToPop = Screen.AlbumDetail.route
                                 )
                             },
                             onNavigateToArtist = { song ->
                                 navController.navigateSafelyReplacing(
-                                    route = Screen.ArtistDetail.createRoute(song.artistId.toString()),
+                                    route = Screen.ArtistDetail.createRoute(song.primaryArtist.artistMediaId ?: song.artistId.toString()),
                                     patternToPop = Screen.ArtistDetail.route
                                 )
                             },
@@ -493,14 +501,15 @@ fun HomeScreen(
                         }
                     }
 
-                    if (currentMusicExtension != null && homeFeed != null && homeFeed!!.tabs.size > 1) {
+                    val safeHomeFeed = homeFeed
+                    if (currentMusicExtension != null && safeHomeFeed != null && safeHomeFeed.tabs.size > 1) {
                         item(key = "extension_home_tabs") {
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                items(homeFeed!!.tabs) { tab ->
+                                items(safeHomeFeed.tabs) { tab ->
                                     val isSelected = selectedHomeTab?.id == tab.id
                                     Surface(
                                         modifier = Modifier
@@ -640,9 +649,11 @@ fun HomeScreen(
             allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.MusicExtension>()
                 .filter { it.metadata.isEnabled }
         }
-        val lyricsExtensions = remember(allExtensions) {
-            allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.LyricsExtension>()
-                .filter { it.metadata.isEnabled }
+        val extensionCapabilities by extensionsViewModel.extensionCapabilities.collectAsStateWithLifecycle()
+        val lyricsExtensions = remember(allExtensions, extensionCapabilities) {
+            allExtensions.filter { ext ->
+                extensionCapabilities[ext.metadata.id]?.canLyrics == true
+            }.filter { it.metadata.isEnabled }
         }
 
         val isNeteaseLoggedIn by neteaseViewModel.isLoggedIn.collectAsStateWithLifecycle() 
@@ -658,9 +669,9 @@ fun HomeScreen(
                 musicExtensions = musicExtensions,
                 currentMusicExtension = currentMusicExtension,
                 onMusicExtensionSelected = { extension ->
-                    extensionsViewModel.selectMusicExtension(extension)
                     scope.launch { sourceSheetState.hide() }.invokeOnCompletion {
                         showSourceSelectionSheet = false
+                        extensionsViewModel.selectMusicExtension(extension)
                     }
                 },
                 lyricsExtensions = lyricsExtensions,

@@ -224,6 +224,15 @@ fun AppNavigation(
                 }
             }
             composable(
+                Screen.Downloads.route,
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.DownloadsManagerScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
+            composable(
                 Screen.Accounts.route,
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {

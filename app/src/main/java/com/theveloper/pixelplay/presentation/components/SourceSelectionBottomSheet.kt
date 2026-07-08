@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -129,7 +130,10 @@ fun SourceSelectionBottomSheet(
 
                 if (musicExtensions.isNotEmpty()) {
                     // Extensions
-                    items(musicExtensions, key = { it.metadata.id }) { extension ->
+                    itemsIndexed(
+                        musicExtensions,
+                        key = { index, extension -> "music_${extension.metadata.id}_$index" }
+                    ) { _, extension ->
                         val isSelected = extension.metadata.id == currentMusicExtension?.metadata?.id
                         val caps = extensionCapabilities[extension.metadata.id] ?: ExtensionCapabilities()
                         val iconModel = when (val icon = extension.metadata.icon) {
@@ -184,7 +188,10 @@ fun SourceSelectionBottomSheet(
                         )
                     }
                     
-                    items(lyricsExtensions, key = { it.metadata.id }) { extension ->
+                    itemsIndexed(
+                        lyricsExtensions,
+                        key = { index, extension -> "lyrics_${extension.metadata.id}_$index" }
+                    ) { _, extension ->
                         val caps = extensionCapabilities[extension.metadata.id] ?: ExtensionCapabilities()
                         val iconModel = when (val icon = extension.metadata.icon) {
                             is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url

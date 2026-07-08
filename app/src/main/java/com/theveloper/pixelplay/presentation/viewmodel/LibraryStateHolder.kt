@@ -290,6 +290,12 @@ class LibraryStateHolder @Inject constructor(
                         // Auto-switch to extension scope if one is selected from Home/Search
                         setSourceScope(SourceScope.Extension(targetId))
                     }
+                } else {
+                    // Auto-switch to Local scope if extension is set to null (Local Library selected)
+                    val currentScope = _currentSourceScope.value
+                    if (currentScope != SourceScope.Local) {
+                        setSourceScope(SourceScope.Local)
+                    }
                 }
             }
         }
@@ -301,7 +307,7 @@ class LibraryStateHolder @Inject constructor(
                 if (scope is SourceScope.Extension) {
                     val targetId = scope.extensionId
                     if (currentExt?.metadata?.id != targetId) {
-                        val extension = extensionRepository.installedMusicExtensions.value.find { it.metadata.id == targetId }
+                        val extension = extensionRepository.allExtensions.value.find { it.metadata.id == targetId } as? dev.brahmkshatriya.echo.common.MusicExtension
                         if (extension != null) {
                             extensionRepository.selectMusicExtension(extension)
                         }

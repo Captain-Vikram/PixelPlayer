@@ -40,11 +40,12 @@ import dev.brahmkshatriya.echo.common.models.Track
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Whatshot
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import com.theveloper.pixelplay.presentation.components.subcomps.PlayingEqIcon
 import androidx.media3.common.util.UnstableApi
-import androidx.navigation.NavHostController
+import androidx.navigation.NavController
 import com.theveloper.pixelplay.presentation.navigation.Screen
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
@@ -54,7 +55,7 @@ import com.theveloper.pixelplay.extensions.core.toSong
 fun handleEchoItemClick(
     item: EchoMediaItem,
     playerViewModel: PlayerViewModel,
-    navController: NavHostController,
+    navController: NavController,
     activeExtensionId: String?
 ) {
     val idParts = item.id.split(":")
@@ -131,24 +132,7 @@ fun ExtensionShelvesSection(
             }
         }
         
-        // We limit picks to a max of 6 items (2 columns of 3 rows) to keep it compact.
-        // If there are more, we append the rest back to regular shelves.
-        if (picks.size > 6) {
-            val toKeep = picks.take(6)
-            val toReturn = picks.drop(6)
-            toReturn.forEach { item ->
-                regulars.add(
-                    dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items(
-                        id = item.mediaItem.id,
-                        title = item.title,
-                        list = listOf(item.mediaItem)
-                    )
-                )
-            }
-            Pair(toKeep, regulars)
-        } else {
-            Pair(picks, regulars)
-        }
+        Pair(picks, regulars)
     }
 
     Column(
@@ -178,27 +162,29 @@ fun QuickPicksGrid(
     items: List<QuickPickItem>,
     onItemClick: (EchoMediaItem) -> Unit
 ) {
-    val timeTitle = remember {
-        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-        when (hour) {
-            in 5..11 -> "Good morning"
-            in 12..16 -> "Good afternoon"
-            else -> "Good evening"
-        }
-    }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = timeTitle,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.5).sp
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Text(
+                text = "Curated Picks",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.5).sp
+            )
+        }
 
         val rows = items.chunked(2)
         rows.forEach { rowItems ->
@@ -227,35 +213,58 @@ fun QuickPickTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isArtist = item.mediaItem is dev.brahmkshatriya.echo.common.models.Artist
+    val imageUrl = remember(item.mediaItem.cover) {
+        when (val cover = item.mediaItem.cover) {
+            is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> cover.request.url
+            is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> cover.uri.toString()
+            else -> null
+        }
+    }
     Surface(
         modifier = modifier
-            .height(56.dp)
+            .height(64.dp)
             .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(8.dp)
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxSize()
         ) {
             SmartImage(
-                model = item.mediaItem.cover,
+                model = imageUrl,
                 contentDescription = item.title,
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)),
+                    .size(64.dp)
+                    .clip(if (isArtist) CircleShape else RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
+                    .padding(if (isArtist) 6.dp else 0.dp),
                 contentScale = ContentScale.Crop
             )
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+            Column(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
-                    .weight(1f)
-            )
+                    .weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                val subtitle = item.mediaItem.subtitleWithOutE
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }

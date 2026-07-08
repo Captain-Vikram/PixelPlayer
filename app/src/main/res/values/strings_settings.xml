@@ -651,4 +651,16 @@
     <string name="settings_volume_section">Volume</string>
     <string name="settings_pause_on_volume_zero">Pause when volume reaches zero</string>
     <string name="settings_pause_on_volume_zero_desc">Automatically pause playback when the volume is set to 0</string>
+
+    <!-- Streaming Quality -->
+    <string name="settings_streaming_quality_section">Streaming Quality</string>
+    <string name="settings_wifi_quality_title">Preferred Wi-Fi quality</string>
+    <string name="settings_wifi_quality_subtitle">Choose audio quality when connected to Wi-Fi</string>
+    <string name="settings_cellular_quality_title">Preferred cellular quality</string>
+    <string name="settings_cellular_quality_subtitle">Choose audio quality when on mobile data</string>
+    <string name="settings_quality_auto">Auto (Network-managed)</string>
+    <string name="settings_quality_data_saver">Data Saver (~96 kbps)</string>
+    <string name="settings_quality_standard">Standard (~128–160 kbps)</string>
+    <string name="settings_quality_high">High (~256–320 kbps)</string>
+    <string name="settings_quality_lossless">Lossless (Hi-Fi)</string>
 </resources>

@@ -101,7 +101,8 @@ class MusicRepositoryImpl @Inject constructor(
     private val songRepository: SongRepository,
     private val favoritesDao: FavoritesDao,
     private val artistImageRepository: ArtistImageRepository,
-    private val folderTreeBuilder: FolderTreeBuilder
+    private val folderTreeBuilder: FolderTreeBuilder,
+    private val extensionRepositoryProvider: Lazy<ExtensionRepository>
 ) : MusicRepository {
 
     companion object {
@@ -1202,4 +1203,7 @@ class MusicRepositoryImpl @Inject constructor(
             com.theveloper.pixelplay.data.worker.SyncWorker.incrementalSyncWork()
         )
     }
+
+    override suspend fun getExtensionShareUrl(extensionId: String, songId: String): String? =
+        extensionRepositoryProvider.get().getShareUrl(extensionId, songId)
 }

@@ -3,6 +3,9 @@ package com.theveloper.pixelplay.data.repository
 import com.theveloper.pixelplay.extensions.PixelPlayExtensionHost
 import com.theveloper.pixelplay.extensions.core.ExtensionStoreRepository
 import com.theveloper.pixelplay.extensions.core.toSong
+import dev.brahmkshatriya.echo.common.Extension
+import dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity.Companion.toCurrentUser
+import dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity.Companion.toEntity
 import dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
 import dev.brahmkshatriya.echo.common.MusicExtension
 import dev.brahmkshatriya.echo.common.clients.HomeFeedClient
@@ -15,6 +18,7 @@ import dev.brahmkshatriya.echo.common.clients.RadioClient
 import dev.brahmkshatriya.echo.common.clients.TrackClient
 import dev.brahmkshatriya.echo.common.clients.LyricsClient
 import dev.brahmkshatriya.echo.common.clients.PlaylistEditClient
+import dev.brahmkshatriya.echo.common.clients.ShareClient
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
 import com.theveloper.pixelplay.extensions.core.toAppAlbum
 import com.theveloper.pixelplay.extensions.core.toAppArtist
@@ -27,17 +31,32 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import com.theveloper.pixelplay.data.database.EngagementDao
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.theveloper.pixelplay.data.model.ExtensionCapabilities
 import dev.brahmkshatriya.echo.common.models.Track
 
+import com.theveloper.pixelplay.data.stats.ExtensionMetadataCache
+import timber.log.Timber
+import dev.brahmkshatriya.echo.common.models.User
+
+data class ExtensionArtistDetails(
+    val artist: com.theveloper.pixelplay.data.model.Artist,
+    val songs: List<com.theveloper.pixelplay.data.model.Song>,
+    val relatedArtists: List<com.theveloper.pixelplay.data.model.Artist>,
+    val shelves: List<dev.brahmkshatriya.echo.common.models.Shelf>
+)
+
 @Singleton
 class ExtensionRepository @Inject constructor(
     private val extensionEngine: ExtensionLoader,
     private val host: PixelPlayExtensionHost,
-    private val storeRepository: ExtensionStoreRepository
+    private val storeRepository: ExtensionStoreRepository,
+    private val engagementDao: EngagementDao,
+    private val extensionMetadataCache: ExtensionMetadataCache
 ) {
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -131,6 +150,19 @@ class ExtensionRepository @Inject constructor(
         }
 
         repositoryScope.launch {
+            combine(
+                allExtensions,
+                extensionEngine.extensionUserDao.observeCurrentUser()
+            ) { extensions, currentUsers ->
+                extensions to currentUsers
+            }.collect { (extensions, currentUsers) ->
+                extensions.forEach { ext ->
+                    syncLoginSessionWhenReady(ext, currentUsers)
+                }
+            }
+        }
+
+        repositoryScope.launch {
             allExtensions.collectLatest { extensions ->
                 val caps = mutableMapOf<String, ExtensionCapabilities>()
                 extensions.forEach { ext ->
@@ -149,7 +181,7 @@ class ExtensionRepository @Inject constructor(
         }
 
         repositoryScope.launch {
-            extensionEngine.current.collect { current ->
+            extensionEngine.current.distinctUntilChangedBy { it?.metadata?.id }.collect { current ->
                 // Clear feed lists and cache instantly to prevent stale UI transitions
                 _shelves.value = emptyList()
                 _yourMixSongsFromExtension.value = emptyList()
@@ -200,10 +232,12 @@ class ExtensionRepository @Inject constructor(
     }
 
     fun selectMusicExtension(extension: MusicExtension?) {
-        if (extension == null) {
-            extensionEngine.current.value = null
-        } else {
-            extensionEngine.setupMusicExtension(extension, true)
+        repositoryScope.launch {
+            if (extension == null) {
+                extensionEngine.current.value = null
+            } else {
+                extensionEngine.setupMusicExtension(extension, true)
+            }
         }
     }
 
@@ -234,11 +268,14 @@ class ExtensionRepository @Inject constructor(
         }
     }
 
-    suspend fun loadArtistDetails(mediaId: String): Pair<com.theveloper.pixelplay.data.model.Artist, List<com.theveloper.pixelplay.data.model.Song>>? {
+    suspend fun loadArtistDetails(mediaId: String): ExtensionArtistDetails? {
         val parts = mediaId.split(":")
         if (parts.size < 4 || parts[0] != "extension") return null
         val extensionId = parts[1]
-        val itemId = parts.drop(3).joinToString(":")
+        var itemId = parts.drop(3).joinToString(":")
+        if (extensionId == "spotify" && !itemId.contains(":")) {
+            itemId = "spotify:artist:$itemId"
+        }
 
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return null
 
@@ -250,24 +287,11 @@ class ExtensionRepository @Inject constructor(
             val feed = extension.getAs<ArtistClient, Feed<Shelf>> {
                 loadFeed(loadedArtist)
             }.getOrNull()
-            
+
             val shelves = feed?.loadAll() ?: emptyList()
-            val tracks = mutableListOf<Track>()
-            
-            shelves.forEach { shelf ->
-                when (shelf) {
-                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> tracks.addAll(shelf.list)
-                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> {
-                        tracks.addAll(shelf.list.filterIsInstance<Track>())
-                    }
-                    else -> {}
-                }
-            }
 
             val appArtist = loadedArtist.toAppArtist(extensionId)
-            val songs = tracks.map { it.toSong(extensionId) }
-
-            appArtist to songs
+            ExtensionArtistDetails(appArtist, emptyList(), emptyList(), shelves)
         } catch (e: Exception) {
             e.printStackTrace()
             null
@@ -308,6 +332,78 @@ class ExtensionRepository @Inject constructor(
         _selectedHomeTab.value = null
     }
 
+    suspend fun applyLoginSession(extensionId: String, user: User) {
+        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return
+        val userEntity = user.toEntity(extension.metadata.type, extension.metadata.id)
+
+        extensionEngine.extensionUserDao.insertUser(userEntity)
+        syncLoginUser(extension, user)
+        extensionEngine.extensionUserDao.setCurrentUser(userEntity.toCurrentUser())
+
+        clearCache(extensionId)
+
+        if (_currentMusicExtension.value?.metadata?.id == extensionId) {
+            loadHomeFeed(forceRefresh = true)
+            loadLibraryFeed(forceRefresh = true)
+        }
+    }
+
+    private suspend fun syncLoginSession(
+        extension: Extension<*>,
+        currentUsers: List<dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser>
+    ) {
+        val currentUser = currentUsers.find { it.extId == extension.metadata.id }
+        val userId = currentUser?.userId
+
+        if (userId == null) {
+            syncLoginUser(extension, null)
+            return
+        }
+
+        val userEntity = extensionEngine.extensionUserDao.getUser(currentUser.type, currentUser.extId, userId)
+        val user = userEntity?.user?.getOrNull()
+        if (user != null) {
+            syncLoginUser(extension, user)
+        } else {
+            Timber.w("ExtensionRepository: Missing persisted user for ${extension.metadata.id}, clearing live session")
+            syncLoginUser(extension, null)
+        }
+    }
+
+    private fun syncLoginSessionWhenReady(
+        extension: Extension<*>,
+        currentUsers: List<dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser>
+    ) {
+        repositoryScope.launch {
+            var attempts = 0
+            while (attempts < 50) {
+                val instance = extension.instance.value().getOrNull()
+                if (instance != null) {
+                    if (instance is LoginClient) {
+                        syncLoginSession(extension, currentUsers)
+                    }
+                    break
+                }
+                attempts++
+                kotlinx.coroutines.delay(200)
+            }
+        }
+    }
+
+    private suspend fun syncLoginUser(extension: Extension<*>, user: User?) {
+        val client = extension.instance.value().getOrNull() as? LoginClient ?: return
+        try {
+            client.setLoginUser(user)
+            if (user != null) {
+                Timber.d("ExtensionRepository: Applied user session ${user.name} to ${extension.metadata.id}")
+            } else {
+                Timber.d("ExtensionRepository: Cleared user session for ${extension.metadata.id}")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update login user for ${extension.metadata.id}")
+        }
+    }
+
     fun refreshFeeds() {
         loadHomeFeed(forceRefresh = true)
         loadLibraryFeed(forceRefresh = true)
@@ -322,6 +418,14 @@ class ExtensionRepository @Inject constructor(
             if (client is HomeFeedClient) {
                 _isLoadingFeed.value = true
                 try {
+                    if (forceRefresh) {
+                        _homeFeed.value = null
+                        _shelves.value = emptyList()
+                        _yourMixSongsFromExtension.value = emptyList()
+                        _dailyMixSongsFromExtension.value = emptyList()
+                        homeFeedContinuationToken = null
+                    }
+
                     val feed = if (forceRefresh || _homeFeed.value == null) {
                         client.loadHomeFeed()
                     } else {
@@ -339,8 +443,9 @@ class ExtensionRepository @Inject constructor(
                     val cacheKey = "${extensionId}_${activeTab?.id ?: ""}"
                     if (!forceRefresh && homeFeedShelvesCache.containsKey(cacheKey)) {
                         val cachedShelves = homeFeedShelvesCache[cacheKey]!!
-                        _shelves.value = cachedShelves
-                        extractSongsFromShelves(cachedShelves, extensionId)
+                        val sortedShelves = sortShelvesByEngagement(cachedShelves, extensionId)
+                        _shelves.value = sortedShelves
+                        extractSongsFromShelves(sortedShelves, extensionId)
                         _isLoadingFeed.value = false
                         return@launch
                     }
@@ -360,9 +465,10 @@ class ExtensionRepository @Inject constructor(
                     homeFeedContinuationToken = firstPage.continuation
 
                     val loadedShelves = firstPage.data.deduplicate()
-                    _shelves.value = loadedShelves
+                    val sortedShelves = sortShelvesByEngagement(loadedShelves, extensionId)
+                    _shelves.value = sortedShelves
                     homeFeedShelvesCache[cacheKey] = loadedShelves
-                    extractSongsFromShelves(loadedShelves, extensionId)
+                    extractSongsFromShelves(sortedShelves, extensionId)
                 } catch (e: Exception) {
                     e.printStackTrace()
                     val msg = e.message ?: ""
@@ -371,6 +477,14 @@ class ExtensionRepository @Inject constructor(
                             msg.contains("401") || 
                             msg.contains("unauthorized", ignoreCase = true) ||
                             msg.contains("credentials", ignoreCase = true)
+
+                    if (isAuthError) {
+                        _homeFeed.value = null
+                        _shelves.value = emptyList()
+                        _yourMixSongsFromExtension.value = emptyList()
+                        _dailyMixSongsFromExtension.value = emptyList()
+                        homeFeedContinuationToken = null
+                    }
                     
                     if (!isAuthError) {
                         _errors.emit("Failed to load home feed: ${e.message}")
@@ -670,6 +784,11 @@ class ExtensionRepository @Inject constructor(
             if (client is LibraryFeedClient) {
                 _isLoadingLibraryFeed.value = true
                 try {
+                    if (forceRefresh) {
+                        _libraryFeed.value = null
+                        _libraryShelves.value = emptyList()
+                    }
+
                     val feed = client.loadLibraryFeed()
                     _libraryFeed.value = feed
                     val loadedShelves = feed.loadAll().deduplicate()
@@ -677,6 +796,17 @@ class ExtensionRepository @Inject constructor(
                     libraryFeedShelvesCache[extensionId] = loadedShelves
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    val msg = e.message ?: ""
+                    val isAuthError = msg.contains("auth", ignoreCase = true) ||
+                            msg.contains("login", ignoreCase = true) ||
+                            msg.contains("401") ||
+                            msg.contains("unauthorized", ignoreCase = true) ||
+                            msg.contains("credentials", ignoreCase = true)
+
+                    if (isAuthError) {
+                        _libraryFeed.value = null
+                        _libraryShelves.value = emptyList()
+                    }
                 } finally {
                     _isLoadingLibraryFeed.value = false
                 }
@@ -693,6 +823,238 @@ class ExtensionRepository @Inject constructor(
         return this.filter { shelf ->
             val title = shelf.title.trim()
             title.isEmpty() || seen.add(title.lowercase())
+        }
+    }
+
+    private suspend fun sortShelvesByEngagement(shelves: List<Shelf>, extensionId: String): List<Shelf> {
+        val engagements = try {
+            engagementDao.getAllEngagements()
+        } catch (e: Exception) {
+            emptyList()
+        }
+        val metadataMap = extensionMetadataCache.getAllMetadata()
+        
+        // Build weighted profiles of favorite artists, albums, and genres
+        val artistScores = mutableMapOf<String, Int>()
+        val albumScores = mutableMapOf<String, Int>()
+        val genreScores = mutableMapOf<String, Int>()
+        val trackScores = engagements.associate { it.songId to it.playCount }
+
+        engagements.forEach { engagement ->
+            val metadata = metadataMap[engagement.songId]
+            if (metadata != null) {
+                // Aggregate score for artists
+                metadata.artist?.split(",")?.map { it.trim() }?.forEach { artistName ->
+                    if (artistName.isNotBlank() && !artistName.equals("unknown", ignoreCase = true)) {
+                        artistScores[artistName.lowercase()] = (artistScores[artistName.lowercase()] ?: 0) + engagement.playCount
+                    }
+                }
+                // Aggregate score for albums
+                metadata.album?.let { albumName ->
+                    if (albumName.isNotBlank() && !albumName.equals("unknown album", ignoreCase = true)) {
+                        albumScores[albumName.lowercase()] = (albumScores[albumName.lowercase()] ?: 0) + engagement.playCount
+                    }
+                }
+                // Aggregate score for genres
+                metadata.genres.forEach { genreName ->
+                    if (genreName.isNotBlank()) {
+                        genreScores[genreName.lowercase()] = (genreScores[genreName.lowercase()] ?: 0) + engagement.playCount
+                    }
+                }
+            }
+        }
+
+        // Helper to score a Track using direct + connection scores (artists, albums, genres)
+        fun getTrackScore(track: Track): Int {
+            val syntheticId = "extension:$extensionId:track:${track.id}"
+            val directScore = (trackScores[syntheticId] ?: 0) * 15
+
+            var connectionScore = 0
+
+            // 1. Artist connection (match any of the track artists)
+            track.artists.forEach { artist ->
+                val artistNameNormalized = artist.name.lowercase()
+                val score = artistScores[artistNameNormalized] ?: 0
+                if (score > 0) {
+                    connectionScore += score * 5
+                }
+            }
+
+            // 2. Album connection
+            track.album?.title?.lowercase()?.let { albumTitle ->
+                val score = albumScores[albumTitle] ?: 0
+                if (score > 0) {
+                    connectionScore += score * 3
+                }
+            }
+
+            // 3. Genre connection
+            track.genres.forEach { genreName ->
+                val genreNormalized = genreName.lowercase()
+                val score = genreScores[genreNormalized] ?: 0
+                if (score > 0) {
+                    connectionScore += score * 2
+                }
+            }
+
+            return directScore + connectionScore
+        }
+
+        // Sort items inside each shelf
+        val sortedShelves = shelves.map { shelf ->
+            when (shelf) {
+                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> {
+                    val sortedList = shelf.list.sortedByDescending { getTrackScore(it) }
+                    shelf.copy(list = sortedList)
+                }
+                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> {
+                    val sortedList = shelf.list.sortedByDescending { item ->
+                        if (item is Track) getTrackScore(item) else 0
+                    }
+                    shelf.copy(list = sortedList)
+                }
+                else -> shelf
+            }
+        }
+
+        // Helper to calculate an average/max engagement score of a Shelf
+        fun getShelfScore(shelf: Shelf): Int {
+            val baseScore = when (shelf) {
+                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> {
+                    shelf.list.map { getTrackScore(it) }.maxOrNull() ?: 0
+                }
+                is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> {
+                    shelf.list.filterIsInstance<Track>().map { getTrackScore(it) }.maxOrNull() ?: 0
+                }
+                is dev.brahmkshatriya.echo.common.models.Shelf.Item -> {
+                    val media = shelf.media
+                    if (media is Track) getTrackScore(media) else 0
+                }
+                else -> 0
+            }
+
+            // Apply contextual shelf title boosters:
+            // e.g. if the shelf title mentions one of your favorite artist names,
+            // or contains words like "recommended", "more like", "similar to" and matches taste.
+            val titleNormalized = shelf.title.lowercase()
+            var boost = 0
+            
+            // Check if title contains any favorite artist name
+            artistScores.forEach { (artistName, score) ->
+                if (score > 0 && titleNormalized.contains(artistName)) {
+                    boost += score * 10
+                }
+            }
+
+            // Check if title matches similar/recommended triggers
+            val isRecommendationShelf = titleNormalized.contains("similar") || 
+                    titleNormalized.contains("more like") || 
+                    titleNormalized.contains("based on") || 
+                    titleNormalized.contains("recommended") ||
+                    titleNormalized.contains("radio")
+            
+            if (isRecommendationShelf) {
+                // If it is a recommendation shelf, boost it based on your highest artist play count
+                val topArtistScore = artistScores.values.maxOrNull() ?: 0
+                boost += topArtistScore * 3
+            }
+
+            return baseScore + boost
+        }
+
+        // Sort the entire shelves by their score, putting highest-engaged shelves first.
+        // Shelves with 0 score remain in their original relative order.
+        return sortedShelves.sortedByDescending { getShelfScore(it) }
+    }
+
+    suspend fun getShareUrl(extensionId: String, songId: String): String? {
+        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return null
+        return try {
+            extension.getAs<ShareClient, String> {
+                onShare(Track(songId, ""))
+            }.getOrNull()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun rankTracksByEngagement(tracks: List<Track>, extensionId: String): List<Track> {
+        val engagements = try {
+            engagementDao.getAllEngagements()
+        } catch (e: Exception) {
+            emptyList()
+        }
+        val metadataMap = extensionMetadataCache.getAllMetadata()
+        
+        val artistScores = mutableMapOf<String, Int>()
+        val albumScores = mutableMapOf<String, Int>()
+        val genreScores = mutableMapOf<String, Int>()
+        val trackScores = engagements.associate { it.songId to it.playCount }
+
+        engagements.forEach { engagement ->
+            val metadata = metadataMap[engagement.songId]
+            if (metadata != null) {
+                metadata.artist?.split(",")?.map { it.trim() }?.forEach { artistName ->
+                    if (artistName.isNotBlank() && !artistName.equals("unknown", ignoreCase = true)) {
+                        artistScores[artistName.lowercase()] = (artistScores[artistName.lowercase()] ?: 0) + engagement.playCount
+                    }
+                }
+                metadata.album?.let { albumName ->
+                    if (albumName.isNotBlank() && !albumName.equals("unknown album", ignoreCase = true)) {
+                        albumScores[albumName.lowercase()] = (albumScores[albumName.lowercase()] ?: 0) + engagement.playCount
+                    }
+                }
+                metadata.genres.forEach { genreName ->
+                    if (genreName.isNotBlank()) {
+                        genreScores[genreName.lowercase()] = (genreScores[genreName.lowercase()] ?: 0) + engagement.playCount
+                    }
+                }
+            }
+        }
+
+        fun getTrackScore(track: Track): Int {
+            val syntheticId = "extension:$extensionId:track:${track.id}"
+            val directScore = (trackScores[syntheticId] ?: 0) * 15
+
+            var connectionScore = 0
+            track.artists.forEach { artist ->
+                val artistNameNormalized = artist.name.lowercase()
+                val score = artistScores[artistNameNormalized] ?: 0
+                if (score > 0) {
+                    connectionScore += score * 5
+                }
+            }
+            track.album?.title?.lowercase()?.let { albumTitle ->
+                val score = albumScores[albumTitle] ?: 0
+                if (score > 0) {
+                    connectionScore += score * 3
+                }
+            }
+            track.genres.forEach { genreName ->
+                val genreNormalized = genreName.lowercase()
+                val score = genreScores[genreNormalized] ?: 0
+                if (score > 0) {
+                    connectionScore += score * 2
+                }
+            }
+            return directScore + connectionScore
+        }
+
+        return tracks.sortedByDescending { getTrackScore(it) }
+    }
+
+    fun deleteExtension(extensionId: String) {
+        repositoryScope.launch {
+            try {
+                if (_currentMusicExtension.value?.metadata?.id == extensionId) {
+                    selectMusicExtension(null)
+                }
+                storeRepository.deleteExtension(extensionId)
+                clearCache(extensionId)
+                _messages.emit(dev.brahmkshatriya.echo.common.models.Message("Extension deleted successfully"))
+            } catch (e: Exception) {
+                _errors.emit("Failed to delete extension: ${e.message}")
+            }
         }
     }
 }

@@ -24,6 +24,8 @@ import dev.brahmkshatriya.echo.common.clients.TrackerClient
 import dev.brahmkshatriya.echo.common.models.TrackDetails
 import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.getAs
 
+import com.theveloper.pixelplay.data.stats.ExtensionMetadataCache
+
 /**
  * Tracks listening statistics for songs.
  * Extracted from PlayerViewModel to reduce its size and improve modularity.
@@ -38,7 +40,8 @@ import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.getAs
 class ListeningStatsTracker @Inject constructor(
     private val dailyMixManager: DailyMixManager,
     private val playbackStatsRepository: PlaybackStatsRepository,
-    private val extensionLoader: ExtensionLoader
+    private val extensionLoader: ExtensionLoader,
+    private val extensionMetadataCache: ExtensionMetadataCache
 ) {
     private var currentSession: ActiveSession? = null
     private var pendingVoluntarySongId: String? = null
@@ -78,7 +81,11 @@ class ListeningStatsTracker @Inject constructor(
             positionMs = positionMs,
             durationMs = durationMs,
             fallbackDurationMs = song?.duration ?: 0L,
-            isPlaying = isPlaying
+            isPlaying = isPlaying,
+            title = song?.title,
+            artist = song?.displayArtist,
+            album = song?.album,
+            genre = song?.genre
         )
     }
 
@@ -104,15 +111,40 @@ class ListeningStatsTracker @Inject constructor(
         positionMs: Long,
         durationMs: Long,
         fallbackDurationMs: Long,
-        isPlaying: Boolean
+        isPlaying: Boolean,
+        title: String? = null,
+        artist: String? = null,
+        album: String? = null,
+        genre: String? = null
     ) {
         finalizeCurrentSession()
         
-        broadcastTrackChangeToExtensions(songId, positionMs, durationMs, fallbackDurationMs, isPlaying)
+        broadcastTrackChangeToExtensions(
+            songId = songId,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            fallbackDurationMs = fallbackDurationMs,
+            isPlaying = isPlaying,
+            title = title,
+            artist = artist,
+            album = album
+        )
         
         val safeSongId = songId?.takeIf { it.isNotBlank() }
         if (safeSongId == null) {
             return
+        }
+
+        // Cache extension track metadata so we can perform related-track recommendations offline.
+        if (safeSongId.startsWith("extension:") && !title.isNullOrBlank()) {
+            val genreList = genre?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+            extensionMetadataCache.saveMetadata(
+                songId = safeSongId,
+                title = title,
+                artist = artist,
+                album = album,
+                genres = genreList
+            )
         }
 
         val nowRealtime = SystemClock.elapsedRealtime()
@@ -128,7 +160,11 @@ class ListeningStatsTracker @Inject constructor(
             lastRealtimeMs = nowRealtime,
             lastUpdateEpochMs = nowEpoch,
             isPlaying = isPlaying,
-            isVoluntary = pendingVoluntarySongId == safeSongId
+            isVoluntary = pendingVoluntarySongId == safeSongId,
+            title = title,
+            artist = artist,
+            album = album,
+            genre = genre
         )
         if (pendingVoluntarySongId == safeSongId) {
             pendingVoluntarySongId = null
@@ -145,17 +181,52 @@ class ListeningStatsTracker @Inject constructor(
         session.lastKnownPositionMs = positionMs.coerceAtLeast(0L)
         session.lastUpdateEpochMs = System.currentTimeMillis()
         
-        broadcastPlayStateToExtensions(session.songId, positionMs, session.totalDurationMs, isPlaying)
+        broadcastPlayStateToExtensions(
+            songId = session.songId,
+            positionMs = positionMs,
+            durationMs = session.totalDurationMs,
+            isPlaying = isPlaying,
+            title = session.title,
+            artist = session.artist,
+            album = session.album
+        )
     }
 
-    private fun broadcastTrackChangeToExtensions(songId: String?, positionMs: Long, durationMs: Long, fallbackDurationMs: Long, isPlaying: Boolean) {
+    private fun broadcastTrackChangeToExtensions(
+        songId: String?,
+        positionMs: Long,
+        durationMs: Long,
+        fallbackDurationMs: Long,
+        isPlaying: Boolean,
+        title: String?,
+        artist: String?,
+        album: String?
+    ) {
         scope?.launch(Dispatchers.IO) {
-            val extensionId = "pixelplayer" // Or ideally the actual extension ID if we had the Song object
+            val parts = songId?.split(":") ?: emptyList()
+            val extensionId = if (parts.size >= 4 && parts[0] == "extension") parts[1] else "pixelplayer"
+            val rawId = if (parts.size >= 4 && parts[0] == "extension") parts.drop(3).joinToString(":") else (songId ?: "")
+
             val trackDetails = songId?.let { id ->
                 val trackDuration = normalizeDuration(durationMs, fallbackDurationMs)
+                val dummyAlbum = album?.let { albumName ->
+                    dev.brahmkshatriya.echo.common.models.Album(
+                        id = "",
+                        title = albumName
+                    )
+                }
+                val dummyArtists = artist?.split(",")?.map { it.trim() }?.map { artistName ->
+                    dev.brahmkshatriya.echo.common.models.Artist(
+                        id = "",
+                        name = artistName
+                    )
+                } ?: emptyList()
+
                 val dummyTrack = dev.brahmkshatriya.echo.common.models.Track(
-                    id = id,
-                    title = "Unknown Title", // We'd need the actual Song to populate this
+                    id = rawId,
+                    title = title ?: "Unknown Title",
+                    artists = dummyArtists,
+                    album = dummyAlbum,
                     duration = trackDuration
                 )
                 TrackDetails(
@@ -181,12 +252,38 @@ class ListeningStatsTracker @Inject constructor(
         }
     }
 
-    private fun broadcastPlayStateToExtensions(songId: String, positionMs: Long, durationMs: Long, isPlaying: Boolean) {
+    private fun broadcastPlayStateToExtensions(
+        songId: String,
+        positionMs: Long,
+        durationMs: Long,
+        isPlaying: Boolean,
+        title: String?,
+        artist: String?,
+        album: String?
+    ) {
         scope?.launch(Dispatchers.IO) {
-            val extensionId = "pixelplayer" // Or ideally the actual extension ID
+            val parts = songId.split(":")
+            val extensionId = if (parts.size >= 4 && parts[0] == "extension") parts[1] else "pixelplayer"
+            val rawId = if (parts.size >= 4 && parts[0] == "extension") parts.drop(3).joinToString(":") else songId
+
+            val dummyAlbum = album?.let { albumName ->
+                dev.brahmkshatriya.echo.common.models.Album(
+                    id = "",
+                    title = albumName
+                )
+            }
+            val dummyArtists = artist?.split(",")?.map { it.trim() }?.map { artistName ->
+                dev.brahmkshatriya.echo.common.models.Artist(
+                    id = "",
+                    name = artistName
+                )
+            } ?: emptyList()
+
             val dummyTrack = dev.brahmkshatriya.echo.common.models.Track(
-                id = songId,
-                title = "Unknown Title",
+                id = rawId,
+                title = title ?: "Unknown Title",
+                artists = dummyArtists,
+                album = dummyAlbum,
                 duration = durationMs
             )
             val trackDetails = TrackDetails(
@@ -232,7 +329,11 @@ class ListeningStatsTracker @Inject constructor(
             positionMs = positionMs,
             durationMs = durationMs,
             fallbackDurationMs = song?.duration ?: 0L,
-            isPlaying = isPlaying
+            isPlaying = isPlaying,
+            title = song?.title,
+            artist = song?.displayArtist,
+            album = song?.album,
+            genre = song?.genre
         )
     }
 
@@ -258,7 +359,11 @@ class ListeningStatsTracker @Inject constructor(
         positionMs: Long,
         durationMs: Long,
         fallbackDurationMs: Long,
-        isPlaying: Boolean
+        isPlaying: Boolean,
+        title: String? = null,
+        artist: String? = null,
+        album: String? = null,
+        genre: String? = null
     ) {
         val safeSongId = songId?.takeIf { it.isNotBlank() }
         if (safeSongId == null) {
@@ -281,7 +386,11 @@ class ListeningStatsTracker @Inject constructor(
             positionMs = positionMs,
             durationMs = durationMs,
             fallbackDurationMs = fallbackDurationMs,
-            isPlaying = isPlaying
+            isPlaying = isPlaying,
+            title = title,
+            artist = artist,
+            album = album,
+            genre = genre
         )
     }
 
@@ -404,5 +513,9 @@ data class ActiveSession(
     var lastRealtimeMs: Long,
     var lastUpdateEpochMs: Long,
     var isPlaying: Boolean,
-    val isVoluntary: Boolean
+    val isVoluntary: Boolean,
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    val genre: String? = null
 )

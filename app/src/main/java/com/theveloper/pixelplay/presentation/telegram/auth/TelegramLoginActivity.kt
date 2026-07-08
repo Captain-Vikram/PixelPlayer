@@ -112,6 +112,9 @@ import dagger.hilt.android.AndroidEntryPoint
 import org.drinkless.tdlib.TdApi
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import java.util.Locale
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.background
+import androidx.compose.material3.Button
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 
@@ -144,6 +147,20 @@ fun TelegramLoginScreen(
     viewModel: TelegramLoginViewModel = hiltViewModel(),
     onFinish: () -> Unit
 ) {
+    var isPluginInstalled by remember { mutableStateOf(viewModel.isPluginInstalled()) }
+    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle(initialValue = null)
+
+    if (!isPluginInstalled) {
+        TelegramPluginDownloadScreen(
+            downloadProgress = downloadProgress,
+            onDownload = { viewModel.downloadPlugin() },
+            onInstalled = { isPluginInstalled = true },
+            onBack = onFinish,
+            viewModel = viewModel
+        )
+        return
+    }
+
     val authState by viewModel.authorizationState.collectAsStateWithLifecycle(initialValue = null)
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showSearchSheet by remember { mutableStateOf(false) }
@@ -178,9 +195,9 @@ fun TelegramLoginScreen(
     }
 
     if (authState is TdApi.AuthorizationStateReady && !uiState.isLoading) {
-        TelegramDashboardScreen(
-            onAddChannel = { showSearchSheet = true },
-            onBack = onFinish
+        TelegramConnectedScreen(
+            onBack = onFinish,
+            onLogout = { viewModel.logout() }
         )
         return
     }
@@ -1170,4 +1187,180 @@ fun getDialCodeForCountry(isoCode: String): String = when (isoCode.uppercase()) 
     "UZ" -> "998"; "VU" -> "678"; "VE" -> "58"; "VN" -> "84"; "YE" -> "967"
     "ZM" -> "260"; "ZW" -> "263"
     else -> ""
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TelegramPluginDownloadScreen(
+    downloadProgress: Float?,
+    onDownload: () -> Unit,
+    onInstalled: () -> Unit,
+    onBack: () -> Unit,
+    viewModel: TelegramLoginViewModel
+) {
+    LaunchedEffect(downloadProgress) {
+        if (downloadProgress == null && viewModel.isPluginInstalled()) {
+            onInstalled()
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Telegram Plugin", fontFamily = GoogleSansRounded) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.telegram),
+                    contentDescription = null,
+                    tint = Color(0xFF2AABEE),
+                    modifier = Modifier.size(72.dp)
+                )
+
+                Text(
+                    text = "Dynamic TDLib Plugin",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "To keep the PixelPlayer download size lightweight, the native Telegram connectivity library (~50 MB) is downloaded on-demand.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (downloadProgress != null) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        LinearProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
+                        )
+                        Text(
+                            text = "Downloading: ${(downloadProgress * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                } else {
+                    Button(
+                        onClick = onDownload,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().height(56.dp)
+                    ) {
+                        Text("Download & Install Plugin", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TelegramConnectedScreen(
+    onBack: () -> Unit,
+    onLogout: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Telegram Connected", fontFamily = GoogleSansRounded) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .size(90.dp)
+                            .background(
+                                color = Color(0xFF2AABEE).copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(45.dp)
+                            )
+                    )
+                    Icon(
+                        painter = painterResource(R.drawable.telegram),
+                        contentDescription = null,
+                        tint = Color(0xFF2AABEE),
+                        modifier = Modifier.size(64.dp)
+                    )
+                }
+
+                Text(
+                    text = "Telegram Account Connected",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Direct streaming and playback of Telegram audio files and links is active in the background. Chat and channel syncing UI is disabled for maximum efficiency.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = onLogout,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) {
+                    Text("Disconnect Account", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
 }

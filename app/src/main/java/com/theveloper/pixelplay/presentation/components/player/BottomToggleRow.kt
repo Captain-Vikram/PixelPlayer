@@ -24,6 +24,7 @@ fun BottomToggleRow(
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
+    showFavorite: Boolean = true,
     activeColorMain: Color = MaterialTheme.colorScheme.primary,
     activeColorSecondary: Color = MaterialTheme.colorScheme.secondary,
     activeColorTertiary: Color = MaterialTheme.colorScheme.tertiary,
@@ -104,18 +105,20 @@ fun BottomToggleRow(
                 iconId = repeatIcon,
                 contentDesc = "Repeat"
             )
-            ToggleSegmentButton(
-                modifier = commonModifier,
-                active = isFavorite,
-                activeColor = activeColorTertiary,
-                activeCornerRadius = rowCorners,
-                activeContentColor = onActiveColorTertiary,
-                inactiveColor = inactiveColor,
-                inactiveContentColor = inactiveContentColor,
-                onClick = onFavoriteToggle,
-                iconId = if (isFavorite) R.drawable.round_favorite_24 else R.drawable.rounded_favorite_24,
-                contentDesc = "Favorite"
-            )
+            if (showFavorite) {
+                ToggleSegmentButton(
+                    modifier = commonModifier,
+                    active = isFavorite,
+                    activeColor = activeColorTertiary,
+                    activeCornerRadius = rowCorners,
+                    activeContentColor = onActiveColorTertiary,
+                    inactiveColor = inactiveColor,
+                    inactiveContentColor = inactiveContentColor,
+                    onClick = onFavoriteToggle,
+                    iconId = if (isFavorite) R.drawable.round_favorite_24 else R.drawable.rounded_favorite_24,
+                    contentDesc = "Favorite"
+                )
+            }
         }
     }
 }

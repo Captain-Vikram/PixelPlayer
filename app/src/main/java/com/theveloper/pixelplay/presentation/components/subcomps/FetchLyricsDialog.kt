@@ -316,9 +316,13 @@ private fun PickResultContent(
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = if (results.isEmpty() && state.query.isNotEmpty()) 
+            text = if (state.isLoading) {
+                stringResource(R.string.lyrics_searching)
+            } else if (results.isEmpty() && state.query.isNotEmpty()) {
                 stringResource(R.string.lyrics_not_found)
-            else stringResource(R.string.lyrics_found_n_matches_format).format(results.size),
+            } else {
+                stringResource(R.string.lyrics_found_n_matches_format).format(results.size)
+            },
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
@@ -359,7 +363,7 @@ private fun PickResultContent(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        if (results.isEmpty() && state.selectedExtensionId != null) {
+        if (state.isLoading) {
             Column(
                 modifier = Modifier.heightIn(min = 200.dp),
                 verticalArrangement = Arrangement.Center,
@@ -367,7 +371,19 @@ private fun PickResultContent(
             ) {
                 CircularWavyProgressIndicator(modifier = Modifier.size(40.dp))
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Fetching from ${extensions.find { it.metadata.id == selectedId }?.metadata?.name}...")
+                val providerName = extensions.find { it.metadata.id == selectedId }?.metadata?.name ?: "LRCLIB"
+                Text("Fetching from $providerName...")
+            }
+        } else if (results.isEmpty()) {
+            Column(
+                modifier = Modifier.heightIn(min = 200.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "No lyrics found from this provider.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             LazyColumn(

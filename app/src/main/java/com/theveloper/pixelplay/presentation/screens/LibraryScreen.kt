@@ -517,8 +517,10 @@ fun LibraryScreen(
     val isNeteaseLoggedIn by neteaseViewModel.isLoggedIn.collectAsStateWithLifecycle()
     val isQqMusicLoggedIn by qqMusicViewModel.isLoggedIn.collectAsStateWithLifecycle()
 
-    val lyricsExtensions = remember(allExtensions) {
-        allExtensions.filterIsInstance<dev.brahmkshatriya.echo.common.LyricsExtension>()
+    val lyricsExtensions = remember(allExtensions, extensionCapabilities) {
+        allExtensions.filter { ext ->
+            extensionCapabilities[ext.metadata.id]?.canLyrics == true
+        }
     }
     
     val sourceIconPainter = if (currentSourceScope is SourceScope.Extension) {
@@ -1545,13 +1547,15 @@ fun LibraryScreen(
                                     musicExtensions = installedExtensions,
                                     currentMusicExtension = activeExtension,
                                     onMusicExtensionSelected = { extension ->
-                                        if (extension == null) {
-                                            libraryViewModel.setSourceScope(SourceScope.Local)
-                                        } else {
-                                            libraryViewModel.setSourceScope(SourceScope.Extension(extension.metadata.id))
-                                        }
                                         scope.launch { sourceSheetState.hide() }.invokeOnCompletion {
                                             showSourceSelectionSheet = false
+                                            if (extension == null) {
+                                                libraryViewModel.setSourceScope(SourceScope.Local)
+                                                extensionsViewModel.selectMusicExtension(null)
+                                            } else {
+                                                libraryViewModel.setSourceScope(SourceScope.Extension(extension.metadata.id))
+                                                extensionsViewModel.selectMusicExtension(extension)
+                                            }
                                         }
                                     },
                                     lyricsExtensions = lyricsExtensions,

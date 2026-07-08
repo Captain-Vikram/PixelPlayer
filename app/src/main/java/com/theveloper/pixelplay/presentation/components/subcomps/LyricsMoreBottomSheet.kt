@@ -95,6 +95,7 @@ fun LyricsMoreBottomSheet(
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
+    showFavorite: Boolean = true,
     // Colors
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
@@ -648,7 +649,8 @@ fun LyricsMoreBottomSheet(
                     isFavoriteProvider = isFavoriteProvider,
                     onShuffleToggle = onShuffleToggle,
                     onRepeatToggle = onRepeatToggle,
-                    onFavoriteToggle = onFavoriteToggle
+                    onFavoriteToggle = onFavoriteToggle,
+                    showFavorite = showFavorite
                 )
             }
         }

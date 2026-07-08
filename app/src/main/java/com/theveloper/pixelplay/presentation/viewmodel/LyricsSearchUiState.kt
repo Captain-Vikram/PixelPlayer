@@ -11,7 +11,8 @@ sealed interface LyricsSearchUiState {
         val query: String,
         val results: List<LyricsSearchResult>,
         val availableExtensions: List<Extension<*>> = emptyList(),
-        val selectedExtensionId: String? = null // null means internal LRCLIB
+        val selectedExtensionId: String? = null, // null means internal LRCLIB
+        val isLoading: Boolean = false
     ) : LyricsSearchUiState
     data class Success(
         val lyrics: Lyrics,
