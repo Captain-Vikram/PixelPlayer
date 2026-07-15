@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
@@ -1007,8 +1008,8 @@ fun QueueBottomSheet(
 
                 AnimatedVisibility(
                     visible = isFabExpanded,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
+                    enter = fadeIn(animationSpec = tween(300)),
+                    exit = fadeOut(animationSpec = tween(250)),
                 ) {
                     Box(
                         modifier = Modifier
@@ -1026,8 +1027,17 @@ fun QueueBottomSheet(
 
                 AnimatedVisibility(
                     visible = isFabExpanded,
-                    enter = fadeIn() + slideInVertically(initialOffsetY = { it / 3 }),
-                    exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 3 }),
+                    enter = fadeIn(animationSpec = tween(250)) + slideInVertically(
+                        initialOffsetY = { it / 3 },
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ),
+                    exit = fadeOut(animationSpec = tween(200)) + slideOutVertically(
+                        targetOffsetY = { it / 3 },
+                        animationSpec = tween(180, easing = FastOutLinearInEasing)
+                    ),
                 ) {
                     Box(
                         modifier = Modifier
@@ -1098,14 +1108,14 @@ fun QueueBottomSheet(
                                         queue,
                                         defaultName
                                     ) { name, selectedIds ->
-                                        val orderedSelection = queue
-                                            .filter { selectedIds.contains(it.id) }
-                                            .map { it.id }
+                                        val selectedSongs = queue.filter { selectedIds.contains(it.id) }
+                                        val orderedSelection = selectedSongs.map { it.id }
                                         if (orderedSelection.isNotEmpty()) {
                                             playlistViewModel.createPlaylist(
                                                 name = name,
                                                 songIds = orderedSelection,
-                                                isQueueGenerated = true
+                                                isQueueGenerated = true,
+                                                songObjects = selectedSongs
                                             )
                                         }
                                     }

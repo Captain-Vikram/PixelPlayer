@@ -95,6 +95,7 @@ fun LibraryActionRow(
     showLocateButton: Boolean = false,
     isPlaylistTab: Boolean,
     isFoldersTab: Boolean,
+    showShuffleButton: Boolean = true,
     modifier: Modifier = Modifier,
     // Breadcrumb parameters
     currentFolder: MusicFolder?,
@@ -109,7 +110,7 @@ fun LibraryActionRow(
     importButtonStartCorner: androidx.compose.ui.unit.Dp = 8.dp,
     // Source Scope
     showSourceScopeButton: Boolean = false,
-    currentSourceScope: SourceScope = SourceScope.All,
+    currentSourceScope: SourceScope = SourceScope.Local,
     sourceIconPainter: Painter? = null,
     onSourceScopeClick: () -> Unit = {}
 ) {
@@ -147,45 +148,47 @@ fun LibraryActionRow(
                         val buttonContainerColor = MaterialTheme.colorScheme.tertiaryContainer
                         val buttonContentColor = MaterialTheme.colorScheme.onTertiaryContainer
                         
-                        FilledTonalButton(
-                            onClick = onMainActionClick,
-                            shape = RoundedCornerShape(26.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = buttonContainerColor,
-                                contentColor = buttonContentColor
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 6.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                            modifier = Modifier.height(genHeight)
-                        ) {
-                            val icon = if (isPlaylistTab) Icons.AutoMirrored.Rounded.PlaylistAdd else Icons.Rounded.Shuffle
-                            val text = if (isPlaylistTab) {
-                                stringResource(R.string.library_action_new)
-                            } else {
-                                stringResource(R.string.common_shuffle)
-                            }
-                            val contentDesc = if (isPlaylistTab) {
-                                stringResource(R.string.library_cd_create_new_playlist)
-                            } else {
-                                stringResource(R.string.common_shuffle_play)
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        if (isPlaylistTab || showShuffleButton) {
+                            FilledTonalButton(
+                                onClick = onMainActionClick,
+                                shape = RoundedCornerShape(26.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = buttonContainerColor,
+                                    contentColor = buttonContentColor
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 6.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                                modifier = Modifier.height(genHeight)
                             ) {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = contentDesc,
-                                    modifier = Modifier.size(20.dp).rotate(iconRotation)
-                                )
-                                Text(
-                                    modifier = Modifier.animateContentSize(),
-                                    text = text,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                val icon = if (isPlaylistTab) Icons.AutoMirrored.Rounded.PlaylistAdd else Icons.Rounded.Shuffle
+                                val text = if (isPlaylistTab) {
+                                    stringResource(R.string.library_action_new)
+                                } else {
+                                    stringResource(R.string.common_shuffle)
+                                }
+                                val contentDesc = if (isPlaylistTab) {
+                                    stringResource(R.string.library_cd_create_new_playlist)
+                                } else {
+                                    stringResource(R.string.common_shuffle_play)
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = contentDesc,
+                                        modifier = Modifier.size(20.dp).rotate(iconRotation)
+                                    )
+                                    Text(
+                                        modifier = Modifier.animateContentSize(),
+                                        text = text,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
 
@@ -259,31 +262,37 @@ fun LibraryActionRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        if (showSortButton) {
+        val showAnySecondary = showSortButton || showLocateButton || showSourceScopeButton
+        if (showAnySecondary) {
             val outerCorner = 26.dp
-            
+
+            val locateEndCorner by animateDpAsState(
+                targetValue = if (showSourceScopeButton || showSortButton) 8.dp else outerCorner,
+                label = "LocateEndCorner"
+            )
+
+            val filterStartCorner by animateDpAsState(
+                targetValue = if (showLocateButton) 8.dp else outerCorner,
+                label = "FilterStartCorner"
+            )
+            val filterEndCorner by animateDpAsState(
+                targetValue = if (showSortButton) 8.dp else outerCorner,
+                label = "FilterEndCorner"
+            )
+
             val sortStartCorner by animateDpAsState(
                 targetValue = if (showLocateButton || showSourceScopeButton) 8.dp else outerCorner,
                 label = "SortStartCorner"
             )
 
-            val filterEndCorner = 8.dp 
-            val filterStartCorner by animateDpAsState(
-                targetValue = if (showLocateButton) 8.dp else outerCorner,
-                label = "FilterStartCorner"
-            )
-            
-            val locateEndCorner = 8.dp 
-
             val gapBetweenLocateAndNext by animateDpAsState(
-                targetValue = if (showLocateButton) 4.dp else 0.dp,
+                targetValue = if (showLocateButton && (showSourceScopeButton || showSortButton)) 4.dp else 0.dp,
                 label = "GapLocate"
             )
             val gapBetweenFilterAndSort by animateDpAsState(
-                targetValue = if (showSourceScopeButton) 4.dp else 0.dp,
+                targetValue = if (showSourceScopeButton && showSortButton) 4.dp else 0.dp,
                 label = "GapFilter"
             )
-
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Locate Button
@@ -308,7 +317,7 @@ fun LibraryActionRow(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.width(gapBetweenLocateAndNext))
 
                 // Source Scope Button
@@ -318,7 +327,6 @@ fun LibraryActionRow(
                     exit = slideOutHorizontally(targetOffsetX = { it / 2 }) + fadeOut()
                 ) {
                      val label = when(currentSourceScope) {
-                         SourceScope.All -> stringResource(R.string.library_storage_filter_all_songs)
                          SourceScope.Local -> stringResource(R.string.library_storage_filter_offline)
                          is SourceScope.Extension -> stringResource(R.string.library_storage_filter_online)
                      }
@@ -353,7 +361,6 @@ fun LibraryActionRow(
                                  )
                              } else {
                                  val icon = when(currentSourceScope) {
-                                     SourceScope.All -> Icons.Rounded.Dataset
                                      SourceScope.Local -> Icons.Rounded.PhoneAndroid
                                      else -> Icons.Rounded.Cloud
                                  }
@@ -370,20 +377,26 @@ fun LibraryActionRow(
                 Spacer(modifier = Modifier.width(gapBetweenFilterAndSort))
 
                 // Sort Button
-                FilledTonalIconButton(
-                    onClick = onSortClick,
-                    shape = RoundedCornerShape(
-                        topStart = sortStartCorner,
-                        bottomStart = sortStartCorner,
-                        topEnd = outerCorner,
-                        bottomEnd = outerCorner
-                    ),
-                    modifier = Modifier.size(genHeight)
+                AnimatedVisibility(
+                    visible = showSortButton,
+                    enter = slideInHorizontally(initialOffsetX = { it / 2 }) + fadeIn(),
+                    exit = slideOutHorizontally(targetOffsetX = { it / 2 }) + fadeOut()
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Sort,
-                        contentDescription = stringResource(R.string.library_cd_sort_options),
-                    )
+                    FilledTonalIconButton(
+                        onClick = onSortClick,
+                        shape = RoundedCornerShape(
+                            topStart = sortStartCorner,
+                            bottomStart = sortStartCorner,
+                            topEnd = outerCorner,
+                            bottomEnd = outerCorner
+                        ),
+                        modifier = Modifier.size(genHeight)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.Sort,
+                            contentDescription = stringResource(R.string.library_cd_sort_options),
+                        )
+                    }
                 }
             }
         }

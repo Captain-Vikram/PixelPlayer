@@ -32,7 +32,7 @@ interface MusicRepository {
      */
     fun getPaginatedAlbums(
         sortOption: com.theveloper.pixelplay.data.model.SortOption,
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All,
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local,
         minTracks: Int = 1
     ): Flow<PagingData<Album>>
 
@@ -41,7 +41,7 @@ interface MusicRepository {
      */
     fun getPaginatedArtists(
         sortOption: com.theveloper.pixelplay.data.model.SortOption,
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
     ): Flow<PagingData<Artist>>
 
     /**
@@ -50,14 +50,14 @@ interface MusicRepository {
      */
     fun getPaginatedFavoriteSongs(
         sortOption: com.theveloper.pixelplay.data.model.SortOption,
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
     ): Flow<PagingData<Song>>
 
     /**
      * Returns all favorite songs as a list (for playback queue on shuffle).
      */
     suspend fun getFavoriteSongsOnce(
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
     ): List<Song>
 
     /**
@@ -67,14 +67,14 @@ interface MusicRepository {
         limit: Int,
         offset: Int,
         sortOption: com.theveloper.pixelplay.data.model.SortOption = com.theveloper.pixelplay.data.model.SortOption.LikedSongTitleAZ,
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
     ): List<Song>
 
     /**
      * Returns the count of favorite songs (reactive).
      */
     fun getFavoriteSongCountFlow(
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
     ): Flow<Int>
 
     /**
@@ -103,7 +103,7 @@ interface MusicRepository {
         limit: Int,
         offset: Int,
         sortOption: com.theveloper.pixelplay.data.model.SortOption = com.theveloper.pixelplay.data.model.SortOption.SongDefaultOrder,
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
     ): List<Song>
 
     /**
@@ -113,7 +113,7 @@ interface MusicRepository {
         limit: Int,
         offset: Int,
         sortOption: com.theveloper.pixelplay.data.model.SortOption = com.theveloper.pixelplay.data.model.SortOption.AlbumTitleAZ,
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All,
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local,
         minTracks: Int = 1
     ): List<Album>
 
@@ -124,7 +124,7 @@ interface MusicRepository {
         limit: Int,
         offset: Int,
         sortOption: com.theveloper.pixelplay.data.model.SortOption = com.theveloper.pixelplay.data.model.SortOption.ArtistNameAZ,
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
     ): List<Artist>
 
     /**
@@ -138,23 +138,25 @@ interface MusicRepository {
      * @return Flow que emite una lista completa de objetos Album.
      */
     fun getAlbums(
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All,
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local,
         minTracks: Int = 1
-    ): Flow<List<Album>> // Existing Flow for reactive updates
+    ): Flow<List<Album>>
 
     /**
      * Obtiene la lista de artistas filtrada.
      * @return Flow que emite una lista completa de objetos Artist.
      */
     fun getArtists(
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All
-    ): Flow<List<Artist>> // Existing Flow for reactive updates
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
+    ): Flow<List<Artist>>
 
     /**
      * Obtiene la lista completa de canciones una sola vez.
      * @return Lista de objetos Song.
      */
-    suspend fun getAllSongsOnce(): List<Song>
+    suspend fun getAllSongsOnce(
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
+    ): List<Song>
 
     /**
      * Returns one representative song per unique album art URI for maintenance tools that
@@ -172,7 +174,7 @@ interface MusicRepository {
      * @return Lista de objetos Album.
      */
     suspend fun getAllAlbumsOnce(
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All,
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local,
         minTracks: Int = 1
     ): List<Album>
 
@@ -180,7 +182,9 @@ interface MusicRepository {
      * Obtiene la lista completa de artistas una sola vez.
      * @return Lista de objetos Artist.
      */
-    suspend fun getAllArtistsOnce(): List<Artist>
+    suspend fun getAllArtistsOnce(
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
+    ): List<Artist>
 
     /**
      * Obtiene un álbum específico por su ID.
@@ -325,7 +329,7 @@ interface MusicRepository {
     suspend fun resetAllLyrics()
 
     fun getMusicFolders(
-        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All
+        storageFilter: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local
     ): Flow<List<com.theveloper.pixelplay.data.model.MusicFolder>>
 
     suspend fun deleteById(id: Long)

@@ -670,6 +670,33 @@ class MediaControllerSyncStateHolder @Inject constructor(
                     }
                 }
             }
+
+            // Deliberately runs without the isTransitionRunning() guard that onTimelineChanged
+            // uses, since it's non-mutating (only updates stablePlayerState and restarts progress
+            // polling) and is required to keep the UI seek progress in sync during player swaps/crossfades.
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (events.contains(Player.EVENT_TIMELINE_CHANGED) ||
+                    events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) ||
+                    events.contains(Player.EVENT_IS_PLAYING_CHANGED)) {
+                    if (isRemoteSessionControllingPlayback()) return
+                    val isPlaying = player.isPlaying
+                    playbackStateHolder.updateStablePlayerState { state ->
+                        state.copy(
+                            isPlaying = isPlaying,
+                            playWhenReady = player.playWhenReady,
+                            isBuffering = if (isPlaying) false else state.isBuffering
+                        )
+                    }
+                    val shouldKeepSampling = player.playWhenReady &&
+                        player.playbackState != Player.STATE_IDLE &&
+                        player.playbackState != Player.STATE_ENDED
+                    if (isPlaying || shouldKeepSampling) {
+                        playbackStateHolder.startProgressUpdates()
+                    } else {
+                        playbackStateHolder.stopProgressUpdates()
+                    }
+                }
+            }
         })
     }
 
@@ -719,6 +746,16 @@ class MediaControllerSyncStateHolder @Inject constructor(
                                         cb.showNoInternetDialog()
                                     }
                                 }
+                            }
+                        }
+
+                        // Offline check for extension (JIT stream) tracks.
+                        // Extension tracks always require a live network — there is no local cache to fall back to.
+                        if (song?.id?.startsWith("extension:") == true) {
+                            val isOnline = connectivityStateHolder.isOnline.value
+                            if (!isOnline) {
+                                playerCtrl.pause()
+                                cb.showNoInternetDialog()
                             }
                         }
 

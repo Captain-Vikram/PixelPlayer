@@ -312,7 +312,7 @@ fun FullPlayerContent(
     val temporaryQualityOverride by playerViewModel.temporaryQualityOverride.collectAsStateWithLifecycle()
     val currentTrackSources by playerViewModel.currentTrackSources.collectAsStateWithLifecycle()
     val currentSelectedSource by playerViewModel.currentSelectedSource.collectAsStateWithLifecycle()
-    var showLyricsSheet by remember { mutableStateOf(false) }
+    var showLyricsSheet by rememberSaveable { mutableStateOf(false) }
     var showArtistPicker by rememberSaveable { mutableStateOf(false) }
     
     val lyricsSearchUiState by playerViewModel.lyricsSearchUiState.collectAsStateWithLifecycle()
@@ -1085,7 +1085,8 @@ fun FullPlayerContent(
             isFavoriteProvider = isFavoriteProvider,
             onShuffleToggle = onShuffleToggle,
             onRepeatToggle = onRepeatToggle,
-            onFavoriteToggle = onFavoriteToggle
+            onFavoriteToggle = onFavoriteToggle,
+            completedDownloads = completedDownloads
         )
     }
 
@@ -1104,6 +1105,10 @@ fun FullPlayerContent(
     }
 
     if (showQualityOverrideSheet) {
+        val confirmedTiers = remember(song, currentTrackSources) {
+            val extId = song.extensionId
+            extId?.let { playerViewModel.getObservedTiers(it) }
+        }
         QualityOverrideBottomSheet(
             currentOverride = temporaryQualityOverride,
             onOverrideSelected = { quality ->
@@ -1111,6 +1116,7 @@ fun FullPlayerContent(
             },
             availableSources = currentTrackSources,
             selectedSource = currentSelectedSource,
+            confirmedTiers = confirmedTiers,
             onSourceSelected = { source ->
                 playerViewModel.selectTrackSource(source)
             },
@@ -2328,6 +2334,26 @@ private fun PlayerSongInfo(
                 canScroll = isPlayingProvider()
             )
 
+            val temporaryQualityOverride by playerViewModel.temporaryQualityOverride.collectAsStateWithLifecycle()
+            if (temporaryQualityOverride != null) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.padding(horizontal = 2.dp)
+                ) {
+                    Text(
+                        text = temporaryQualityOverride.toString(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = GoogleSansRounded
+                        ),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
             if (extensionId != null) {
                 val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
                 val extension = remember(allExtensions, extensionId) {
@@ -2797,24 +2823,35 @@ private fun BottomToggleRow(
                 contentDesc = "Repetir"
             )
 
+            // TODO: update if a local extension ID constant exists (none found, so using extensionId == null)
             val isLocal = song.extensionId == null
             val isDownloaded = completedDownloads.contains(song.id)
             val isLocalOrDownloaded = isLocal || isDownloaded
-            val showDownloadButton = isLocalOrDownloaded || isDownloadable
 
-            if (showDownloadButton) {
-                val downloadActive = !isLocalOrDownloaded && downloadProgress != null
-                val downloadIcon = if (isLocalOrDownloaded) {
-                    R.drawable.rounded_check_circle_24
-                } else {
-                    R.drawable.outline_save_24
-                }
-                val enabled = isDownloadable && downloadProgress == null && !isDownloaded
+            if (isLocalOrDownloaded) {
+                val isFavorite = isFavoriteProvider()
+                ToggleSegmentButton(
+                    modifier = commonModifier,
+                    active = isFavorite,
+                    activeColor = LocalMaterialTheme.current.tertiaryFixed,
+                    activeCornerRadius = rowCorners,
+                    activeContentColor = LocalMaterialTheme.current.onTertiaryFixed,
+                    inactiveColor = inactiveBg,
+                    inactiveContentColor = inactiveContentColor,
+                    onClick = onFavoriteToggle,
+                    iconId = if (isFavorite) R.drawable.round_favorite_24 else R.drawable.rounded_favorite_24,
+                    contentDesc = "Favorito"
+                )
+            }
+
+            if (!isLocalOrDownloaded && isDownloadable) {
+                val downloadActive = downloadProgress != null
+                val enabled = downloadProgress == null
 
                 ToggleSegmentButton(
                     modifier = commonModifier,
-                    active = isLocalOrDownloaded || downloadActive,
-                    enabled = enabled || isLocal,
+                    active = downloadActive,
+                    enabled = enabled,
                     activeColor = LocalMaterialTheme.current.tertiaryFixed,
                     activeCornerRadius = rowCorners,
                     inactiveColor = inactiveBg,
@@ -2830,16 +2867,16 @@ private fun BottomToggleRow(
                         )
                     } else {
                         Icon(
-                            painter = painterResource(downloadIcon),
-                            contentDescription = if (isLocalOrDownloaded) "Descargado" else "Descargar",
-                            tint = if (isLocalOrDownloaded || downloadActive) LocalMaterialTheme.current.onTertiaryFixed else inactiveContentColor.copy(alpha = if (enabled) 1f else 0.38f),
+                            painter = painterResource(R.drawable.outline_save_24),
+                            contentDescription = "Descargar",
+                            tint = if (downloadActive) LocalMaterialTheme.current.onTertiaryFixed else inactiveContentColor.copy(alpha = if (enabled) 1f else 0.38f),
                             modifier = Modifier.size(24.dp)
                         )
                     }
                 }
             }
 
-            if (song.extensionId != null) {
+            if (!isLocalOrDownloaded && song.extensionId != null) {
                 val hasOverride = temporaryQualityOverride != null
                 ToggleSegmentButton(
                     modifier = commonModifier,

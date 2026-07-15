@@ -525,7 +525,7 @@ fun PlaylistItem(
                     }
                 }
                  Text(
-                    text = formatSongCount(playlist.songIds.size),
+                    text = formatSongCount(playlist.trackCount ?: playlist.songIds.size),
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = GoogleSansRounded),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

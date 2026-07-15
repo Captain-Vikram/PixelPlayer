@@ -8,11 +8,12 @@ enum class StreamingQuality {
     AUTO;
 
     fun matches(quality: Int): Boolean {
+        val q = if (quality > 1000) quality / 1000 else quality
         return when (this) {
-            DATA_SAVER -> quality <= 0 || quality <= 96
-            STANDARD -> quality == 1 || (quality in 97..160)
-            HIGH -> quality == 2 || (quality in 161..320)
-            LOSSLESS -> quality >= 3 || quality > 320
+            DATA_SAVER -> q <= 0 || q <= 96
+            STANDARD -> q == 1 || (q in 97..160)
+            HIGH -> q == 2 || (q in 161..320)
+            LOSSLESS -> q >= 3 || q > 320
             AUTO -> false // Auto is resolved dynamically based on network state
         }
     }

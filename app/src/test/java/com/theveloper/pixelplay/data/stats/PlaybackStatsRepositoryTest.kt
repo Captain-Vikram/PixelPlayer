@@ -229,7 +229,10 @@ class PlaybackStatsRepositoryTest {
         ).toFile()
         val testContext = mockk<android.content.Context>(relaxed = true)
         every { testContext.filesDir } returns uniqueDir
-        return PlaybackStatsRepository(testContext)
+        return PlaybackStatsRepository(
+            context = testContext,
+            extensionMetadataCache = mockk<ExtensionMetadataCache>(relaxed = true)
+        )
     }
 
     private fun song(

@@ -20,7 +20,7 @@ class LyricsSheetLogicTest {
         val sanitized = sanitizeSyncedWords(words)
 
         assertEquals(listOf("Hello", "world"), sanitized.map { it.word })
-        assertEquals(listOf(120, 240), sanitized.map { it.time })
+        assertEquals(listOf(120L, 240L), sanitized.map { it.time })
         assertTrue(sanitized.all { it.startsNewWord })
     }
 

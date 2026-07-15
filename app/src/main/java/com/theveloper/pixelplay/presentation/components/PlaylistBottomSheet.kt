@@ -212,7 +212,7 @@ fun PlaylistBottomSheet(
                         onDismiss = { showCreatePlaylistDialog = false },
                         onCreate = { name ->
                             // Pass all selected songs to the new playlist
-                            playlistViewModel.createPlaylist(name, songIds = songs.map { it.id })
+                            playlistViewModel.createPlaylist(name, songIds = songs.map { it.id }, songObjects = songs)
                             showCreatePlaylistDialog = false
                             onDismiss() // Close sheet after creation + add
                             playerViewModel.sendToast(playlistCreatedAndSongsAddedMessage)
@@ -242,7 +242,7 @@ fun PlaylistBottomSheet(
 
                     if (songs.size == 1) {
                          playlistViewModel.addOrRemoveSongFromPlaylists(
-                            songs.first().id,
+                            songs.first(),
                             selectedPlaylists.filter { it.value }.keys.toList(),
                             currentPlaylistId
                         )
@@ -250,8 +250,8 @@ fun PlaylistBottomSheet(
                          // Batch add
                          val selectedPlaylistIds = selectedPlaylists.filter { it.value }.keys.toList()
                          if (selectedPlaylistIds.isNotEmpty()) {
-                             playlistViewModel.addSongsToPlaylists(
-                                 songs.map { it.id },
+                             playlistViewModel.addSongsToPlaylistsWithMetadata(
+                                 songs,
                                  selectedPlaylistIds
                              )
                          }

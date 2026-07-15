@@ -45,6 +45,14 @@ object LocalArtworkUri {
         if (uriString.isNullOrBlank()) return null
         if (!looksLikeVolatileArtworkUri(uriString)) return null
 
+        val normalized = uriString.lowercase()
+        if (normalized.startsWith("content://") && normalized.contains(".artwork/song/")) {
+            return uriString.substringAfter(".artwork/song/")
+                .substringBefore('?')
+                .trimEnd('/')
+                .toLongOrNull()
+        }
+
         val fileName = uriString.substringAfterLast('/').substringBefore('?')
         if (!fileName.startsWith("song_art_")) {
             return null

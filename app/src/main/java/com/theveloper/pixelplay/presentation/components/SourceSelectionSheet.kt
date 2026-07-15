@@ -78,19 +78,6 @@ fun SourceSelectionSheet(
             ) {
                 item {
                     SourceItem(
-                        label = "All Sources",
-                        subtitle = "Local library + all active extensions",
-                        icon = { Icon(Icons.Rounded.Dataset, null, tint = NocturneSecondary) },
-                        selected = currentScope == SourceScope.All,
-                        onClick = {
-                            onScopeSelected(SourceScope.All)
-                            onDismiss()
-                        }
-                    )
-                }
-
-                item {
-                    SourceItem(
                         label = "Local Library",
                         subtitle = "Only songs stored on this device",
                         icon = { Icon(Icons.Rounded.PhoneAndroid, null, tint = NocturneSecondary) },

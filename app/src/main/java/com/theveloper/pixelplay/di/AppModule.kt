@@ -27,6 +27,7 @@ import com.theveloper.pixelplay.data.database.AiUsageDao
 import com.theveloper.pixelplay.data.database.LocalPlaylistDao
 import com.theveloper.pixelplay.data.database.MusicDao
 import com.theveloper.pixelplay.data.database.PixelPlayDatabase
+import com.theveloper.pixelplay.data.database.ExtensionTrackCacheDao
 import com.theveloper.pixelplay.data.database.SearchHistoryDao
 import com.theveloper.pixelplay.data.database.TransitionDao
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
@@ -172,9 +173,9 @@ object AppModule {
             PixelPlayDatabase.MIGRATION_40_41,
             PixelPlayDatabase.MIGRATION_41_42,
             PixelPlayDatabase.MIGRATION_42_43,
-            PixelPlayDatabase.MIGRATION_43_44,
             PixelPlayDatabase.MIGRATION_44_45,
-            PixelPlayDatabase.MIGRATION_45_46
+            PixelPlayDatabase.MIGRATION_45_46,
+            PixelPlayDatabase.MIGRATION_46_47
         )
             .addCallback(PixelPlayDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
@@ -273,6 +274,12 @@ object AppModule {
     @Provides
     fun provideDownloadDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.DownloadDao {
         return database.downloadDao()
+    }
+
+    @Singleton
+    @Provides
+    fun provideExtensionTrackCacheDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.ExtensionTrackCacheDao {
+        return database.extensionTrackCacheDao()
     }
 
     @Singleton

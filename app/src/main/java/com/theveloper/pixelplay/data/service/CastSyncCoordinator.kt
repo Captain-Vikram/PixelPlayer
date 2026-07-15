@@ -25,6 +25,7 @@ internal data class RemotePlaybackSnapshot(
     val songId: String?,
     val title: String,
     val artist: String,
+    val album: String?,
     val artworkUri: Uri?,
     val isPlaying: Boolean,
     val isActuallyPlaying: Boolean,
@@ -195,7 +196,12 @@ internal class CastSyncCoordinator(
                 songId = songId,
                 positionMs = snapshot.currentPositionMs,
                 durationMs = snapshot.totalDurationMs,
-                isPlaying = snapshot.isActuallyPlaying
+                fallbackDurationMs = 0L,
+                isPlaying = snapshot.isActuallyPlaying,
+                title = snapshot.title,
+                artist = snapshot.artist,
+                album = snapshot.album,
+                albumArtUri = snapshot.artworkUri?.toString()
             )
             return
         }
@@ -204,7 +210,12 @@ internal class CastSyncCoordinator(
             songId = songId,
             positionMs = snapshot.currentPositionMs,
             durationMs = snapshot.totalDurationMs,
-            isPlaying = snapshot.isActuallyPlaying
+            fallbackDurationMs = 0L,
+            isPlaying = snapshot.isActuallyPlaying,
+            title = snapshot.title,
+            artist = snapshot.artist,
+            album = snapshot.album,
+            albumArtUri = snapshot.artworkUri?.toString()
         )
     }
 
@@ -266,6 +277,7 @@ internal class CastSyncCoordinator(
             songId = songId,
             title = metadata?.getString(CastMediaMetadata.KEY_TITLE).orEmpty(),
             artist = metadata?.getString(CastMediaMetadata.KEY_ARTIST).orEmpty(),
+            album = metadata?.getString(CastMediaMetadata.KEY_ALBUM_TITLE),
             artworkUri = imageUri,
             isPlaying = remotePlayback.isPlaying,
             isActuallyPlaying = mediaStatus.playerState == MediaStatus.PLAYER_STATE_PLAYING,

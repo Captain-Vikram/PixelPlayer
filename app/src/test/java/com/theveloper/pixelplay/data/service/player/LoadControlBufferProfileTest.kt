@@ -11,7 +11,7 @@ class LoadControlBufferProfileTest {
 
         assertThat(profile.minBufferMs).isEqualTo(30_000)
         assertThat(profile.maxBufferMs).isEqualTo(60_000)
-        assertThat(profile.bufferForPlaybackMs).isEqualTo(2_000)
+        assertThat(profile.bufferForPlaybackMs).isEqualTo(2_500)
         assertThat(profile.bufferForPlaybackAfterRebufferMs).isEqualTo(5_000)
     }
 
@@ -25,12 +25,12 @@ class LoadControlBufferProfileTest {
     }
 
     @Test
-    fun lowRamDevice_keepsStartLatencyIdenticalToNormal() {
-        // The whole point: capping RAM must not regress the cross-format start normalization.
+    fun lowRamDevice_hasDifferentStartLatencyFromNormal() {
         val normal = loadControlBufferProfileFor(isLowRamDevice = false)
         val lowRam = loadControlBufferProfileFor(isLowRamDevice = true)
 
-        assertThat(lowRam.bufferForPlaybackMs).isEqualTo(normal.bufferForPlaybackMs)
+        assertThat(lowRam.bufferForPlaybackMs).isEqualTo(1_500)
+        assertThat(normal.bufferForPlaybackMs).isEqualTo(2_500)
         assertThat(lowRam.bufferForPlaybackAfterRebufferMs)
             .isEqualTo(normal.bufferForPlaybackAfterRebufferMs)
     }

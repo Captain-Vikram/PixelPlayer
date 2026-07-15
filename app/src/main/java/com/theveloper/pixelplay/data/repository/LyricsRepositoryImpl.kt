@@ -32,6 +32,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import retrofit2.HttpException
 import java.io.File
 import java.io.FileOutputStream
@@ -220,12 +222,18 @@ class LyricsRepositoryImpl @Inject constructor(
     // Repository scope for background tasks
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val _lyricsFetchState = MutableStateFlow<LyricsFetchState>(LyricsFetchState.Idle)
+    override val lyricsFetchState = _lyricsFetchState.asStateFlow()
+
     // Thread-safe LRU cache to avoid race conditions across concurrent lyrics requests.
     private val lyricsCache = LruCache<String, Lyrics>(MAX_LYRICS_CACHE_SIZE)
 
     // Thread-safe rate limiting state.
     private val lastApiCalls = ConcurrentHashMap<String, Long>()
     private val apiCallCounts = ConcurrentHashMap<String, RateLimitWindow>()
+
+    // Track consecutive extension failures to skip unresponsive ones
+    private val unresponsiveExtensions = ConcurrentHashMap<String, Int>()
 
     // Gson for JSON cache
     private val gson = Gson()
@@ -374,6 +382,7 @@ class LyricsRepositoryImpl @Inject constructor(
         if (!forceRefresh && !isNeteaseTrack) {
             lyricsCache.get(cacheKey)?.let { cached ->
                 Log.d(TAG, "===== RETURNING IN-MEMORY CACHED LYRICS =====")
+                _lyricsFetchState.value = LyricsFetchState.Success(cached)
                 return@withContext cached
             }
             Log.d(TAG, "===== NO IN-MEMORY CACHE HIT, proceeding to fetch =====")
@@ -387,9 +396,12 @@ class LyricsRepositoryImpl @Inject constructor(
             loadStoredLyrics(song, cacheKey, includeMemoryCache = false)?.let { stored ->
                 lyricsCache.put(cacheKey, stored.first)
                 Log.d(TAG, "===== RETURNING STORED LYRICS WITHOUT REMOTE FETCH =====")
+                _lyricsFetchState.value = LyricsFetchState.Success(stored.first)
                 return@withContext stored.first
             }
         }
+
+        _lyricsFetchState.value = LyricsFetchState.Loading
 
         // Define source fetchers (matching Rhythm pattern)
         val fetchFromLocal: suspend () -> Lyrics? = {
@@ -447,16 +459,19 @@ class LyricsRepositoryImpl @Inject constructor(
                         saveLocalLyricsJson(song, lyrics)
                     }
                     
+                    _lyricsFetchState.value = LyricsFetchState.Success(lyrics)
                     return@withContext lyrics
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Error fetching from source ${index + 1}: ${e.message}")
+                _lyricsFetchState.value = LyricsFetchState.Error("Error fetching from source ${index + 1}: ${e.message}")
                 // Continue to next source
             }
         }
 
         // No lyrics found from any source
         Log.d(TAG, "No lyrics found from any source for: ${song.displayArtist} - ${song.title}")
+        _lyricsFetchState.value = LyricsFetchState.NotFound
         return@withContext null
     }
 
@@ -626,62 +641,130 @@ class LyricsRepositoryImpl @Inject constructor(
         return placeholders.none { text.contains(it) }
     }
 
+    private fun isPlausibleMatch(song: Song, candidateTitle: String?): Boolean {
+        return LyricsUtils.isPlausibleMatch(song.title, candidateTitle)
+    }
+
+    private fun cleanSongTitle(title: String): String {
+        return title
+            .replace(Regex("""\(feat\..*?\)""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\[.*?remaster.*?\]""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s*-\s*(Remastered|Live|Radio Edit).*$""", RegexOption.IGNORE_CASE), "")
+            .trim()
+    }
+
+    private fun buildEchoTrack(song: Song, useAlbum: Boolean, cleanTitle: Boolean): dev.brahmkshatriya.echo.common.models.Track {
+        val displayTitle = if (cleanTitle) cleanSongTitle(song.title) else song.title
+        return dev.brahmkshatriya.echo.common.models.Track(
+            id = song.id,
+            title = displayTitle,
+            artists = listOf(
+                dev.brahmkshatriya.echo.common.models.Artist(
+                    id = song.artistId.toString(),
+                    name = song.displayArtist
+                )
+            ),
+            album = if (useAlbum) {
+                dev.brahmkshatriya.echo.common.models.Album(
+                    id = "local:${song.albumId}",
+                    title = song.album
+                )
+            } else null,
+            duration = song.duration
+        )
+    }
+
     private suspend fun fetchFromExtensionsProviders(song: Song): Lyrics? = withContext(Dispatchers.IO) {
         try {
             val extensions = extensionLoader.lyrics.value
-            if (extensions.isEmpty()) return@withContext null
+            if (extensions.isEmpty()) {
+                Log.w(TAG, "No lyrics extensions available for ${song.title}")
+                return@withContext null
+            }
 
-            val track = dev.brahmkshatriya.echo.common.models.Track(
-                id = song.id,
-                title = song.title,
-                artists = listOf(
-                    dev.brahmkshatriya.echo.common.models.Artist(
-                        id = song.artistId.toString(),
-                        name = song.displayArtist
-                    )
-                ),
-                album = dev.brahmkshatriya.echo.common.models.Album(
-                    id = "local:${song.albumId}",
-                    title = song.album
-                ),
-                duration = song.duration
+            // Create query attempts: 1. Clean Title + Album, 2. Clean Title (No Album)
+            val queryAttempts = listOf(
+                buildEchoTrack(song, useAlbum = true, cleanTitle = true),
+                buildEchoTrack(song, useAlbum = false, cleanTitle = true)
             )
 
-            val resultChannel = kotlinx.coroutines.channels.Channel<Lyrics?>(extensions.size)
-            val jobs = extensions.map { ext ->
-                launch {
-                    val lyrics = runCatching {
-                        if (!ext.isEnabled) return@runCatching null
-                        val client = ext.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.LyricsClient ?: return@runCatching null
-                        val feed = client.searchTrackLyrics(ext.metadata.id, track)
-                        val items = feed.loadAll()
-                        for (candidate in items) {
-                            val loaded = client.loadLyrics(candidate)
-                            val converted = loaded.toAppLyrics()
-                            if (converted.isValid() && isRealLyrics(converted)) {
-                                return@runCatching converted
-                            }
+            val results = extensions.map { ext ->
+                async {
+                    if (!ext.isEnabled) return@async null
+                    
+                    val extId = ext.metadata.id
+                    val consecutiveFailures = unresponsiveExtensions[extId] ?: 0
+                    if (consecutiveFailures >= 3) {
+                        Log.w(TAG, "Skipping unresponsive lyrics extension: ${ext.metadata.name} (failures: $consecutiveFailures)")
+                        return@async null
+                    }
+                    
+                    kotlinx.coroutines.withTimeoutOrNull(4000) {
+                        var candidateLyrics: Lyrics? = null
+                        val client = ext.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.LyricsClient
+                        
+                        if (client == null) {
+                            Log.e(TAG, "Extension ${ext.metadata.id} is not a LyricsClient")
+                            return@withTimeoutOrNull null
                         }
+
+                        // Try fallback queries sequentially
+                        for (queryTrack in queryAttempts) {
+                            val feedResult = runCatching {
+                                client.searchTrackLyrics(ext.metadata.id, queryTrack)
+                            }
+                            
+                            val items = feedResult.onFailure {
+                                Log.e(TAG, "Extension ${ext.metadata.id} search failed for query '${queryTrack.title}': ${it.message}")
+                            }.getOrNull()?.loadAll().orEmpty()
+
+                            if (items.isNotEmpty()) {
+                                for (candidate in items) {
+                                    val loadedResult = runCatching { client.loadLyrics(candidate) }
+                                    loadedResult.onFailure {
+                                        Log.e(TAG, "Failed to load lyrics from ${ext.metadata.name}: ${it.message}")
+                                    }
+                                    val loaded = loadedResult.getOrNull() ?: continue
+                                    val converted = loaded.toAppLyrics(ext.metadata.id)
+                                    if (converted.isValid() && isRealLyrics(converted) && isPlausibleMatch(song, converted.extensionTitle)) {
+                                        candidateLyrics = converted
+                                        break
+                                    }
+                                }
+                            }
+                            if (candidateLyrics != null) break
+                        }
+                        
+                        if (candidateLyrics != null) {
+                            unresponsiveExtensions.remove(extId) // Reset on success!
+                        } else {
+                            unresponsiveExtensions[extId] = (unresponsiveExtensions[extId] ?: 0) + 1
+                        }
+                        
+                        candidateLyrics
+                    } ?: run {
+                        // Timeout occurred
+                        unresponsiveExtensions[extId] = (unresponsiveExtensions[extId] ?: 0) + 1
+                        Log.w(TAG, "Lyrics extension timed out: ${ext.metadata.name}")
                         null
-                    }.getOrNull()
-                    resultChannel.send(lyrics)
+                    }
                 }
+            }.awaitAll().filterNotNull()
+
+            if (results.isEmpty()) {
+                Log.w(TAG, "All ${extensions.size} extensions failed or returned no plausible matches for '${song.title}'")
+                return@withContext null
             }
 
-            var result: Lyrics? = null
-            var completedCount = 0
-            while (completedCount < jobs.size) {
-                val res = resultChannel.receive()
-                completedCount++
-                if (res != null) {
-                    result = res
-                    break
-                }
+            // Rank results: Prefer synced, then prefer title matches
+            val sortedResults = results.sortedByDescending { lyrics ->
+                var score = 0
+                if (!lyrics.synced.isNullOrEmpty()) score += 2
+                if (isPlausibleMatch(song, lyrics.extensionTitle)) score += 1
+                score
             }
-            // Cancel remaining active jobs to release network/extension resources
-            jobs.forEach { it.cancel() }
-            
-            return@withContext result
+
+            return@withContext sortedResults.firstOrNull()
         } catch (e: Exception) {
             Log.w(TAG, "fetchFromExtensionsProviders failed: ${e.message}")
             return@withContext null
@@ -1028,14 +1111,14 @@ class LyricsRepositoryImpl @Inject constructor(
                     return@replace text
                 }
 
-                "§§TS(${formatTimestamp(wordStartMs.toInt())})§§$text"
+                "§§TS(${formatTimestamp(wordStartMs)})§§$text"
             }
 
             val withoutXmlTags = decodeXmlEntities(inner.replace(Regex("<[^>]+>"), ""))
             val lrcInlineTagged = markerRegex.replace(withoutXmlTags, "<$1>")
             if (lrcInlineTagged.isBlank()) return@forEach
 
-            lrcLines += "[${formatTimestamp(lineStartMs.toInt())}]$lrcInlineTagged"
+            lrcLines += "[${formatTimestamp(lineStartMs)}]$lrcInlineTagged"
         }
 
         return lrcLines.takeIf { it.isNotEmpty() }?.joinToString("\n")
@@ -1192,7 +1275,7 @@ class LyricsRepositoryImpl @Inject constructor(
         return null
     }
 
-    private fun formatTimestamp(timeMs: Int): String {
+    private fun formatTimestamp(timeMs: Long): String {
         val totalSeconds = timeMs / 1000
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60

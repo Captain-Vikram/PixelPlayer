@@ -249,9 +249,28 @@ kotlin {
     }
 }
 
+val filterDesugarJar = tasks.register("filterDesugarJar", Copy::class) {
+    val desugarJarFile = configurations.detachedConfiguration(
+        dependencies.create("com.android.tools:desugar_jdk_libs:2.1.5")
+    ).files.first()
+    from(zipTree(desugarJarFile)) {
+        exclude("java/**")
+        exclude("javax/**")
+    }
+    into(layout.buildDirectory.dir("filtered-desugar"))
+}
+
+val filteredDesugarJar = tasks.register("filteredDesugarJar", Jar::class) {
+    dependsOn(filterDesugarJar)
+    from(layout.buildDirectory.dir("filtered-desugar"))
+    archiveFileName.set("desugar_jdk_libs_filtered.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("filtered-desugar-output"))
+}
+
 dependencies {
     // Core & Optimization
     coreLibraryDesugaring(libs.desugar.jdk.libs)
+    implementation(files(filteredDesugarJar.flatMap { it.archiveFile }))
     implementation(libs.androidx.profileinstaller)
     "baselineProfile"(project(":baselineprofile"))
 

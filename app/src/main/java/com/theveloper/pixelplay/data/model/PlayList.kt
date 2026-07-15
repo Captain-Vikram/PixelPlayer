@@ -23,7 +23,8 @@ data class Playlist(
     val coverShapeDetail3: Float? = null, // e.g., StarScale
     val coverShapeDetail4: Float? = null, // e.g., Star Sides (Int)
     val source: String = "LOCAL", // Source: "LOCAL", "NETEASE", "TELEGRAM", "AI", etc.
-    val extensionId: String? = null
+    val extensionId: String? = null,
+    val trackCount: Int? = null
 )
 
 enum class PlaylistShapeType {

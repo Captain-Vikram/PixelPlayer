@@ -54,7 +54,7 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemContentType
 import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.data.model.LibraryTabId
+import com.theveloper.pixelplay.presentation.library.LibraryTabId
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.model.SourceScope
@@ -87,7 +87,7 @@ fun LibraryFavoritesTab(
     sortOption: SortOption,
     onLocateCurrentSongVisibilityChanged: (Boolean) -> Unit = {},
     onRegisterLocateCurrentSongAction: ((() -> Unit)?) -> Unit = {},
-    currentSourceScope: SourceScope = SourceScope.All,
+    currentSourceScope: SourceScope = SourceScope.Local,
     hasCurrentSong: Boolean = false
 ) {
     val listState = rememberLazyListState()
@@ -200,7 +200,7 @@ fun LibraryFavoritesTab(
 
     if (favoriteSongs.itemCount == 0 && favoriteSongs.loadState.refresh !is LoadState.Loading) {
         LibraryExpressiveEmptyState(
-            tabId = LibraryTabId.LIKED,
+            tabId = LibraryTabId.Liked,
             currentSourceScope = currentSourceScope,
             bottomBarHeight = bottomBarHeight
         )

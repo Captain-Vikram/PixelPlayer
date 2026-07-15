@@ -2,8 +2,8 @@ package com.theveloper.pixelplay.presentation.viewmodel
 
 import android.util.Log
 import android.os.Trace
-import com.theveloper.pixelplay.data.model.LibraryTabId
-import com.theveloper.pixelplay.data.model.toLibraryTabIdOrNull
+import com.theveloper.pixelplay.presentation.library.LibraryTabId
+import com.theveloper.pixelplay.presentation.library.toLibraryTabIdOrNull
 import dagger.hilt.android.scopes.ViewModelScoped
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -40,7 +40,7 @@ class LibraryTabsStateHolder @Inject constructor() {
             Trace.endSection()
             return
         }
-        val tabId = tabIdentifier.toLibraryTabIdOrNull() ?: LibraryTabId.SONGS
+        val tabId = tabIdentifier.toLibraryTabIdOrNull() ?: LibraryTabId.Songs
         currentLibraryTabId.value = tabId
 
         if (loadedTabs.value.contains(tabIdentifier)) {
@@ -54,10 +54,10 @@ class LibraryTabsStateHolder @Inject constructor() {
             Trace.beginSection("PlayerViewModel.onLibraryTabSelected_coroutine_load")
             try {
                 when (tabId) {
-                    LibraryTabId.SONGS -> loadSongs()
-                    LibraryTabId.ALBUMS -> loadAlbums()
-                    LibraryTabId.ARTISTS -> loadArtists()
-                    LibraryTabId.FOLDERS -> loadFolders()
+                    LibraryTabId.Songs -> loadSongs()
+                    LibraryTabId.Albums -> loadAlbums()
+                    LibraryTabId.Artists -> loadArtists()
+                    LibraryTabId.Folders -> loadFolders()
                     else -> Unit
                 }
                 loadedTabs.update { currentTabs -> currentTabs + tabIdentifier }

@@ -39,6 +39,12 @@ class PlaylistPreferencesRepository @Inject constructor(
             }
         }
 
+    fun getPlaylistsForExtension(extensionId: String): Flow<List<Playlist>> {
+        return userPlaylistsFlow.map { playlists ->
+            playlists.filter { it.source == "EXTENSION" && it.extensionId == extensionId }
+        }
+    }
+
     val playlistSongOrderModesFlow: Flow<Map<String, String>> =
         userPreferencesRepository.playlistSongOrderModesFlow
     val playlistsSortOptionFlow: Flow<String> = userPreferencesRepository.playlistsSortOptionFlow
@@ -63,7 +69,8 @@ class PlaylistPreferencesRepository @Inject constructor(
         coverShapeDetail3: Float? = null,
         coverShapeDetail4: Float? = null,
         customId: String? = null,
-        source: String = "LOCAL"
+        source: String = "LOCAL",
+        extensionId: String? = null
     ): Playlist {
         ensureMigratedIfNeeded()
         val now = System.currentTimeMillis()
@@ -84,6 +91,7 @@ class PlaylistPreferencesRepository @Inject constructor(
             coverShapeDetail3 = coverShapeDetail3,
             coverShapeDetail4 = coverShapeDetail4,
             source = source,
+            extensionId = extensionId
         )
         localPlaylistDao.upsertPlaylist(newPlaylist.toEntity())
         localPlaylistDao.replacePlaylistSongs(newPlaylist.id, newPlaylist.songIds)

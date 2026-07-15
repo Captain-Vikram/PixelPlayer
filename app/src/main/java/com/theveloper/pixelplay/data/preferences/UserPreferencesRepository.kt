@@ -38,11 +38,7 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "se
 
 
 
-const val MIN_NAV_BAR_CORNER_RADIUS = 0
-const val MAX_NAV_BAR_CORNER_RADIUS = 60
 
-internal fun sanitizeNavBarCornerRadius(radius: Int): Int =
-    radius.coerceIn(MIN_NAV_BAR_CORNER_RADIUS, MAX_NAV_BAR_CORNER_RADIUS)
 
 
 
@@ -1390,21 +1386,20 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
 
     val lastSourceScopeFlow: Flow<SourceScope> =
         dataStore.data.map { preferences ->
-            val value = preferences[PreferencesKeys.LAST_STORAGE_FILTER] ?: "ALL"
+            val value = preferences[PreferencesKeys.LAST_STORAGE_FILTER] ?: "LOCAL"
             when {
-                value == "ALL" -> SourceScope.All
+                value == "ALL" -> SourceScope.Local
                 value == "LOCAL" -> SourceScope.Local
                 value.startsWith("EXT:") -> SourceScope.Extension(value.removePrefix("EXT:"))
-                value == "ONLINE" -> SourceScope.All
+                value == "ONLINE" -> SourceScope.Local
                 value == "OFFLINE" -> SourceScope.Local
-                else -> SourceScope.All
+                else -> SourceScope.Local
             }
         }
 
     suspend fun saveLastSourceScope(scope: SourceScope) {
         dataStore.edit { preferences ->
             val value = when (scope) {
-                SourceScope.All -> "ALL"
                 SourceScope.Local -> "LOCAL"
                 is SourceScope.Extension -> "EXT:${scope.extensionId}"
             }

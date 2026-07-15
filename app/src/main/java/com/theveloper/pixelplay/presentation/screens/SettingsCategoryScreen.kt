@@ -253,6 +253,9 @@ fun SettingsCategoryScreen(
     var albumArtCacheLimitDraft by remember(uiState.albumArtCacheLimitMb) {
         mutableStateOf(uiState.albumArtCacheLimitMb.toFloat())
     }
+    var extensionCacheLimitDraft by remember(uiState.extensionMediaCacheLimitMb) {
+        mutableStateOf(uiState.extensionMediaCacheLimitMb.toFloat())
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -487,6 +490,29 @@ fun SettingsCategoryScreen(
                                         }
                                     },
                                     valueText = { value -> "${value.toInt()} MB" }
+                                )
+                                SliderSettingsItem(
+                                    label = "Extension Cache Limit",
+                                    value = extensionCacheLimitDraft,
+                                    valueRange = 100f..5000f,
+                                    steps = 49,
+                                    onValueChange = { extensionCacheLimitDraft = it },
+                                    onValueChangeFinished = {
+                                        val selectedLimit = extensionCacheLimitDraft.toInt()
+                                        if (selectedLimit != uiState.extensionMediaCacheLimitMb) {
+                                            settingsViewModel.setExtensionMediaCacheLimitMb(selectedLimit)
+                                        }
+                                    },
+                                    valueText = { value -> "${value.toInt()} MB" }
+                                )
+                                SettingsItem(
+                                    title = "Clear Extension Media Cache",
+                                    subtitle = "Frees up space used by cached streaming songs",
+                                    leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        settingsViewModel.clearExtensionMediaCache()
+                                        Toast.makeText(context, "Streaming cache cleared successfully", Toast.LENGTH_SHORT).show()
+                                    }
                                 )
                             }
 
@@ -922,7 +948,15 @@ fun SettingsCategoryScreen(
                                     onSelectionChanged = { settingsViewModel.setCrossfadeEnabled(it.toBoolean()) },
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_align_justify_space_even_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
-                                if (uiState.isCrossfadeEnabled) {
+                                AnimatedVisibility(
+                                    visible = uiState.isCrossfadeEnabled,
+                                    enter = expandVertically(
+                                        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+                                    ) + fadeIn(animationSpec = tween(200)),
+                                    exit = shrinkVertically(
+                                        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+                                    ) + fadeOut(animationSpec = tween(150))
+                                ) {
                                     SliderSettingsItem(
                                         label = stringResource(R.string.settings_crossfade_duration_title),
                                         value = uiState.crossfadeDuration.toFloat(),

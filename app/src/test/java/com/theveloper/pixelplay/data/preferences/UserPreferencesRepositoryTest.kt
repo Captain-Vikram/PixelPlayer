@@ -109,10 +109,10 @@ class UserPreferencesRepositoryTest {
             )
 
             repository.setNavBarCornerRadius(-1)
-            assertEquals(MIN_NAV_BAR_CORNER_RADIUS, repository.navBarCornerRadiusFlow.first())
+            assertEquals(UserPreferencesRepository.MIN_NAV_BAR_CORNER_RADIUS, repository.navBarCornerRadiusFlow.first())
 
             repository.setNavBarCornerRadius(999)
-            assertEquals(MAX_NAV_BAR_CORNER_RADIUS, repository.navBarCornerRadiusFlow.first())
+            assertEquals(UserPreferencesRepository.MAX_NAV_BAR_CORNER_RADIUS, repository.navBarCornerRadiusFlow.first())
 
             repository.importPreferencesFromBackup(
                 entries = listOf(
@@ -124,7 +124,7 @@ class UserPreferencesRepositoryTest {
                 ),
                 clearExisting = false
             )
-            assertEquals(MIN_NAV_BAR_CORNER_RADIUS, repository.navBarCornerRadiusFlow.first())
+            assertEquals(UserPreferencesRepository.MIN_NAV_BAR_CORNER_RADIUS, repository.navBarCornerRadiusFlow.first())
         } finally {
             tempDir.toFile().deleteRecursively()
         }

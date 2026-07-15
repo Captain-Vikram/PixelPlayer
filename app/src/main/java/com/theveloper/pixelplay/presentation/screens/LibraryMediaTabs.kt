@@ -58,7 +58,7 @@ import coil.size.Size
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Album
 import com.theveloper.pixelplay.data.model.Artist
-import com.theveloper.pixelplay.data.model.LibraryTabId
+import com.theveloper.pixelplay.presentation.library.LibraryTabId
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.model.SourceScope
@@ -95,7 +95,7 @@ fun LibraryAlbumsTab(
     onAlbumLongPress: (Album) -> Unit = {},
     onAlbumSelectionToggle: (Album) -> Unit = {},
     getSelectionIndex: (Long) -> Int? = { null },
-    currentSourceScope: SourceScope = SourceScope.All
+    currentSourceScope: SourceScope = SourceScope.Local
 ) {
     val hasCurrentSong by remember(playerViewModel) {
         playerViewModel.stablePlayerState
@@ -303,7 +303,7 @@ fun LibraryAlbumsTab(
 
         albums.itemCount == 0 && refreshState is LoadState.NotLoading -> {
             LibraryExpressiveEmptyState(
-                tabId = LibraryTabId.ALBUMS,
+                tabId = LibraryTabId.Albums,
                 currentSourceScope = currentSourceScope,
                 bottomBarHeight = bottomBarHeight
             )
@@ -503,7 +503,7 @@ fun LibraryArtistsTab(
     onArtistClick: (Long) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    currentSourceScope: SourceScope = SourceScope.All
+    currentSourceScope: SourceScope = SourceScope.Local
 ) {
     val hasCurrentSong by remember(playerViewModel) {
         playerViewModel.stablePlayerState
@@ -604,7 +604,7 @@ fun LibraryArtistsTab(
 
         artists.itemCount == 0 && refreshState is LoadState.NotLoading -> {
             LibraryExpressiveEmptyState(
-                tabId = LibraryTabId.ARTISTS,
+                tabId = LibraryTabId.Artists,
                 currentSourceScope = currentSourceScope,
                 bottomBarHeight = bottomBarHeight
             )

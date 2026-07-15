@@ -1546,4 +1546,17 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun clearExtensionMediaCache() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val cacheDir = File(context.cacheDir, "extension_media")
+                if (cacheDir.exists()) {
+                    cacheDir.deleteRecursively()
+                }
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+    }
+
 }

@@ -10,8 +10,8 @@ import com.theveloper.pixelplay.data.repository.ExtensionRepository
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
-    private val libraryStateHolder: LibraryStateHolder,
-    private val extensionRepository: ExtensionRepository
+    val libraryStateHolder: LibraryStateHolder,
+    val extensionRepository: ExtensionRepository
 ) : ViewModel() {
 
     val songsPagingFlow = libraryStateHolder.songsPagingFlow.cachedIn(viewModelScope)

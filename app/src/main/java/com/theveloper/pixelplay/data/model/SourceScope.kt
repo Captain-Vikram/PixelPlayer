@@ -1,7 +1,6 @@
 package com.theveloper.pixelplay.data.model
 
 sealed interface SourceScope {
-    data object All : SourceScope
     data object Local : SourceScope
     data class Extension(
         val extensionId: String
@@ -9,7 +8,6 @@ sealed interface SourceScope {
 }
 
 fun SourceScope.toFilterMode(): Int = when (this) {
-    SourceScope.All -> 0
     SourceScope.Local -> 1
     is SourceScope.Extension -> 2
 }

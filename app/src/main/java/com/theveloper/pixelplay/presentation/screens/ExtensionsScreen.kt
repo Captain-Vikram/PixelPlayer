@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,6 +58,7 @@ fun ExtensionsScreen(
     val currentExtension by viewModel.currentMusicExtension.collectAsState()
     val isLoadingStore by viewModel.isLoadingStore.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val loggedInExtensionIds by viewModel.loggedInExtensionIds.collectAsState()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Installed", "Available")
@@ -82,7 +84,7 @@ fun ExtensionsScreen(
     LaunchedEffect(viewModel.messages) {
         viewModel.messages.collect { message ->
             snackbarHostState.showSnackbar(
-                message = message.toString(),
+                message = message.message,
                 duration = SnackbarDuration.Short
             )
         }
@@ -267,18 +269,24 @@ fun ExtensionsScreen(
                             is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
                             else -> null
                         }
+                        val isLoggedIn = extension.metadata.id in loggedInExtensionIds
                         ExpressiveExtensionItem(
                             title = extension.metadata.name,
                             subtitle = extension.metadata.description.takeIf { it.isNotBlank() } ?: "v${extension.metadata.version}",
                             iconModel = iconModel,
                             isSelected = extension == currentExtension,
                             caps = caps,
+                            isLoggedIn = isLoggedIn,
                             onClick = { 
                                 if (extension is MusicExtension) viewModel.selectMusicExtension(extension) 
                             },
                             onActionClick = {
                                 if (extension is MusicExtension && caps.isLoginNeeded) {
-                                    onOpenExtensionLogin(extension.metadata.id)
+                                    if (isLoggedIn) {
+                                        viewModel.logout(extension)
+                                    } else {
+                                        onOpenExtensionLogin(extension.metadata.id)
+                                    }
                                 }
                             },
                             onSettingsClick = {
@@ -300,15 +308,38 @@ fun ExtensionsScreen(
     }
 
     if (extensionToDelete != null) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val isAppExtension = extensionToDelete?.metadata?.importType == dev.brahmkshatriya.echo.common.models.ImportType.App
         AlertDialog(
             onDismissRequest = { extensionToDelete = null },
-            title = { Text("Delete Extension") },
-            text = { Text("Are you sure you want to delete \"${extensionToDelete?.metadata?.name}\"? This will uninstall the extension and remove its cached data.") },
+            title = { Text(if (isAppExtension) "Uninstall Extension" else "Delete Extension") },
+            text = { 
+                Text(
+                    if (isAppExtension) {
+                        "\"${extensionToDelete?.metadata?.name}\" is installed as an app on your device. You will be redirected to the Android system settings to uninstall it."
+                    } else {
+                        "Are you sure you want to delete \"${extensionToDelete?.metadata?.name}\"? This will uninstall the extension and remove its cached data."
+                    }
+                ) 
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        extensionToDelete?.metadata?.id?.let { id ->
-                            viewModel.deleteExtension(id)
+                        val metadata = extensionToDelete?.metadata
+                        if (metadata != null) {
+                            if (metadata.importType == dev.brahmkshatriya.echo.common.models.ImportType.App) {
+                                val packageName = context.packageManager.getPackageArchiveInfo(metadata.path, 0)?.packageName
+                                if (packageName != null) {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_DELETE).apply {
+                                        data = android.net.Uri.parse("package:$packageName")
+                                    }
+                                    context.startActivity(intent)
+                                } else {
+                                    viewModel.deleteExtension(metadata.id)
+                                }
+                            } else {
+                                viewModel.deleteExtension(metadata.id)
+                            }
                         }
                         extensionToDelete = null
                     },
@@ -316,7 +347,7 @@ fun ExtensionsScreen(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Delete")
+                    Text(if (isAppExtension) "Uninstall" else "Delete")
                 }
             },
             dismissButton = {
@@ -335,6 +366,7 @@ fun ExpressiveExtensionItem(
     iconModel: Any?,
     isSelected: Boolean,
     caps: ExtensionCapabilities,
+    isLoggedIn: Boolean,
     onClick: () -> Unit,
     onActionClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -412,7 +444,11 @@ fun ExpressiveExtensionItem(
                         contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    Icon(Icons.Rounded.Login, contentDescription = "Login")
+                    if (isLoggedIn) {
+                        Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = "Logout")
+                    } else {
+                        Icon(Icons.Rounded.Login, contentDescription = "Login")
+                    }
                 }
             }
 

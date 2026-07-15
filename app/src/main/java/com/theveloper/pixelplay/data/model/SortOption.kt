@@ -3,6 +3,7 @@ package com.theveloper.pixelplay.data.model
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.presentation.library.LibraryTabId
 
 @Immutable
 enum class SortDirection {
@@ -430,12 +431,13 @@ sealed class SortOption(
 
     fun supportsTab(tabId: LibraryTabId): Boolean {
         return when (tabId) {
-            LibraryTabId.SONGS -> SONGS.contains(this)
-            LibraryTabId.ALBUMS -> ALBUMS.contains(this)
-            LibraryTabId.ARTISTS -> ARTISTS.contains(this)
-            LibraryTabId.PLAYLISTS -> PLAYLISTS.contains(this)
-            LibraryTabId.FOLDERS -> FOLDERS.contains(this)
-            LibraryTabId.LIKED -> LIKED.contains(this)
+            LibraryTabId.Songs -> SONGS.contains(this)
+            LibraryTabId.Albums -> ALBUMS.contains(this)
+            LibraryTabId.Artists -> ARTISTS.contains(this)
+            LibraryTabId.Playlists -> PLAYLISTS.contains(this)
+            LibraryTabId.Folders -> FOLDERS.contains(this)
+            LibraryTabId.Liked -> LIKED.contains(this)
+            LibraryTabId.Overview -> false
         }
     }
 

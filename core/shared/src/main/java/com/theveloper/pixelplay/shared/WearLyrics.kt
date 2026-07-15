@@ -13,7 +13,7 @@ data class WearLyrics(
 
 @Serializable
 data class WearSyncedLyricLine(
-    val timeMs: Int,
+    val timeMs: Long,
     val line: String,
     val translation: String? = null,
     val romanization: String? = null,

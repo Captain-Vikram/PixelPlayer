@@ -349,7 +349,7 @@ class LyricsUtilsTest {
 
         assertEquals("Hello world", synced.single().line)
         assertEquals(listOf("Hello", "world"), words.map { it.word })
-        assertEquals(listOf(10_000, 10_500), words.map { it.time })
+        assertEquals(listOf(10_000L, 10_500L), words.map { it.time })
         assertEquals(listOf(true, true), words.map { it.startsNewWord })
     }
 

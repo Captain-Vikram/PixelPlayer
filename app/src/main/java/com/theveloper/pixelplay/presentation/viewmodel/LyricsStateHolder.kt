@@ -41,6 +41,7 @@ import kotlinx.coroutines.withContext
 interface LyricsLoadCallback {
     fun onLoadingStarted(songId: String)
     fun onLyricsLoaded(songId: String, lyrics: Lyrics?)
+    fun onLyricsLoadError(songId: String, error: String)
 }
 
 /**
@@ -109,20 +110,23 @@ class LyricsStateHolder @Inject constructor(
         loadingJob = scope?.launch {
             loadCallback?.onLoadingStarted(targetSongId)
 
-            val fetchedLyrics = try {
-                withContext(Dispatchers.IO) {
+            try {
+                val fetchedLyrics = withContext(Dispatchers.IO) {
                     musicRepository.getLyrics(
                         song = song,
                         sourcePreference = sourcePreference
                     )
                 }
+                if (fetchedLyrics != null) {
+                    loadCallback?.onLyricsLoaded(targetSongId, fetchedLyrics)
+                } else {
+                    loadCallback?.onLyricsLoadError(targetSongId, "Lyrics not found")
+                }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (_: Exception) {
-                null
+            } catch (e: Exception) {
+                loadCallback?.onLyricsLoadError(targetSongId, e.message ?: "Unknown error")
             }
-
-            loadCallback?.onLyricsLoaded(targetSongId, fetchedLyrics)
         }
     }
 
@@ -178,9 +182,7 @@ class LyricsStateHolder @Inject constructor(
         loadingJob = scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Loading
 
-            val availableExtensions = extensionLoader.all.value.filter { 
-                it.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.LyricsClient 
-            }
+            val availableExtensions = extensionLoader.lyrics.value
 
             if (!forcePickResults) {
                 val storedLyrics = withContext(Dispatchers.IO) {
@@ -275,9 +277,7 @@ class LyricsStateHolder @Inject constructor(
         loadingJob = scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Loading
 
-            val availableExtensions = extensionLoader.all.value.filter { 
-                it.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.LyricsClient 
-            }
+            val availableExtensions = extensionLoader.lyrics.value
 
             musicRepository.searchRemoteLyricsByQuery(title, artist)
                 .onSuccess { (q, results) ->
@@ -352,20 +352,60 @@ class LyricsStateHolder @Inject constructor(
                     .onFailure { error -> handleError(error, availableExtensions) }
             } else {
                 try {
-                    val extension = extensionLoader.all.value.find { it.metadata.id == extensionId } ?: return@launch
-                    val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.LyricsClient ?: return@launch
+                    val extension = extensionLoader.lyrics.value.find { it.metadata.id == extensionId } ?: return@launch
+                    val client = extension.instance.value().getOrNull() ?: return@launch
                     
-                    val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
-                        id = song.id.substringAfter(":track:"),
-                        title = song.title,
-                        artists = listOf(dev.brahmkshatriya.echo.common.models.Artist(id = "", name = song.displayArtist)),
-                        album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album)
-                    )
-                    
-                    val lyricsFeed = client.searchTrackLyrics(extensionId, echoTrack)
-                    val results = lyricsFeed.loadAll().map { echoLyrics ->
+                    val songOriginId = if (song.id.startsWith("extension:")) {
+                        song.id.substringAfter("extension:").substringBefore(":")
+                    } else {
+                        null
+                    }
+
+                    val candidateLyricsList = if (songOriginId != null && songOriginId == extensionId) {
+                        // Same provider: direct ID-based lookup
+                        val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
+                            id = song.id.substringAfter(":track:"),
+                            title = song.title,
+                            artists = listOf(dev.brahmkshatriya.echo.common.models.Artist(id = "", name = song.displayArtist)),
+                            album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album)
+                        )
+                        client.searchTrackLyrics(extensionId, echoTrack).loadAll()
+                    } else {
+                        // Cross-provider lookup: perform search-based query
+                        val queryTrack = dev.brahmkshatriya.echo.common.models.Track(
+                            id = "",
+                            title = song.title,
+                            artists = listOf(dev.brahmkshatriya.echo.common.models.Artist(id = "", name = song.displayArtist)),
+                            album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album)
+                        )
+                        val feed = runCatching { client.searchTrackLyrics(extensionId, queryTrack) }.getOrNull()
+                        val rawCandidates = feed?.loadAll().orEmpty()
+
+                        val scored = rawCandidates.mapNotNull { candidate ->
+                            val loaded = runCatching { client.loadLyrics(candidate) }.getOrNull() ?: return@mapNotNull null
+                            val appLyrics = loaded.toAppLyrics(extensionId)
+                            val plausible = LyricsUtils.isPlausibleMatch(song.title, appLyrics.extensionTitle)
+                            if (hasValidLyrics(appLyrics) && plausible) {
+                                var score = 0
+                                if (!appLyrics.synced.isNullOrEmpty()) score += 2
+                                score += 1 // plausible title match score
+                                Triple(candidate, appLyrics, score)
+                            } else {
+                                null
+                            }
+                        }.sortedByDescending { it.third }
+
+                        scored.map { it.first }
+                    }
+
+                    if (candidateLyricsList.isEmpty()) {
+                        _searchUiState.value = LyricsSearchUiState.NotFound("No lyrics found from this provider", allowManualSearch = true)
+                        return@launch
+                    }
+
+                    val results = candidateLyricsList.map { echoLyrics ->
                         val loadedLyrics = client.loadLyrics(echoLyrics)
-                        val appLyrics = loadedLyrics.toAppLyrics()
+                        val appLyrics = loadedLyrics.toAppLyrics(extensionId)
                         val raw = LyricsUtils.toLrcString(appLyrics)
                         
                         LyricsSearchResult(

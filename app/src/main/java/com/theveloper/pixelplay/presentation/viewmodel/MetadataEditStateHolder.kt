@@ -580,12 +580,48 @@ class MetadataEditStateHolder @Inject constructor(
                 val lrcFile = java.io.File(songFile.parentFile, "${songFile.nameWithoutExtension}.lrc")
                 val lrcContent = LyricsUtils.toLrcString(lyrics, preferSynced)
 
-                lrcFile.writeText(lrcContent, Charsets.UTF_8)
-                cb.sendToast(context.getString(R.string.metadata_edit_lyrics_saved_successfully))
+                var saved = false
+                try {
+                    // Try direct writing first
+                    lrcFile.writeText(lrcContent, Charsets.UTF_8)
+                    saved = true
+                } catch (e: Exception) {
+                    Timber.w(e, "Direct file write failed for lyrics, trying MediaStore fallback")
+                    // Fallback to MediaStore insertion (required under Android 10+ Scoped Storage)
+                    val values = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.Files.FileColumns.DISPLAY_NAME, lrcFile.name)
+                        put(android.provider.MediaStore.Files.FileColumns.MIME_TYPE, "text/plain")
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            val path = songFile.parentFile?.absolutePath ?: ""
+                            val relativePath = if (path.contains("/storage/emulated/0/")) {
+                                path.substringAfter("/storage/emulated/0/").trim('/') + "/"
+                            } else {
+                                "Music/"
+                            }
+                            put(android.provider.MediaStore.Files.FileColumns.RELATIVE_PATH, relativePath)
+                        } else {
+                            put(android.provider.MediaStore.Files.FileColumns.DATA, lrcFile.absolutePath)
+                        }
+                    }
+                    val contentResolver = context.contentResolver
+                    val externalUri = android.provider.MediaStore.Files.getContentUri("external")
+                    val insertedUri = contentResolver.insert(externalUri, values)
+                    if (insertedUri != null) {
+                        contentResolver.openOutputStream(insertedUri)?.use { outputStream ->
+                            outputStream.write(lrcContent.toByteArray(Charsets.UTF_8))
+                        }
+                        saved = true
+                    }
+                }
 
-                // If it was the current song, refresh the lyrics in state if it migrated from remote to local
-                if (playbackStateHolder.stablePlayerState.value.currentSong?.id == song.id) {
-                    cb.reloadLyricsForCurrentSong()
+                if (saved) {
+                    cb.sendToast(context.getString(R.string.metadata_edit_lyrics_saved_successfully))
+                    // If it was the current song, refresh the lyrics in state if it migrated from remote to local
+                    if (playbackStateHolder.stablePlayerState.value.currentSong?.id == song.id) {
+                        cb.reloadLyricsForCurrentSong()
+                    }
+                } else {
+                    throw java.io.IOException("Failed to write lyrics file via direct stream or MediaStore insertion.")
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save lyrics to file")

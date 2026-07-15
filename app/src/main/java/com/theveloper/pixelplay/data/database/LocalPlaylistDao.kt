@@ -71,4 +71,11 @@ interface LocalPlaylistDao {
             replacePlaylistSongs(entity.id, songIds)
         }
     }
+
+    @Query("""
+        SELECT DISTINCT playlist_id FROM playlist_songs
+        WHERE song_id LIKE 'extension:%'
+    """)
+    fun getMixedSourcePlaylistIds(): Flow<List<String>>
 }
+

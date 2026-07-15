@@ -28,6 +28,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import android.widget.Toast
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -787,66 +792,6 @@ fun ExperimentalSettingsScreen(
                                    }
                                }
                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                SettingsSection(
-                    title = "Clear extension caches",
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Rounded.BlurOn,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        shape = RoundedCornerShape(24.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Cache Limit",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Frees up space used by plugins",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Surface(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    Text(
-                                        text = "$extensionCacheLimit MB",
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-
-                            Slider(
-                                value = extensionCacheLimit.toFloat(),
-                                onValueChange = { settingsViewModel.setExtensionMediaCacheLimitMb(it.roundToInt()) },
-                                valueRange = 100f..5000f,
-                                steps = 49
-                            )
                         }
                     }
                 }

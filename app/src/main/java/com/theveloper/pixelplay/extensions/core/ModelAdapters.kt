@@ -12,6 +12,7 @@ import dev.brahmkshatriya.echo.common.models.Track
 import dev.brahmkshatriya.echo.common.models.Album
 import dev.brahmkshatriya.echo.common.models.Playlist
 import dev.brahmkshatriya.echo.common.models.Feed
+import java.util.Calendar
 
 suspend fun <T : Any> Feed<T>.loadAll(): List<T> {
     return getPagedData(tabs.firstOrNull()).pagedData.loadAll()
@@ -87,7 +88,7 @@ fun Album.toAppAlbum(extensionId: String): AppAlbum {
         title = title,
         artist = artists.joinToString(", ") { it.name },
         albumArtUriString = (cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url,
-        year = 0,
+        year = releaseDate?.calendar?.get(Calendar.YEAR) ?: 0,
         dateAdded = System.currentTimeMillis(),
         songCount = trackCount?.toInt() ?: 0,
         extensionId = extensionId,
@@ -100,6 +101,7 @@ fun dev.brahmkshatriya.echo.common.models.Artist.toAppArtist(extensionId: String
     return com.theveloper.pixelplay.data.model.Artist(
         id = syntheticId.hashCode().toLong(),
         name = name,
+        // songCount is 0 because the Echo Artist model does not carry track count metadata (API limitation).
         songCount = 0,
         imageUrl = (cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url,
         extensionId = extensionId,
@@ -109,45 +111,96 @@ fun dev.brahmkshatriya.echo.common.models.Artist.toAppArtist(extensionId: String
 
 fun Playlist.toAppPlaylist(extensionId: String): AppPlaylist {
     val syntheticId = "extension:$extensionId:playlist:$id"
+    val artworkUrl = (cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
     return AppPlaylist(
         id = syntheticId,
         name = title,
         songIds = emptyList(),
+        coverImageUri = artworkUrl,
         source = "EXTENSION",
         extensionId = extensionId
     )
 }
 
-fun EchoLyrics.toAppLyrics(): AppLyrics {
+fun EchoLyrics.toAppLyrics(sourceExtId: String): AppLyrics {
     val lyric = this.lyrics
     return when (lyric) {
-        null -> AppLyrics(plain = null, synced = null, areFromRemote = true)
+        null -> AppLyrics(
+            plain = null,
+            synced = null,
+            areFromRemote = true,
+            extensionTitle = this.title,
+            extensionSubtitle = this.subtitle,
+            sourceExtensionId = sourceExtId
+        )
         is EchoLyrics.Simple -> {
             val lines = lyric.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
-            AppLyrics(plain = if (lines.isEmpty()) null else lines, synced = null, areFromRemote = true)
+            AppLyrics(
+                plain = if (lines.isEmpty()) null else lines,
+                synced = null,
+                areFromRemote = true,
+                extensionTitle = this.title,
+                extensionSubtitle = this.subtitle,
+                sourceExtensionId = sourceExtId
+            )
         }
         is EchoLyrics.Timed -> {
             val synced = lyric.list.map { item ->
                 SyncedLine(
-                    time = item.startTime.toInt(),
+                    time = item.startTime,
                     line = item.text,
                     words = null,
                     translation = null,
-                    romanization = null
+                    romanization = null,
+                    endTime = item.endTime
                 )
             }
-            AppLyrics(plain = null, synced = if (synced.isEmpty()) null else synced, areFromRemote = true)
+            AppLyrics(
+                plain = null,
+                synced = if (synced.isEmpty()) null else synced,
+                areFromRemote = true,
+                extensionTitle = this.title,
+                extensionSubtitle = this.subtitle,
+                sourceExtensionId = sourceExtId
+            )
         }
         is EchoLyrics.WordByWord -> {
             val synced = lyric.list.map { wordList ->
-                val words = wordList.map { itItem ->
-                    SyncedWord(time = itItem.startTime.toInt(), word = itItem.text, startsNewWord = true)
+                var lastWordEndedWithSpace = true
+                val words = wordList.mapIndexed { index, itItem ->
+                    val startsNewWord = index == 0 || lastWordEndedWithSpace || itItem.text.startsWith(" ")
+                    lastWordEndedWithSpace = itItem.text.endsWith(" ") || itItem.text.endsWith("-")
+                    SyncedWord(
+                        time = itItem.startTime,
+                        word = itItem.text,
+                        startsNewWord = startsNewWord,
+                        endTime = itItem.endTime
+                    )
                 }
-                val lineText = wordList.joinToString(" ") { it.text }
-                SyncedLine(time = wordList.firstOrNull()?.startTime?.toInt() ?: 0, line = lineText, words = words)
+                val lineText = wordList.joinToString("") { it.text }.trim()
+                SyncedLine(
+                    time = wordList.firstOrNull()?.startTime ?: 0L,
+                    line = lineText,
+                    words = words,
+                    endTime = wordList.lastOrNull()?.endTime
+                )
             }
-            AppLyrics(plain = null, synced = if (synced.isEmpty()) null else synced, areFromRemote = true)
+            AppLyrics(
+                plain = null,
+                synced = if (synced.isEmpty()) null else synced,
+                areFromRemote = true,
+                extensionTitle = this.title,
+                extensionSubtitle = this.subtitle,
+                sourceExtensionId = sourceExtId
+            )
         }
-        else -> AppLyrics(plain = null, synced = null, areFromRemote = true)
+        else -> AppLyrics(
+            plain = null,
+            synced = null,
+            areFromRemote = true,
+            extensionTitle = this.title,
+            extensionSubtitle = this.subtitle,
+            sourceExtensionId = sourceExtId
+        )
     }
 }

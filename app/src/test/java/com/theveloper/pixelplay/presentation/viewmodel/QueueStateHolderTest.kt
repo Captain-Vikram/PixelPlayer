@@ -4,7 +4,7 @@ import com.theveloper.pixelplay.MainCoroutineExtension
 import com.theveloper.pixelplay.data.model.Album
 import com.theveloper.pixelplay.data.model.Artist
 import com.theveloper.pixelplay.data.model.Song
-import com.theveloper.pixelplay.data.model.StorageFilter
+import com.theveloper.pixelplay.data.model.SourceScope
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import io.mockk.coEvery
 import io.mockk.every
@@ -57,14 +57,14 @@ class QueueStateHolderTest {
 
     private class CapturingShuffleCallbacks(
         scope: kotlinx.coroutines.CoroutineScope,
-        storageFilter: StorageFilter = StorageFilter.ALL,
+        sourceScope: SourceScope = SourceScope.Local,
         albums: List<Album> = emptyList(),
         artists: List<Artist> = emptyList()
     ) {
         var played: Pair<List<Song>, String>? = null
         val callbacks = ShufflePlaybackCallbacks(
             scope = scope,
-            currentStorageFilter = { storageFilter },
+            currentSourceScope = { sourceScope },
             albums = { albums },
             artists = { artists },
             playShuffled = { songs, queueName -> played = songs to queueName }
@@ -111,8 +111,8 @@ class QueueStateHolderTest {
     @Test
     fun `shuffleFavorites resolves favorites for the active storage filter`() = runTest {
         val favorites = listOf(song1, song2)
-        coEvery { musicRepository.getFavoriteSongsOnce(StorageFilter.ONLINE) } returns favorites
-        val cb = CapturingShuffleCallbacks(this, storageFilter = StorageFilter.ONLINE)
+        coEvery { musicRepository.getFavoriteSongsOnce(SourceScope.Extension("online")) } returns favorites
+        val cb = CapturingShuffleCallbacks(this, sourceScope = SourceScope.Extension("online"))
 
         holder().shuffleFavorites(cb.callbacks)
         advanceUntilIdle()

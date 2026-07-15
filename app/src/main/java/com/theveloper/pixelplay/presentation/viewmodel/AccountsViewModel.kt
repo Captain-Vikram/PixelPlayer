@@ -8,6 +8,8 @@ import com.theveloper.pixelplay.data.navidrome.NavidromeRepository
 import com.theveloper.pixelplay.data.netease.NeteaseRepository
 import com.theveloper.pixelplay.data.qqmusic.QqMusicRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
+import dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity.Companion.toCurrentUser
 import com.theveloper.pixelplay.data.telegram.TelegramRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -32,11 +34,13 @@ enum class ExternalServiceAccount {
 }
 
 data class ExternalAccountUiModel(
-    val service: ExternalServiceAccount,
+    val service: ExternalServiceAccount?,
     val title: String,
     val accountLabel: String,
     val syncedContentLabel: String,
-    val isLoggingOut: Boolean
+    val isLoggingOut: Boolean,
+    val extensionId: String? = null,
+    val iconUrl: String? = null
 )
 
 data class AccountsUiState(
@@ -52,10 +56,12 @@ class AccountsViewModel @Inject constructor(
     private val neteaseRepository: NeteaseRepository,
     private val qqMusicRepository: QqMusicRepository,
     private val navidromeRepository: NavidromeRepository,
-    private val jellyfinRepository: JellyfinRepository
+    private val jellyfinRepository: JellyfinRepository,
+    private val extensionRepository: ExtensionRepository
 ) : ViewModel() {
 
     private val loggingOutServices = MutableStateFlow<Set<ExternalServiceAccount>>(emptySet())
+    private val loggingOutExtensions = MutableStateFlow<Set<String>>(emptySet())
 
     private val telegramStateFlow = combine(
         telegramRepository.authorizationState
@@ -112,8 +118,10 @@ class AccountsViewModel @Inject constructor(
                 jellyfinStateFlow
             )
         ) { it.toList() },
-        loggingOutServices
-    ) { states, activeLogouts ->
+        extensionRepository.activeExtensionUsers,
+        loggingOutServices,
+        loggingOutExtensions
+    ) { states, extensionUsers, activeLogouts, activeExtensionLogouts ->
         val (telegramConnected, telegramChannelCount) = states[0] as Pair<Boolean, Int>
         val (gDriveConnected, gDriveFolderCount) = states[1] as Pair<Boolean, Int>
         val (neteaseConnected, neteasePlaylistCount) = states[2] as Pair<Boolean, Int>
@@ -224,6 +232,28 @@ class AccountsViewModel @Inject constructor(
                     )
                 )
             }
+
+            // Dynamic extension active logins
+            extensionUsers.forEach { userEntity ->
+                val user = userEntity.user.getOrNull() ?: return@forEach
+                val extension = extensionRepository.allExtensions.value.find { it.metadata.id == userEntity.extId }
+                val iconUrl = when (val icon = extension?.metadata?.icon) {
+                    is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
+                    is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri
+                    else -> null
+                }
+                add(
+                    ExternalAccountUiModel(
+                        service = null,
+                        title = extension?.metadata?.name ?: userEntity.extId,
+                        accountLabel = user.name.takeIf { it.isNotBlank() } ?: "Connected",
+                        syncedContentLabel = user.subtitle?.takeIf { it.isNotBlank() } ?: "Extension account",
+                        isLoggingOut = userEntity.extId in activeExtensionLogouts,
+                        extensionId = userEntity.extId,
+                        iconUrl = iconUrl
+                    )
+                )
+            }
         }
 
         val disconnectedServices = buildList {
@@ -263,6 +293,21 @@ class AccountsViewModel @Inject constructor(
                 }
             } finally {
                 loggingOutServices.update { it - service }
+            }
+        }
+    }
+
+    fun logoutExtension(extensionId: String) {
+        if (extensionId in loggingOutExtensions.value) return
+
+        viewModelScope.launch {
+            loggingOutExtensions.update { it + extensionId }
+            try {
+                runCatching {
+                    extensionRepository.removeLoginSession(extensionId)
+                }
+            } finally {
+                loggingOutExtensions.update { it - extensionId }
             }
         }
     }

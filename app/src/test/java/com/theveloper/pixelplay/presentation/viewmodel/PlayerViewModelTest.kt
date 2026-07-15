@@ -11,7 +11,7 @@ import com.theveloper.pixelplay.data.model.Album
 import com.theveloper.pixelplay.data.model.Artist
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.SortOption
-import com.theveloper.pixelplay.data.model.StorageFilter
+import com.theveloper.pixelplay.data.model.SourceScope
 import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.AiPreferencesRepository
@@ -113,7 +113,7 @@ class PlayerViewModelTest {
     private val _allSongsFlow = MutableStateFlow<ImmutableList<Song>>(persistentListOf())
     // Fix: Use ImmutableList for Search Flows as per SearchStateHolder definition
     private val _searchHistoryFlow = MutableStateFlow<ImmutableList<SearchHistoryItem>>(persistentListOf())
-    private val _searchResultsFlow = MutableStateFlow<ImmutableList<SearchResultItem>>(persistentListOf())
+    private val _searchResultsShelvesFlow = MutableStateFlow<List<dev.brahmkshatriya.echo.common.models.Shelf>>(emptyList())
     private val _selectedSearchFilterFlow = MutableStateFlow(SearchFilterType.ALL)
     private val _castSessionFlow = MutableStateFlow<com.google.android.gms.cast.framework.CastSession?>(null)
     private val _repeatModeFlow = MutableStateFlow(Player.REPEAT_MODE_OFF)
@@ -171,11 +171,16 @@ class PlayerViewModelTest {
         every { mockLibraryStateHolder.currentArtistSortOption } returns MutableStateFlow<SortOption>(SortOption.ArtistNameAZ)
         every { mockLibraryStateHolder.currentFolderSortOption } returns MutableStateFlow<SortOption>(SortOption.FolderNameAZ)
         every { mockLibraryStateHolder.currentFavoriteSortOption } returns MutableStateFlow<SortOption>(SortOption.LikedSongTitleAZ)
-        every { mockLibraryStateHolder.currentStorageFilter } returns MutableStateFlow(StorageFilter.ALL)
+        every { mockLibraryStateHolder.currentSourceScope } returns MutableStateFlow(SourceScope.Local)
+        every { mockExtensionRepository.currentMusicExtension } returns MutableStateFlow(null)
 
         every { mockSearchStateHolder.searchHistory } returns _searchHistoryFlow
-        every { mockSearchStateHolder.searchResults } returns _searchResultsFlow
+        every { mockSearchStateHolder.searchResultsShelves } returns _searchResultsShelvesFlow
         every { mockSearchStateHolder.selectedSearchFilter } returns _selectedSearchFilterFlow
+        every { mockSearchStateHolder.currentSourceScope } returns MutableStateFlow(SourceScope.Local)
+        every { mockSearchStateHolder.searchFeedShelves } returns MutableStateFlow(emptyList())
+        every { mockSearchStateHolder.isLoadingSearchFeed } returns MutableStateFlow(false)
+        every { mockSearchStateHolder.isLoadingSearch } returns MutableStateFlow(false)
         every { mockSearchStateHolder.loadSearchHistory(any()) } just runs
         every { mockSearchStateHolder.clearSearchHistory() } just runs
         every { mockSearchStateHolder.deleteSearchHistoryItem(any()) } just runs
@@ -459,10 +464,10 @@ class PlayerViewModelTest {
     @Test
     fun `album navigation from player accepts synthetic negative album ids`() = runTest {
         playerViewModel.albumNavigationRequests.test {
-            playerViewModel.triggerAlbumNavigationFromPlayer(-42L)
+            playerViewModel.triggerAlbumNavigationFromPlayer("-42")
             advanceUntilIdle()
 
-            assertEquals(-42L, awaitItem())
+            assertEquals("-42", awaitItem())
             cancelAndConsumeRemainingEvents()
         }
     }
@@ -470,7 +475,7 @@ class PlayerViewModelTest {
     @Test
     fun `album navigation from player still ignores sentinel album id`() = runTest {
         playerViewModel.albumNavigationRequests.test {
-            playerViewModel.triggerAlbumNavigationFromPlayer(-1L)
+            playerViewModel.triggerAlbumNavigationFromPlayer("-1")
             advanceUntilIdle()
 
             expectNoEvents()

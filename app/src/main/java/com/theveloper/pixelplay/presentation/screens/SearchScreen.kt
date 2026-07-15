@@ -719,11 +719,7 @@ private fun SearchShelf(
                             song = song,
                             playerViewModel = playerViewModel,
                             onMoreOptionsClick = { playerViewModel.selectSongForInfo(it) },
-                            onClick = {
-                                val allSongs = items.filterIsInstance<dev.brahmkshatriya.echo.common.models.Track>()
-                                    .mapNotNull { it.toSong(extensionId ?: "") }
-                                playerViewModel.showAndPlaySong(song, allSongs, shelf.title)
-                            }
+                            onClick = { playerViewModel.showAndPlaySong(song, listOf(song), shelf.title) }
                         )
                     }
                 }
@@ -735,9 +731,20 @@ private fun SearchShelf(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(items, key = { it.id }) { item ->
-                    com.theveloper.pixelplay.presentation.components.ExtensionMediaItemCard(
-                        item = item,
-                        onClick = { handleEchoItemClick(item, playerViewModel, navController, activeExtensionId) }
+                    val imageUrl = (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
+                        ?: (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder)?.uri?.toString()
+                    val typeBadge = getShelfMediaType(item)
+                    val isCircle = typeBadge.isCircleShape
+                    MediaShelfCard(
+                        title = item.title,
+                        subtitle = item.subtitleWithOutE,
+                        imageUrl = imageUrl,
+                        isCircle = isCircle,
+                        layout = ShelfCardLayout.Vertical,
+                        size = ShelfCardSize.Compact,
+                        alignment = ShelfCardAlignment.Start,
+                        onClick = { handleEchoItemClick(item, playerViewModel, navController, activeExtensionId) },
+                        typeBadge = typeBadge
                     )
                 }
             }
@@ -841,7 +848,6 @@ fun SourceSwitcher(
         )
 
         val activeSourceName = when (currentScope) {
-            SourceScope.All -> "All Sources"
             SourceScope.Local -> "Local Library"
             is SourceScope.Extension -> {
                 installedExtensions.find { it.metadata.id == currentScope.extensionId }?.metadata?.name ?: "Extension"
@@ -862,7 +868,6 @@ fun SourceSwitcher(
             ) {
                 Icon(
                     imageVector = when (currentScope) {
-                        SourceScope.All -> Icons.Rounded.Public
                         SourceScope.Local -> Icons.Rounded.Storage
                         else -> Icons.Rounded.Cloud
                     },

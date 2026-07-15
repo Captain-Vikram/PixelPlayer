@@ -740,7 +740,7 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     // Implementación de las nuevas funciones suspend para carga única
-    override suspend fun getAllSongsOnce(): List<Song> = withContext(Dispatchers.IO) {
+    override suspend fun getAllSongsOnce(storageFilter: SourceScope): List<Song> = withContext(Dispatchers.IO) {
         val allowedDirs = userPreferencesRepository.allowedDirectoriesFlow.first()
         val blockedDirs = userPreferencesRepository.blockedDirectoriesFlow.first()
         val (allowedParentDirs, applyDirectoryFilter) =
@@ -812,13 +812,13 @@ class MusicRepositoryImpl @Inject constructor(
         ).map { it.toAlbum() }
     }
 
-    override suspend fun getAllArtistsOnce(): List<Artist> = withContext(Dispatchers.IO) {
+    override suspend fun getAllArtistsOnce(storageFilter: SourceScope): List<Artist> = withContext(Dispatchers.IO) {
         val filter = cachedDirFilter.value
         musicDao.getArtistsWithSongCountsFiltered(
             allowedParentDirs = filter.allowedParentDirs,
             applyDirectoryFilter = filter.applyFilter,
-            filterMode = SourceScope.All.toFilterMode(),
-            extensionId = SourceScope.All.toExtensionId()
+            filterMode = storageFilter.toFilterMode(),
+            extensionId = storageFilter.toExtensionId()
         ).first().map { it.toArtist() }
     }
 

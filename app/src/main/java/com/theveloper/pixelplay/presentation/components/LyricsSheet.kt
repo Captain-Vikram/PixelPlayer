@@ -28,6 +28,9 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.AnimationSpec
@@ -256,6 +259,7 @@ fun LyricsSheet(
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
+    completedDownloads: Set<String> = emptySet(),
     modifier: Modifier = Modifier,
     swipeThreshold: Dp = 100.dp,
     highlightZoneFraction: Float = 0.08f, // Reduced from 0.22 for less padding
@@ -820,8 +824,14 @@ fun LyricsSheet(
             // Controls Section (Auto-hide in immersive mode)
             AnimatedVisibility(
                 visible = !immersiveMode,
-                enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                enter = expandVertically(
+                    expandFrom = Alignment.Top,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                ) + fadeIn(animationSpec = tween(220)),
+                exit = shrinkVertically(
+                    shrinkTowards = Alignment.Top,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+                ) + fadeOut(animationSpec = tween(160))
             ) {
                 Column(
                     modifier = Modifier
@@ -841,10 +851,14 @@ fun LyricsSheet(
                         }
                 ) {
                                 AnimatedVisibility(
-                    visible = showSyncedLyrics == true && lyrics?.synced != null && showSyncControls,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
+                                    visible = showSyncedLyrics == true && lyrics?.synced != null && showSyncControls,
+                                    enter = expandVertically(
+                                        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                                    ) + fadeIn(animationSpec = tween(200)),
+                                    exit = shrinkVertically(
+                                        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+                                    ) + fadeOut(animationSpec = tween(150))
+                                ) {
                     LyricsSyncControls(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1002,16 +1016,6 @@ fun LyricsSheet(
                         }
                     },
                     immersiveLyricsEnabled = immersiveLyricsEnabled,
-                    lyricsExtensions = lyricsExtensions,
-                    currentLyricsExtensionId = when (val state = lyricsSearchUiState) {
-                        is LyricsSearchUiState.PickResult -> state.selectedExtensionId
-                        is LyricsSearchUiState.Success -> state.extensionId
-                        else -> null
-                    },
-                    onSelectLyricsExtension = { extId ->
-                        resetImmersiveTimer()
-                        onSelectSource(extId)
-                    },
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
                     isFavoriteProvider = isFavoriteProvider,
@@ -1027,16 +1031,22 @@ fun LyricsSheet(
                         resetImmersiveTimer()
                         onFavoriteToggle()
                     },
-                    showFavorite = currentSong?.extensionId == null,
+                    showFavorite = currentSong?.let { it.extensionId == null || completedDownloads.contains(it.id) } ?: false,
                 )
             }
         }
 
        // Show Controls Button (Overlay)
-       AnimatedVisibility(
-            visible = immersiveMode,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 },
+        AnimatedVisibility(
+             visible = immersiveMode,
+             enter = fadeIn(animationSpec = tween(220)) + scaleIn(
+                 initialScale = 0.72f,
+                 animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
+             ),
+             exit = fadeOut(animationSpec = tween(160)) + scaleOut(
+                 targetScale = 0.72f,
+                 animationSpec = tween(140, easing = FastOutLinearInEasing)
+             ),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 32.dp)
@@ -1230,9 +1240,9 @@ fun SyncedLyricsList(
 
             // Music Style Dynamic Velocity
             val dynamicAnimationSpec = if (useAnimatedLyrics) {
-                val currentLineTime = lines.getOrNull(currentLineIndex)?.time ?: 0
-                val nextLineTime = lines.getOrNull(currentLineIndex + 1)?.time ?: (currentLineTime + 1000)
-                val timeDiff = (nextLineTime - currentLineTime).coerceIn(250, 2000) // Bound the duration
+                val currentLineTime = lines.getOrNull(currentLineIndex)?.time ?: 0L
+                val nextLineTime = lines.getOrNull(currentLineIndex + 1)?.time ?: (currentLineTime + 1000L)
+                val timeDiff = (nextLineTime - currentLineTime).coerceIn(250L, 2000L).toInt() // Bound the duration and cast to Int
                 
                 tween<Float>(
                     durationMillis = timeDiff,
@@ -1262,7 +1272,7 @@ fun SyncedLyricsList(
                     items = lines,
                     key = { index, item -> "${item.time}_$index" }
                 ) { index, line ->
-                    val nextTime = lines.getOrNull(index + 1)?.time ?: Int.MAX_VALUE
+                    val nextTime = lines.getOrNull(index + 1)?.time ?: Long.MAX_VALUE
                     val distanceFromCurrent = if (currentLineIndex != -1) abs(currentLineIndex - index) else 100
                     
                     val parallaxModifier = if (useAnimatedLyrics) {
@@ -1337,7 +1347,7 @@ fun SyncedLyricsList(
 @Composable
 fun LyricLineRow(
     line: SyncedLine,
-    nextTime: Int,
+    nextTime: Long,
     position: Long,
     distanceFromCurrent: Int = 100,
     useAnimatedLyrics: Boolean = false,
@@ -1810,9 +1820,9 @@ internal fun normalizeWordEndTime(
     return nextWordTimeMs.coerceIn(minEnd, boundedLineEnd)
 }
 
-internal fun resolveLineEndTimeMs(line: SyncedLine, nextLineStartMs: Int): Long {
-    val baseEnd = nextLineStartMs.toLong()
-    val lastWordStart = line.words?.maxOfOrNull { it.time.toLong() } ?: line.time.toLong()
+internal fun resolveLineEndTimeMs(line: SyncedLine, nextLineStartMs: Long): Long {
+    val baseEnd = nextLineStartMs
+    val lastWordStart = line.words?.maxOfOrNull { it.time } ?: line.time
     return maxOf(baseEnd, lastWordStart + 1L)
 }
 
@@ -1918,9 +1928,9 @@ internal fun resolveCurrentLineIndex(
     if (lines.isEmpty()) return -1
 
     return lines.withIndex().lastOrNull { (index, line) ->
-        val nextTime = lines.getOrNull(index + 1)?.time ?: Int.MAX_VALUE
+        val nextTime = lines.getOrNull(index + 1)?.time ?: Long.MAX_VALUE
         val lineEndTime = resolveLineEndTimeMs(line, nextTime)
-        position in line.time.toLong()..<lineEndTime
+        position in line.time..<lineEndTime
     }?.index ?: -1
 }
 

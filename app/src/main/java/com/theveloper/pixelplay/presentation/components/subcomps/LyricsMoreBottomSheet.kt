@@ -85,9 +85,6 @@ fun LyricsMoreBottomSheet(
     onShowTranslationChange: (Boolean) -> Unit,
     onShowRomanizationChange: (Boolean) -> Unit,
     immersiveLyricsEnabled: Boolean,
-    lyricsExtensions: List<dev.brahmkshatriya.echo.common.LyricsExtension> = emptyList(),
-    currentLyricsExtensionId: String? = null,
-    onSelectLyricsExtension: (String?) -> Unit = {},
     // BottomToggleRow params
     isShuffleEnabled: Boolean,
     repeatMode: Int,
@@ -129,64 +126,6 @@ fun LyricsMoreBottomSheet(
 
             val itemBackgroundColor = contentColor.copy(alpha = 0.08f)
 
-            // Provider Group
-            if (lyricsExtensions.isNotEmpty()) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        modifier = Modifier
-                            .padding(start = 6.dp, bottom = 6.dp),
-                        text = stringResource(R.string.lyrics_provided_by),
-                        color = accentColor,
-                        style = MaterialTheme.typography.bodyLargeEmphasized
-                    )
-                    
-                    val allProviders = listOf(null) + lyricsExtensions
-                    val chunks = allProviders.chunked(3)
-                    
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(itemBackgroundColor)
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        chunks.forEach { rowProviders ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                rowProviders.forEach { ext ->
-                                    ToggleSegmentButton(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(48.dp),
-                                        active = ext?.metadata?.id == currentLyricsExtensionId,
-                                        activeColor = accentColor,
-                                        inactiveColor = containerColor,
-                                        activeContentColor = onAccentColor,
-                                        inactiveContentColor = contentColor.copy(alpha = 0.78f),
-                                        activeCornerRadius = 50.dp,
-                                        onClick = { 
-                                            onDismissRequest()
-                                            onSelectLyricsExtension(ext?.metadata?.id)
-                                        },
-                                        text = ext?.metadata?.name ?: "Search",
-                                        maxLines = 1
-                                    )
-                                }
-                                // Fill empty spaces if the row is not full
-                                repeat(3 - rowProviders.size) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
 
             // Lyrics Actions Group
             Column(

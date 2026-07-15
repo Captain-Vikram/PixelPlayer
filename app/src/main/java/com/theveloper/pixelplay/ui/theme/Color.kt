@@ -21,3 +21,6 @@ val LightPrimary = Color(0xFF6C4FF5)
 val LightPrimaryContainer = Color(0xFFE3DBFF)
 val LightOnPrimaryContainer = Color(0xFF23005C)
 val LightOutline = Color(0xFF78659A)
+
+val MixedSourceBadgeColor = Color(0xFF7B3F6E)
+

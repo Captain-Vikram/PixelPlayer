@@ -21,7 +21,16 @@ interface UserDao {
     @Query("SELECT * FROM CurrentUser")
     fun observeCurrentUser(): Flow<List<CurrentUser>>
 
+    @Query("SELECT ue.* FROM UserEntity ue INNER JOIN CurrentUser cu ON ue.type = cu.type AND ue.extId = cu.extId AND ue.id = cu.userId")
+    fun observeActiveUsers(): Flow<List<UserEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun setCurrentUser(currentUser: CurrentUser)
+
+    @Query("DELETE FROM CurrentUser WHERE type = :type AND extId = :extId")
+    suspend fun deleteCurrentUser(type: ExtensionType, extId: String)
+
+    @Query("DELETE FROM UserEntity WHERE type = :type AND extId = :extId")
+    suspend fun deleteUsersForExtension(type: ExtensionType, extId: String)
 
 }

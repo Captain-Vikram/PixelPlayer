@@ -10,6 +10,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
+import com.theveloper.pixelplay.data.stats.ExtensionMetadataCache
 import java.util.concurrent.TimeUnit
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -34,7 +36,9 @@ class ListeningStatsTrackerTest {
     fun `finalizeCurrentSession preserves listening longer than track duration`() {
         val tracker = ListeningStatsTracker(
             dailyMixManager = dailyMixManager,
-            playbackStatsRepository = playbackStatsRepository
+            playbackStatsRepository = playbackStatsRepository,
+            extensionLoader = mockk<ExtensionLoader>(relaxed = true),
+            extensionMetadataCache = mockk<ExtensionMetadataCache>(relaxed = true)
         )
         val song = song(
             songId = "looped-song",
@@ -67,7 +71,9 @@ class ListeningStatsTrackerTest {
     fun `onProgress accumulates incremental listening time`() {
         val tracker = ListeningStatsTracker(
             dailyMixManager = dailyMixManager,
-            playbackStatsRepository = playbackStatsRepository
+            playbackStatsRepository = playbackStatsRepository,
+            extensionLoader = mockk<ExtensionLoader>(relaxed = true),
+            extensionMetadataCache = mockk<ExtensionMetadataCache>(relaxed = true)
         )
         val song = song(songId = "song-1")
         val firstChunkMs = 7_000L
