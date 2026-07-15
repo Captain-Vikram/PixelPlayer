@@ -33,6 +33,8 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -913,8 +915,17 @@ class MainActivity : ComponentActivity() {
 
                         AnimatedVisibility(
                             visible = dismissUndoBarSlice.isVisible,
-                            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+                            enter = slideInVertically(
+                                initialOffsetY = { it },
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                            ) + fadeIn(animationSpec = tween(200)),
+                            exit = slideOutVertically(
+                                targetOffsetY = { it },
+                                animationSpec = tween(180, easing = FastOutLinearInEasing)
+                            ) + fadeOut(animationSpec = tween(150)),
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .padding(bottom = innerPadding.calculateBottomPadding() + MiniPlayerBottomSpacer)

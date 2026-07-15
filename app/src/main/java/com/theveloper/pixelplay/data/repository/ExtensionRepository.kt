@@ -30,6 +30,8 @@ import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.getAs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import com.theveloper.pixelplay.data.database.EngagementDao
@@ -132,8 +134,11 @@ class ExtensionRepository @Inject constructor(
     val extensionCapabilities: StateFlow<Map<String, ExtensionCapabilities>> = _extensionCapabilities
 
     val loggedInExtensionIds: StateFlow<Set<String>> = extensionEngine.extensionUserDao.observeCurrentUser()
-        .map { list -> list.map { it.extId }.toSet() }
+        .map { list -> list.filter { !it.userId.isNullOrBlank() }.map { it.extId }.toSet() }
         .stateIn(repositoryScope, SharingStarted.Eagerly, emptySet())
+
+    val activeExtensionUsers: Flow<List<dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity>> =
+        extensionEngine.extensionUserDao.observeActiveUsers()
 
     private val _isLoadingStore = MutableStateFlow(false)
     val isLoadingStore: StateFlow<Boolean> = _isLoadingStore.asStateFlow()
@@ -173,7 +178,11 @@ class ExtensionRepository @Inject constructor(
                         canLibraryFeed = instance is LibraryFeedClient,
                         canLyrics = instance is LyricsClient,
                         canRadio = instance is RadioClient,
-                        canEditPlaylists = instance is PlaylistEditClient
+                        canEditPlaylists = instance is PlaylistEditClient,
+                        canTracks = instance is dev.brahmkshatriya.echo.common.clients.TrackClient,
+                        canAlbums = instance is dev.brahmkshatriya.echo.common.clients.AlbumClient,
+                        canArtists = instance is dev.brahmkshatriya.echo.common.clients.ArtistClient,
+                        canPlaylists = instance is dev.brahmkshatriya.echo.common.clients.PlaylistClient
                     )
                 }
                 _extensionCapabilities.value = caps
@@ -245,7 +254,12 @@ class ExtensionRepository @Inject constructor(
         val parts = mediaId.split(":")
         if (parts.size < 4 || parts[0] != "extension") return null
         val extensionId = parts[1]
-        val itemId = parts.drop(3).joinToString(":")
+        var itemId = parts.drop(3).joinToString(":")
+        if (extensionId == "spotify") {
+            itemId = if (itemId.startsWith("spotify:")) itemId
+            else if (itemId.startsWith("album:")) "spotify:$itemId"
+            else "spotify:album:$itemId"
+        }
         
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return null
         
@@ -273,8 +287,10 @@ class ExtensionRepository @Inject constructor(
         if (parts.size < 4 || parts[0] != "extension") return null
         val extensionId = parts[1]
         var itemId = parts.drop(3).joinToString(":")
-        if (extensionId == "spotify" && !itemId.contains(":")) {
-            itemId = "spotify:artist:$itemId"
+        if (extensionId == "spotify") {
+            itemId = if (itemId.startsWith("spotify:")) itemId
+            else if (itemId.startsWith("artist:")) "spotify:$itemId"
+            else "spotify:artist:$itemId"
         }
 
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return null
@@ -302,7 +318,12 @@ class ExtensionRepository @Inject constructor(
         val parts = mediaId.split(":")
         if (parts.size < 4 || parts[0] != "extension") return null
         val extensionId = parts[1]
-        val itemId = parts.drop(3).joinToString(":")
+        var itemId = parts.drop(3).joinToString(":")
+        if (extensionId == "spotify") {
+            itemId = if (itemId.startsWith("spotify:")) itemId
+            else if (itemId.startsWith("playlist:")) "spotify:$itemId"
+            else "spotify:playlist:$itemId"
+        }
 
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return null
 
@@ -339,6 +360,22 @@ class ExtensionRepository @Inject constructor(
         extensionEngine.extensionUserDao.insertUser(userEntity)
         syncLoginUser(extension, user)
         extensionEngine.extensionUserDao.setCurrentUser(userEntity.toCurrentUser())
+
+        clearCache(extensionId)
+
+        if (_currentMusicExtension.value?.metadata?.id == extensionId) {
+            loadHomeFeed(forceRefresh = true)
+            loadLibraryFeed(forceRefresh = true)
+        }
+    }
+
+    suspend fun removeLoginSession(extensionId: String) {
+        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return
+        
+        syncLoginUser(extension, null)
+        
+        extensionEngine.extensionUserDao.deleteCurrentUser(extension.metadata.type, extension.metadata.id)
+        extensionEngine.extensionUserDao.deleteUsersForExtension(extension.metadata.type, extension.metadata.id)
 
         clearCache(extensionId)
 
@@ -532,36 +569,44 @@ class ExtensionRepository @Inject constructor(
         }
     }
 
-    suspend fun getPagedDataByType(type: com.theveloper.pixelplay.data.model.LibraryTabId): dev.brahmkshatriya.echo.common.helpers.PagedData<Shelf>? {
+    suspend fun getPagedDataByType(type: com.theveloper.pixelplay.presentation.library.LibraryTabId): dev.brahmkshatriya.echo.common.helpers.PagedData<Shelf>? {
         val extension = _currentMusicExtension.value ?: return null
         val client = extension.instance.value().getOrNull()
-        
-        return if (type == com.theveloper.pixelplay.data.model.LibraryTabId.LIKED || type == com.theveloper.pixelplay.data.model.LibraryTabId.PLAYLISTS) {
-            if (client is LibraryFeedClient) {
-                val feed = client.loadLibraryFeed()
-                val matchingTab = findBestTabForType(feed.tabs, type)
-                feed.getPagedData(matchingTab).pagedData
-            } else null
-        } else {
-            if (client is dev.brahmkshatriya.echo.common.clients.SearchFeedClient) {
-                val feed = client.loadSearchFeed("")
-                val matchingTab = findBestTabForType(feed.tabs, type)
-                feed.getPagedData(matchingTab).pagedData
-            } else if (client is LibraryFeedClient) {
-                val feed = client.loadLibraryFeed()
-                val matchingTab = findBestTabForType(feed.tabs, type)
-                feed.getPagedData(matchingTab).pagedData
-            } else null
+
+        return try {
+            if (type == com.theveloper.pixelplay.presentation.library.LibraryTabId.Liked || type == com.theveloper.pixelplay.presentation.library.LibraryTabId.Playlists) {
+                if (client is LibraryFeedClient) {
+                    // Reuse the already-loaded feed from the cache to avoid a duplicate network call.
+                    val feed = _libraryFeed.value ?: client.loadLibraryFeed().also { _libraryFeed.value = it }
+                    val matchingTab = findBestTabForType(feed.tabs, type)
+                    feed.getPagedData(matchingTab).pagedData
+                } else null
+            } else {
+                if (client is LibraryFeedClient) {
+                    // Same: reuse the cached feed for all category tabs.
+                    val feed = _libraryFeed.value ?: client.loadLibraryFeed().also { _libraryFeed.value = it }
+                    val matchingTab = findBestTabForType(feed.tabs, type)
+                    feed.getPagedData(matchingTab).pagedData
+                } else if (client is dev.brahmkshatriya.echo.common.clients.SearchFeedClient) {
+                    val feed = client.loadSearchFeed("")
+                    val matchingTab = findBestTabForType(feed.tabs, type)
+                    feed.getPagedData(matchingTab).pagedData
+                } else null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _errors.emit("Failed to load ${type.name.lowercase()}: ${e.message}")
+            null
         }
     }
 
-    private fun findBestTabForType(tabs: List<dev.brahmkshatriya.echo.common.models.Tab>, type: com.theveloper.pixelplay.data.model.LibraryTabId): dev.brahmkshatriya.echo.common.models.Tab? {
+    private fun findBestTabForType(tabs: List<dev.brahmkshatriya.echo.common.models.Tab>, type: com.theveloper.pixelplay.presentation.library.LibraryTabId): dev.brahmkshatriya.echo.common.models.Tab? {
         val keywords = when (type) {
-            com.theveloper.pixelplay.data.model.LibraryTabId.SONGS -> listOf("track", "song", "all")
-            com.theveloper.pixelplay.data.model.LibraryTabId.ALBUMS -> listOf("album")
-            com.theveloper.pixelplay.data.model.LibraryTabId.ARTISTS -> listOf("artist")
-            com.theveloper.pixelplay.data.model.LibraryTabId.PLAYLISTS -> listOf("playlist")
-            com.theveloper.pixelplay.data.model.LibraryTabId.LIKED -> listOf("liked", "favorite", "all", "you")
+            com.theveloper.pixelplay.presentation.library.LibraryTabId.Songs -> listOf("track", "song", "all")
+            com.theveloper.pixelplay.presentation.library.LibraryTabId.Albums -> listOf("album")
+            com.theveloper.pixelplay.presentation.library.LibraryTabId.Artists -> listOf("artist")
+            com.theveloper.pixelplay.presentation.library.LibraryTabId.Playlists -> listOf("playlist")
+            com.theveloper.pixelplay.presentation.library.LibraryTabId.Liked -> listOf("liked", "favorite", "all", "you")
             else -> return null
         }
         
@@ -791,11 +836,42 @@ class ExtensionRepository @Inject constructor(
 
                     val feed = client.loadLibraryFeed()
                     _libraryFeed.value = feed
-                    val loadedShelves = feed.loadAll().deduplicate()
+
+                    // Load all tabs in parallel so every type (Albums, Artists,
+                    // Playlists, Songs) ends up in libraryShelves — avoids the
+                    // per-tab fallback pager that was triggering extra 404 network
+                    // calls for filtered libraryV3 queries.
+                    val loadedShelves = coroutineScope {
+                        val firstTab = feed.tabs.firstOrNull()
+                        val remainingTabs = feed.tabs.drop(1)
+                            .filter { tab ->
+                                // Load only typed category tabs — skip 'All' and 'You'
+                                // since 'All' is covered by firstTab and 'You' is
+                                // a different view (top artists/tracks, recently played).
+                                val lc = tab.id.lowercase()
+                                lc != "you" && lc != "all" && lc != "null"
+                            }
+
+                        val firstDeferred = async {
+                            runCatching { feed.getPagedData(firstTab).pagedData.loadAll() }.getOrDefault(emptyList())
+                        }
+                        val restDeferred = remainingTabs.map { tab ->
+                            async {
+                                runCatching { feed.getPagedData(tab).pagedData.loadAll() }.getOrDefault(emptyList())
+                            }
+                        }
+
+                        val all = mutableListOf<Shelf>()
+                        all.addAll(firstDeferred.await())
+                        restDeferred.forEach { all.addAll(it.await()) }
+                        all.deduplicate()
+                    }
+
                     _libraryShelves.value = loadedShelves
                     libraryFeedShelvesCache[extensionId] = loadedShelves
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    _errors.emit("Failed to load library: ${e.message}")
                     val msg = e.message ?: ""
                     val isAuthError = msg.contains("auth", ignoreCase = true) ||
                             msg.contains("login", ignoreCase = true) ||

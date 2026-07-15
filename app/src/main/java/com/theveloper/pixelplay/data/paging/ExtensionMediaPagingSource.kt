@@ -5,10 +5,13 @@ import androidx.paging.PagingState
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.Album as AppAlbum
 import com.theveloper.pixelplay.data.model.Artist as AppArtist
+import com.theveloper.pixelplay.data.model.Playlist as AppPlaylist
 import com.theveloper.pixelplay.extensions.core.toSong
 import com.theveloper.pixelplay.extensions.core.toAppAlbum
 import com.theveloper.pixelplay.extensions.core.toAppArtist
+import com.theveloper.pixelplay.extensions.core.toAppPlaylist
 import dev.brahmkshatriya.echo.common.models.*
+import dev.brahmkshatriya.echo.common.models.Playlist as EchoPlaylist
 import dev.brahmkshatriya.echo.common.helpers.PagedData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -58,6 +61,9 @@ class ExtensionMediaPagingSource<T : Any>(
             }
             AppArtist::class.java -> {
                 if (item is Artist) item.toAppArtist(extensionId) else null
+            }
+            AppPlaylist::class.java -> {
+                if (item is EchoPlaylist) item.toAppPlaylist(extensionId) else null
             }
             else -> null
         }

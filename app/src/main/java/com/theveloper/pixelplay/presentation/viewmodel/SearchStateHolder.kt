@@ -64,7 +64,7 @@ class SearchStateHolder @Inject constructor(
     private val _selectedSearchFilter = MutableStateFlow(SearchFilterType.ALL)
     val selectedSearchFilter = _selectedSearchFilter.asStateFlow()
 
-    private val _currentSourceScope = MutableStateFlow<com.theveloper.pixelplay.data.model.SourceScope>(com.theveloper.pixelplay.data.model.SourceScope.All)
+    private val _currentSourceScope = MutableStateFlow<com.theveloper.pixelplay.data.model.SourceScope>(com.theveloper.pixelplay.data.model.SourceScope.Local)
     val currentSourceScope = _currentSourceScope.asStateFlow()
 
     private val _searchHistory = MutableStateFlow<ImmutableList<SearchHistoryItem>>(persistentListOf())
@@ -181,16 +181,14 @@ class SearchStateHolder @Inject constructor(
                             else -> extensionRepository.currentMusicExtension.value
                         }
                         
-                        val localSearchFlow = if (sourceScope == com.theveloper.pixelplay.data.model.SourceScope.All || 
-                            sourceScope == com.theveloper.pixelplay.data.model.SourceScope.Local) {
+                        val localSearchFlow = if (sourceScope == com.theveloper.pixelplay.data.model.SourceScope.Local) {
                             musicRepository.searchAll(normalizedQuery, currentFilter)
                         } else {
                             kotlinx.coroutines.flow.flowOf(emptyList())
                         }
 
                         val extensionSearchFlow = if (activeExtension != null && 
-                            (sourceScope == com.theveloper.pixelplay.data.model.SourceScope.All || 
-                             sourceScope is com.theveloper.pixelplay.data.model.SourceScope.Extension)) {
+                             sourceScope is com.theveloper.pixelplay.data.model.SourceScope.Extension) {
                             kotlinx.coroutines.flow.flow {
                                 try {
                                     val client = activeExtension.instance.value().getOrNull()

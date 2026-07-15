@@ -62,7 +62,7 @@ data class PlayerUiState(
     val isSyncingLibrary: Boolean = false,
     val isGeneratingAiMetadata: Boolean = false,
     val selectedSearchFilter: SearchFilterType = SearchFilterType.ALL,
-    val currentSourceScope: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All,
+    val currentSourceScope: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local,
     val searchFeedShelves: ImmutableList<dev.brahmkshatriya.echo.common.models.Shelf> = persistentListOf(),
     val isLoadingSearchFeed: Boolean = false,
     val showQueueItemUndoBar: Boolean = false,

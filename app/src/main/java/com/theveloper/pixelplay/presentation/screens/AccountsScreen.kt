@@ -201,22 +201,30 @@ fun AccountsScreen(
 
                 items(
                     items = uiState.connectedAccounts,
-                    key = { it.service.name }
+                    key = { it.service?.name ?: it.extensionId ?: "" }
                 ) { account ->
                     ConnectedAccountCard(
                         account = account,
                         onManage = {
-                            openService(
-                                context = context,
-                                service = account.service,
-                                onOpenNeteaseDashboard = onOpenNeteaseDashboard,
-                                onOpenQqMusicDashboard = onOpenQqMusicDashboard,
-                                onOpenNavidromeDashboard = onOpenNavidromeDashboard,
-                                onOpenJellyfinDashboard = onOpenJellyfinDashboard,
-                                preferNeteaseDashboard = true
-                            )
+                            account.service?.let { s ->
+                                openService(
+                                    context = context,
+                                    service = s,
+                                    onOpenNeteaseDashboard = onOpenNeteaseDashboard,
+                                    onOpenQqMusicDashboard = onOpenQqMusicDashboard,
+                                    onOpenNavidromeDashboard = onOpenNavidromeDashboard,
+                                    onOpenJellyfinDashboard = onOpenJellyfinDashboard,
+                                    preferNeteaseDashboard = true
+                                )
+                            }
                         },
-                        onLogout = { viewModel.logout(account.service) },
+                        onLogout = {
+                            if (account.service != null) {
+                                viewModel.logout(account.service)
+                            } else if (account.extensionId != null) {
+                                viewModel.logoutExtension(account.extensionId)
+                            }
+                        },
                         painter = if (account.service == ExternalServiceAccount.NETEASE) {
                             painterResource(R.drawable.netease_cloud_music_logo_icon_206716__1_)
                         } else if (account.service == ExternalServiceAccount.QQ_MUSIC) {
@@ -227,7 +235,8 @@ fun AccountsScreen(
                             painterResource(R.drawable.ic_jellyfin)
                         } else if (account.service == ExternalServiceAccount.NAVIDROME) {
                             painterResource(R.drawable.ic_navidrome_md3)
-                        } else null
+                        } else null,
+                        iconUrl = account.iconUrl
                     )
                 }
             } else {
@@ -346,7 +355,8 @@ private fun ConnectedAccountCard(
     account: ExternalAccountUiModel,
     onManage: () -> Unit,
     onLogout: () -> Unit,
-    painter: androidx.compose.ui.graphics.painter.Painter? = null
+    painter: androidx.compose.ui.graphics.painter.Painter? = null,
+    iconUrl: String? = null
 ) {
     val statusSoon = stringResource(R.string.accounts_status_soon)
     val statusConnected = stringResource(R.string.accounts_status_connected)
@@ -356,6 +366,7 @@ private fun ConnectedAccountCard(
     val logOut = stringResource(R.string.cloud_cd_logout)
     val palette = servicePalette(account.service)
     val isComingSoon = account.service == ExternalServiceAccount.GOOGLE_DRIVE
+    val isExtension = account.service == null && account.extensionId != null
     val cardShape = AbsoluteSmoothCornerShape(28.dp, 60)
 
     Card(
@@ -385,7 +396,15 @@ private fun ConnectedAccountCard(
             shape = AbsoluteSmoothCornerShape(16.dp, 60),
             color = palette.iconContainer
         ) {
-            if (painter != null) {
+            if (iconUrl != null) {
+                coil.compose.AsyncImage(
+                    model = iconUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(20.dp)
+                )
+            } else if (painter != null) {
                 Icon(
                     painter = painter,
                     contentDescription = null,
@@ -473,27 +492,29 @@ private fun ConnectedAccountCard(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f))
 
-            FilledTonalButton(
-                onClick = onManage,
-                enabled = !account.isLoggingOut && !isComingSoon,
-                shape = AbsoluteSmoothCornerShape(18.dp, 60),
-                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                    containerColor = palette.primaryActionContainer,
-                    contentColor = palette.primaryActionTint,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                modifier = Modifier.fillMaxWidth().height(48.dp)
-            ) {
-                Icon(
-                    imageVector = if (isComingSoon) Icons.Rounded.Link else Icons.AutoMirrored.Rounded.OpenInNew,
-                    contentDescription = null
-                )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = if (isComingSoon) comingSoonShort else openService,
-                    fontWeight = FontWeight.SemiBold
-                )
+            if (!isExtension) {
+                FilledTonalButton(
+                    onClick = onManage,
+                    enabled = !account.isLoggingOut && !isComingSoon,
+                    shape = AbsoluteSmoothCornerShape(18.dp, 60),
+                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                        containerColor = palette.primaryActionContainer,
+                        contentColor = palette.primaryActionTint,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isComingSoon) Icons.Rounded.Link else Icons.AutoMirrored.Rounded.OpenInNew,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(
+                        text = if (isComingSoon) comingSoonShort else openService,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             OutlinedButton(
@@ -605,7 +626,17 @@ private data class ServicePalette(
 )
 
 @Composable
-private fun servicePalette(service: ExternalServiceAccount): ServicePalette {
+private fun servicePalette(service: ExternalServiceAccount?): ServicePalette {
+    if (service == null) {
+        return ServicePalette(
+            iconContainer = MaterialTheme.colorScheme.secondaryContainer,
+            iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
+            statusContainer = Color(0xFFD7F4D0),
+            statusTint = Color(0xFF1E5E18),
+            primaryActionContainer = MaterialTheme.colorScheme.secondaryContainer,
+            primaryActionTint = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    }
     return when (service) {
         ExternalServiceAccount.TELEGRAM -> ServicePalette(
             iconContainer = MaterialTheme.colorScheme.primaryContainer,
@@ -658,7 +689,8 @@ private fun servicePalette(service: ExternalServiceAccount): ServicePalette {
     }
 }
 
-private fun accountIcon(service: ExternalServiceAccount): ImageVector {
+private fun accountIcon(service: ExternalServiceAccount?): ImageVector {
+    if (service == null) return Icons.Rounded.MusicNote
     return when (service) {
         ExternalServiceAccount.TELEGRAM -> Icons.AutoMirrored.Rounded.Send
         ExternalServiceAccount.GOOGLE_DRIVE -> Icons.Rounded.CloudQueue
@@ -670,8 +702,15 @@ private fun accountIcon(service: ExternalServiceAccount): ImageVector {
 }
 
 @Composable
-private fun ServiceIcon(service: ExternalServiceAccount, tint: Color, modifier: Modifier = Modifier) {
-    if (service == ExternalServiceAccount.NAVIDROME) {
+private fun ServiceIcon(service: ExternalServiceAccount?, tint: Color, modifier: Modifier = Modifier) {
+    if (service == null) {
+        Icon(
+            imageVector = Icons.Rounded.MusicNote,
+            contentDescription = null,
+            tint = tint,
+            modifier = modifier
+        )
+    } else if (service == ExternalServiceAccount.NAVIDROME) {
         Box(
             modifier = modifier,
             contentAlignment = Alignment.CenterStart

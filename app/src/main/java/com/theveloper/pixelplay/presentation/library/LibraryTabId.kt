@@ -96,12 +96,33 @@ enum class LibraryTabId(
             SortOption.LikedSongDateLiked,
             SortOption.LikedSongDateLikedAsc
         )
+    ),
+    Overview(
+        stableKey = "OVERVIEW",
+        label = "OVERVIEW",
+        labelRes = R.string.library_tab_overview,
+        sortOptions = emptyList()
     );
 
     companion object {
         val defaultOrder: List<LibraryTabId> = entries.toList()
 
-        fun fromStableKey(key: String): LibraryTabId? = entries.firstOrNull { it.stableKey == key }
+        fun fromStableKey(key: String): LibraryTabId? {
+            val upper = key.uppercase()
+            return entries.firstOrNull {
+                it.stableKey.uppercase() == upper ||
+                it.name.uppercase() == upper ||
+                (it.stableKey.uppercase() == "ARTIST" && upper == "ARTISTS") ||
+                (it.name.uppercase() == "ARTISTS" && upper == "ARTIST")
+            }
+        }
+
+        @JvmField val SONGS = Songs
+        @JvmField val ALBUMS = Albums
+        @JvmField val ARTISTS = Artists
+        @JvmField val PLAYLISTS = Playlists
+        @JvmField val FOLDERS = Folders
+        @JvmField val LIKED = Liked
     }
 }
 
@@ -114,4 +135,14 @@ internal fun decodeLibraryTabOrder(orderJson: String?): List<LibraryTabId> {
     storedKeys.mapNotNull { LibraryTabId.fromStableKey(it) }.forEach { ordered.add(it) }
     LibraryTabId.defaultOrder.forEach { ordered.add(it) }
     return ordered.toList()
+}
+
+fun String.toLibraryTabIdOrNull(): LibraryTabId? {
+    val upper = this.uppercase()
+    return LibraryTabId.entries.firstOrNull {
+        it.stableKey.uppercase() == upper ||
+        it.name.uppercase() == upper ||
+        (it.stableKey.uppercase() == "ARTIST" && upper == "ARTISTS") ||
+        (it.name.uppercase() == "ARTISTS" && upper == "ARTIST")
+    }
 }

@@ -36,11 +36,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AiCacheEntity::class,
         AiUsageEntity::class,
         DownloadEntity::class,
+        ExtensionTrackCacheEntity::class,
         dev.brahmkshatriya.echo.extension.loader.db.models.ExtensionEntity::class,
         dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity::class,
         dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser::class
     ],
-    version = 46,
+    version = 47,
     exportSchema = true
 )
 @androidx.room.TypeConverters(PixelPlayDatabase.ExtensionTypeConverters::class)
@@ -62,6 +63,7 @@ abstract class PixelPlayDatabase : RoomDatabase() {
     abstract fun aiCacheDao(): AiCacheDao
     abstract fun aiUsageDao(): AiUsageDao
     abstract fun downloadDao(): DownloadDao
+    abstract fun extensionTrackCacheDao(): ExtensionTrackCacheDao
     abstract fun extensionDao(): dev.brahmkshatriya.echo.extension.loader.db.ExtensionDao
     abstract fun extensionUserDao(): dev.brahmkshatriya.echo.extension.loader.db.UserDao
 
@@ -1609,6 +1611,26 @@ abstract class PixelPlayDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_engagements_last_played_timestamp` ON `song_engagements` (`last_played_timestamp`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_search_history_timestamp` ON `search_history` (`timestamp`)")
+            }
+        }
+
+        val MIGRATION_46_47 = object : Migration(46, 47) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `extension_track_cache` (
+                        `id` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `artist` TEXT NOT NULL,
+                        `album` TEXT NOT NULL,
+                        `duration` INTEGER NOT NULL,
+                        `album_art_uri` TEXT,
+                        `extension_id` TEXT NOT NULL,
+                        `cached_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_extension_track_cache_extension_id` ON `extension_track_cache` (`extension_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_extension_track_cache_cached_at` ON `extension_track_cache` (`cached_at`)")
             }
         }
 

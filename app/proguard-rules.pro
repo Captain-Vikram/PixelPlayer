@@ -229,3 +229,16 @@
     public static int d(...);
     public static int i(...);
 }
+
+# Keep desugared JDK library classes for dynamically loaded extensions
+-keep class j$.** { *; }
+-keep interface j$.** { *; }
+-dontwarn j$.**
+
+# Suppress warnings for internal JDK classes referenced by desugared libraries
+-dontwarn java.lang.StringCoding**
+-dontwarn java.lang.StringLatin1**
+-dontwarn java.lang.StringUTF16**
+-dontwarn java.util.concurrent.ForkJoinWorkerThread**
+-dontwarn jdk.internal.misc.**
+-dontwarn sun.nio.fs.**

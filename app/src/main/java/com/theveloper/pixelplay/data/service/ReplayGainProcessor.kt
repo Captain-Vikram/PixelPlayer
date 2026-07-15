@@ -36,6 +36,10 @@ class ReplayGainProcessor(
 ) {
     private companion object {
         private const val TAG = "MusicService_PixelPlay"
+        // Standard loudness target for extension/streaming tracks with no RG tags.
+        // -1 dB is a safe pre-amp that avoids clipping while still normalizing against
+        // locally tagged files that usually carry negative RG values (e.g. -6 to -9 dB).
+        private const val EXTENSION_PREAMP_DB = -1.0f
     }
 
     private var enabled = false
@@ -142,9 +146,26 @@ class ReplayGainProcessor(
             ?.getString(MediaItemBuilder.EXTERNAL_EXTRA_FILE_PATH)
 
         if (filePath.isNullOrBlank()) {
-            Timber.tag(TAG).d("ReplayGain: No file path for track, keeping user-selected volume")
+            // Extension / streaming track — no local file to read tags from.
+            // Apply a standard streaming loudness pre-amp (-1 dB) so volume levels
+            // are consistent with locally-tagged files instead of jumping back to 1f.
+            val isExtensionTrack = mediaId?.startsWith("extension:") == true
+            val volume = if (isExtensionTrack) {
+                replayGainManager.gainDbToVolume(EXTENSION_PREAMP_DB)
+            } else {
+                userSelectedVolume
+            }
+            Timber.tag(TAG).d("ReplayGain: %s track — applying volume=%.2f",
+                if (isExtensionTrack) "extension" else "no-path", volume)
             if (!engine.isTransitionRunning()) {
-                setPlayerVolume(engine.masterPlayer, userSelectedVolume)
+                lastAppliedVolume = if (isExtensionTrack) volume else null
+                lastMediaId = if (isExtensionTrack) mediaId else null
+                setPlayerVolume(engine.masterPlayer, volume)
+            } else {
+                if (isExtensionTrack) {
+                    pendingVolume = volume
+                    engine.incomingTrackReplayGainVolume = volume
+                }
             }
             return
         }

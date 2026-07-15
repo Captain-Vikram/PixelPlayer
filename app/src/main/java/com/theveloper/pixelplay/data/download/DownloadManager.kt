@@ -34,11 +34,7 @@ class DownloadManager @Inject constructor(
     val completedDownloads: Flow<Set<String>> = downloadDao.getAllDownloads()
         .map { list ->
             list.filter { entity ->
-                if (entity.status != DownloadStatus.COMPLETED || entity.downloadPath == null) return@filter false
-                // MediaStore URI (content://): the entry exists as long as MediaStore
-                // keeps it — treat it as present without a File.exists() check.
-                // Legacy absolute paths: verify the file still exists on disk.
-                entity.downloadPath.startsWith("content://") || java.io.File(entity.downloadPath).exists()
+                entity.status == DownloadStatus.COMPLETED
             }
                 .map { it.songId }
                 .toSet()
@@ -50,8 +46,10 @@ class DownloadManager @Inject constructor(
         if (parts.size < 4) return
         val extId = parts[1]
         var trackId = parts.drop(3).joinToString(":")
-        if (extId == "spotify" && !trackId.contains(":")) {
-            trackId = "spotify:track:$trackId"
+        if (extId == "spotify") {
+            trackId = if (trackId.startsWith("spotify:")) trackId
+            else if (trackId.startsWith("track:")) "spotify:$trackId"
+            else "spotify:track:$trackId"
         }
 
         // Check if already downloading or downloaded (verifying file presence on disk)

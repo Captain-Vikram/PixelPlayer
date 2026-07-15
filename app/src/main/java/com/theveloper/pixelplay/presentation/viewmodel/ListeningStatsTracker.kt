@@ -85,7 +85,8 @@ class ListeningStatsTracker @Inject constructor(
             title = song?.title,
             artist = song?.displayArtist,
             album = song?.album,
-            genre = song?.genre
+            genre = song?.genre,
+            albumArtUri = song?.albumArtUriString
         )
     }
 
@@ -115,7 +116,8 @@ class ListeningStatsTracker @Inject constructor(
         title: String? = null,
         artist: String? = null,
         album: String? = null,
-        genre: String? = null
+        genre: String? = null,
+        albumArtUri: String? = null
     ) {
         finalizeCurrentSession()
         
@@ -143,7 +145,8 @@ class ListeningStatsTracker @Inject constructor(
                 title = title,
                 artist = artist,
                 album = album,
-                genres = genreList
+                genres = genreList,
+                albumArtUri = albumArtUri
             )
         }
 
@@ -164,7 +167,8 @@ class ListeningStatsTracker @Inject constructor(
             title = title,
             artist = artist,
             album = album,
-            genre = genre
+            genre = genre,
+            albumArtUri = albumArtUri
         )
         if (pendingVoluntarySongId == safeSongId) {
             pendingVoluntarySongId = null
@@ -333,7 +337,8 @@ class ListeningStatsTracker @Inject constructor(
             title = song?.title,
             artist = song?.displayArtist,
             album = song?.album,
-            genre = song?.genre
+            genre = song?.genre,
+            albumArtUri = song?.albumArtUriString
         )
     }
 
@@ -363,7 +368,8 @@ class ListeningStatsTracker @Inject constructor(
         title: String? = null,
         artist: String? = null,
         album: String? = null,
-        genre: String? = null
+        genre: String? = null,
+        albumArtUri: String? = null
     ) {
         val safeSongId = songId?.takeIf { it.isNotBlank() }
         if (safeSongId == null) {
@@ -390,7 +396,8 @@ class ListeningStatsTracker @Inject constructor(
             title = title,
             artist = artist,
             album = album,
-            genre = genre
+            genre = genre,
+            albumArtUri = albumArtUri
         )
     }
 
@@ -517,5 +524,6 @@ data class ActiveSession(
     val title: String? = null,
     val artist: String? = null,
     val album: String? = null,
-    val genre: String? = null
+    val genre: String? = null,
+    val albumArtUri: String? = null
 )

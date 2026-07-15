@@ -69,6 +69,7 @@ class PlaybackStatsRepository @Inject constructor(
         val songId: String,
         val title: String,
         val artist: String,
+        val album: String?,
         val albumArtUri: String?,
         val totalDurationMs: Long,
         val playCount: Int
@@ -264,17 +265,20 @@ class PlaybackStatsRepository @Inject constructor(
                 val song = songMap[songId]
                 val title: String
                 val artist: String
+                val album: String?
                 val albumArtUri: String?
                 if (song != null) {
                     title = song.title.takeIf { it.isNotBlank() }
                         ?: song.path.substringAfterLast('/').ifBlank { return@mapNotNull null }
                     artist = song.displayArtist.takeIf { it.isNotBlank() } ?: "Unknown Artist"
+                    album = song.album.takeIf { it.isNotBlank() } ?: "Unknown Album"
                     albumArtUri = song.albumArtUriString
                 } else if (songId.startsWith("extension:")) {
                     val cached = extensionMetadataCache.getMetadata(songId) ?: return@mapNotNull null
                     title = cached.title
                     artist = cached.artist ?: "Unknown Artist"
-                    albumArtUri = null
+                    album = cached.album?.takeIf { it.isNotBlank() } ?: "Unknown Album"
+                    albumArtUri = cached.albumArtUri
                 } else {
                     return@mapNotNull null
                 }
@@ -282,6 +286,7 @@ class PlaybackStatsRepository @Inject constructor(
                     songId = songId,
                     title = title,
                     artist = artist,
+                    album = album,
                     albumArtUri = albumArtUri,
                     totalDurationMs = segmentsForSong.sumOf { it.durationMs },
                     playCount = segmentsForSong.size
@@ -440,9 +445,17 @@ class PlaybackStatsRepository @Inject constructor(
                     .asSequence()
                     .mapNotNull { songMap[it.key] }
                     .firstOrNull()
+                val albumArtUri = firstSong?.albumArtUriString ?: run {
+                    val firstExtensionSongId = groupedSongs.firstOrNull { it.key.startsWith("extension:") }?.key
+                    if (firstExtensionSongId != null) {
+                        extensionMetadataCache.getMetadata(firstExtensionSongId)?.albumArtUri
+                    } else {
+                        null
+                    }
+                }
                 AlbumPlaybackSummary(
                     album = album,
-                    albumArtUri = firstSong?.albumArtUriString,
+                    albumArtUri = albumArtUri,
                     totalDurationMs = flattened.sumOf { it.durationMs },
                     playCount = flattened.size,
                     uniqueSongs = uniqueSongCount

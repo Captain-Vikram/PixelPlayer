@@ -535,6 +535,17 @@ class PlaybackDispatchStateHolder @Inject constructor(
                 }
             }
 
+            // Offline check for extension (JIT stream) tracks.
+            // Extension tracks always require a live network — there is no local cache fallback.
+            if (validStartSong.id.startsWith("extension:")) {
+                val isOnline = connectivityStateHolder.isOnline.value
+                if (!isOnline) {
+                    Timber.w("Blocked extension track playback: device is offline. id=${validStartSong.id}")
+                    cb.showNoInternetDialog()
+                    return@launch
+                }
+            }
+
             // Store the original order so we can "unshuffle" later if the user turns shuffle off
             queueStateHolder.setOriginalQueueOrder(validSongs)
             queueStateHolder.saveOriginalQueueState(validSongs, queueName)
@@ -1072,48 +1083,41 @@ class PlaybackDispatchStateHolder @Inject constructor(
             }
         } else {
             val controller = cb.getController()
-            if (controller == null || !controller.isConnected) {
-                playbackStateHolder.playPause()
-                return
-            }
-
-            if (controller.isPlaying) {
-                controller.pause()
-            } else {
-                if (controller.currentMediaItem == null) {
-                    val currentQueue = cb.getUiState().currentPlaybackQueue
-                    val currentSong = playbackStateHolder.stablePlayerState.value.currentSong
-                    when {
-                        currentQueue.isNotEmpty() && currentSong != null -> {
-                            cb.scope.launch {
-                                cb.cancelTransitionScheduler()
-                                internalPlaySongs(
-                                    currentQueue.toList(),
-                                    currentSong,
-                                    cb.getUiState().currentQueueSourceName
-                                )
-                            }
+            
+            // If the controller has no media item, the queue is completely empty (e.g. app just started).
+            if (controller != null && controller.isConnected && controller.currentMediaItem == null) {
+                val currentQueue = cb.getUiState().currentPlaybackQueue
+                val currentSong = playbackStateHolder.stablePlayerState.value.currentSong
+                when {
+                    currentQueue.isNotEmpty() && currentSong != null -> {
+                        cb.scope.launch {
+                            cb.cancelTransitionScheduler()
+                            internalPlaySongs(
+                                currentQueue.toList(),
+                                currentSong,
+                                cb.getUiState().currentQueueSourceName
+                            )
                         }
-                        currentSong != null -> {
-                            loadAndPlaySong(currentSong)
-                        }
-                        else -> {
-                            cb.scope.launch {
-                                val fallbackSong = musicRepository.getFirstPlayableSong()
-                                if (fallbackSong != null) {
-                                    loadAndPlaySong(fallbackSong)
-                                } else {
-                                    controller.play()
-                                }
+                    }
+                    currentSong != null -> {
+                        loadAndPlaySong(currentSong)
+                    }
+                    else -> {
+                        cb.scope.launch {
+                            val fallbackSong = musicRepository.getFirstPlayableSong()
+                            if (fallbackSong != null) {
+                                loadAndPlaySong(fallbackSong)
+                            } else {
+                                playbackStateHolder.playPause()
                             }
                         }
                     }
-                } else {
-                    if (controller.playbackState == Player.STATE_IDLE && controller.mediaItemCount > 0) {
-                        controller.prepare()
-                    }
-                    controller.play()
                 }
+            } else {
+                // Let PlaybackStateHolder use its direct activeLocalPlayer (DualPlayerEngine.masterPlayer)
+                // This bypasses the MediaController entirely for play/pause, avoiding UI unresponsiveness
+                // when Media3 drops state updates.
+                playbackStateHolder.playPause()
             }
         }
     }

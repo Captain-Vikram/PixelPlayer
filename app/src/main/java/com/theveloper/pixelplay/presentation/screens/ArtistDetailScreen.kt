@@ -450,7 +450,9 @@ fun ArtistDetailScreen(
                                             modifier = Modifier
                                                 .width(110.dp)
                                                 .clickable {
-                                                    navController.navigateSafely(Screen.ArtistDetail.createRoute(relArtist.mediaId ?: relArtist.id.toString()))
+                                                    navController.navigateSafely(Screen.ArtistDetail.createRoute(relArtist.mediaId ?: relArtist.id.toString())) {
+                                                        launchSingleTop = false
+                                                    }
                                                 }
                                         ) {
                                             SmartImage(
@@ -494,7 +496,6 @@ fun ArtistDetailScreen(
                         SharedArtistTopBarProbe(
                             artist = artist,
                             effectiveImageUrl = uiState.effectiveImageUrl,
-                            songsCount = songs.size,
                             collapseFraction = collapseFraction,
                             headerHeight = currentTopBarHeightDp,
                             headerImageRequestSize = headerImageRequestSize,
@@ -502,7 +503,9 @@ fun ArtistDetailScreen(
                             canRadio = uiState.canRadio,
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
-                                if (songs.isNotEmpty()) {
+                                if (isExtensionArtist) {
+                                    playerViewModel.playExtensionArtistShuffled(artist, uiState.shelves)
+                                } else if (songs.isNotEmpty()) {
                                     playerViewModel.playSongsShuffled(
                                         songs,
                                         artist.name,
@@ -519,14 +522,15 @@ fun ArtistDetailScreen(
                             artist = artist,
                             effectiveImageUrl = uiState.effectiveImageUrl,
                             hasCustomImage = !artist.customImageUri.isNullOrBlank(),
-                            songsCount = songs.size,
                             collapseFraction = collapseFraction,
                             headerHeight = currentTopBarHeightDp,
                             headerImageRequestSize = headerImageRequestSize,
                             canRadio = uiState.canRadio,
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
-                                if (songs.isNotEmpty()) {
+                                if (isExtensionArtist) {
+                                    playerViewModel.playExtensionArtistShuffled(artist, uiState.shelves)
+                                } else if (songs.isNotEmpty()) {
                                     playerViewModel.playSongsShuffled(
                                         songs,
                                         artist.name,
@@ -818,7 +822,6 @@ private fun ArtistAlbumSectionSongItem(
 private fun SharedArtistTopBarProbe(
     artist: Artist,
     effectiveImageUrl: String?,
-    songsCount: Int,
     collapseFraction: Float,
     headerHeight: Dp,
     headerImageRequestSize: Size,
@@ -905,7 +908,7 @@ private fun SharedArtistTopBarProbe(
 
         CollapsibleCommonTopBar(
             title = artist.name,
-            subtitle = formatSongCount(songsCount),
+            subtitle = null,
             collapseFraction = collapseFraction,
             headerHeight = headerHeight,
             onBackClick = onBackPressed,
@@ -1017,7 +1020,6 @@ private fun CustomCollapsingTopBar(
     artist: Artist,
     effectiveImageUrl: String?,
     hasCustomImage: Boolean,
-    songsCount: Int,
     collapseFraction: Float, // 0.0 = expandido, 1.0 = colapsado
     headerHeight: Dp,
     headerImageRequestSize: Size,
@@ -1206,13 +1208,6 @@ private fun CustomCollapsingTopBar(
                             overflow = TextOverflow.Ellipsis
                         )
 
-                        Text(
-                            text = formatSongCount(songsCount),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
                     }
                 }
 

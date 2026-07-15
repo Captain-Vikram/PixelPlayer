@@ -3,6 +3,8 @@ package com.theveloper.pixelplay.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import dev.brahmkshatriya.echo.common.MusicExtension
 import dev.brahmkshatriya.echo.common.models.Feed
@@ -55,7 +57,11 @@ class ExtensionsViewModel @Inject constructor(
     }
 
     fun login(extension: MusicExtension) { /* TODO */ }
-    fun logout(extension: MusicExtension) { /* TODO */ }
+    fun logout(extension: MusicExtension) {
+        viewModelScope.launch {
+            repository.removeLoginSession(extension.metadata.id)
+        }
+    }
     fun deleteExtension(extensionId: String) = repository.deleteExtension(extensionId)
     fun refresh() = repository.fetchStoreExtensions()
     fun refreshFeeds() = repository.refreshFeeds()

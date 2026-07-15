@@ -247,7 +247,7 @@ class DualPlayerEngine @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val userPreferencesRepository: UserPreferencesRepository
 ) {
-    private companion object {
+    companion object {
         private const val AUDIO_OFFLOAD_STALL_FALLBACK_MS = 4_000L
         // Grace window after a crossfade/transition during which the STATE_BUFFERING
         // "HAL offload reset" heuristic is suppressed. Right after the player swap the new
@@ -262,6 +262,11 @@ class DualPlayerEngine @Inject constructor(
         // Subset of REMOTE_MEDIA_SCHEMES: schemes that need proxy resolution.
         // http/https resolve directly and must NOT enter the resolvedUriCache lookup path.
         private val CLOUD_PROXY_SCHEMES = setOf("telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive", "extension", "raw")
+
+        @JvmStatic
+        fun shouldSwapViaSecondaryPlayer(transitionRunning: Boolean): Boolean {
+            return !transitionRunning
+        }
     }
 
     data class TransitionTarget(
@@ -973,6 +978,12 @@ class DualPlayerEngine @Inject constructor(
     // with the corresponding resolvedUriCache entry on playback error.
     private val resolvedHeadersCache = LruCache<String, Map<String, String>>(50)
     private val rawSourceMap = LruCache<String, dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw>(20)
+    
+    private data class ObservedTiers(
+        val tiers: Set<StreamingQuality>,
+        val timestamp: Long
+    )
+    private val observedTiersCache = java.util.concurrent.ConcurrentHashMap<String, ObservedTiers>()
     private var lastErrorMediaId: String? = null
     private var errorRetryCount = 0
 
@@ -1622,7 +1633,21 @@ class DualPlayerEngine @Inject constructor(
             val allStreamables = (loadedTrack.servers.ifEmpty { loadedTrack.streamables })
                 .sortedByDescending { it.quality }
             
-            for (streamable in allStreamables) {
+            val cachedTiers = getObservedTiers(extensionId)
+            val isCacheValid = cachedTiers != null && cachedTiers.isNotEmpty()
+            
+            val streamablesToTry = if (isCacheValid) {
+                val targetTier = resolveTargetStreamingQuality()
+                val sortedStreamables = allStreamables.sortedBy { streamable ->
+                    val tier = getQualityTierForInt(streamable.quality)
+                    kotlin.math.abs(tier.rank - targetTier.rank)
+                }
+                sortedStreamables.take(1)
+            } else {
+                allStreamables
+            }
+
+            for (streamable in streamablesToTry) {
                 try {
                     val media = client.loadStreamableMedia(streamable, false)
                     if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
@@ -1632,6 +1657,23 @@ class DualPlayerEngine @Inject constructor(
                     }
                 } catch (e: Exception) {
                     Timber.tag("DualPlayerEngine").w(e, "Failed to load streamable media for %s", streamable.id)
+                }
+            }
+
+            // Fallback: If cache was used but we found no sources, clear cache and retry with all streamables
+            if (isCacheValid && potentialSources.isEmpty()) {
+                observedTiersCache.remove(extensionId)
+                for (streamable in allStreamables) {
+                    try {
+                        val media = client.loadStreamableMedia(streamable, false)
+                        if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
+                            for (source in media.sources) {
+                                potentialSources.add(source to streamable)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.tag("DualPlayerEngine").w(e, "Failed to load streamable media for %s", streamable.id)
+                    }
                 }
             }
 
@@ -1706,7 +1748,15 @@ class DualPlayerEngine @Inject constructor(
             )
 
             // Dynamic tracking
-            _currentTrackSources.value = potentialSources.map { it.first }
+            val allSources = potentialSources.map { it.first }
+            val mappedTiers = allSources.map { source ->
+                getQualityTierForInt(source.quality)
+            }.toSet()
+            if (mappedTiers.isNotEmpty()) {
+                observedTiersCache[extensionId] = ObservedTiers(mappedTiers, System.currentTimeMillis())
+            }
+
+            _currentTrackSources.value = allSources
             
             val activeSource = if (manualSelectedSource != null && potentialSources.any { it.first.id == manualSelectedSource?.id }) {
                 potentialSources.find { it.first.id == manualSelectedSource?.id }?.first
@@ -1929,8 +1979,37 @@ class DualPlayerEngine @Inject constructor(
 
         if (auxiliaryPlayer.playbackState == Player.STATE_IDLE) auxiliaryPlayer.prepare()
         if (auxiliaryPlayer.playbackState == Player.STATE_BUFFERING) {
-            if (!awaitPlayerReady(auxiliaryPlayer, 3000L)) {
-                playerA.volume = 1f
+            if (!awaitPlayerReady(auxiliaryPlayer, 15000L)) {
+                Timber.tag("TransitionDebug").w("Incoming player ready timeout. Swapping master players anyway as fallback to prevent stall.")
+                
+                // Swap master players so the user sees the new track buffering/playing instead of freezing
+                playerA.volume = 0f
+                auxiliaryPlayer.volume = incomingTrackReplayGainVolume ?: 1f
+                removeMasterPlayerListeners(playerA)
+
+                val outgoingPlayer = playerA
+                playerA = auxiliaryPlayer
+                playerB = outgoingPlayer
+                activeWindowStartIndex = preparedWindowStartIndex
+                activePlayerUsesWindowedQueue = preparedPlayerUsesWindowedQueue
+                resetPreparedWindowState()
+
+                playerA.repeatMode = outgoingPlayer.repeatMode
+                playerA.shuffleModeEnabled = outgoingPlayer.shuffleModeEnabled
+                playerA.playbackParameters = outgoingPlayer.playbackParameters
+
+                playerA.pauseAtEndOfMediaItems = false
+                playerB?.pauseAtEndOfMediaItems = false
+                addMasterPlayerListeners(playerA)
+                if (playerA.playWhenReady) requestAudioFocus()
+
+                onPlayerSwappedListeners.forEach { it(playerA) }
+                _activeAudioSessionId.value = playerA.audioSessionId
+
+                playerB?.pause()
+                playerB?.stop()
+                playerB?.clearMediaItems()
+
                 setPauseAtEndOfMediaItems(false)
                 return
             }
@@ -1947,6 +2026,7 @@ class DualPlayerEngine @Inject constructor(
 
         incomingPlayer.repeatMode = outgoingPlayer.repeatMode
         incomingPlayer.shuffleModeEnabled = outgoingPlayer.shuffleModeEnabled
+        incomingPlayer.playbackParameters = outgoingPlayer.playbackParameters
         outgoingPlayer.pauseAtEndOfMediaItems = true
         incomingPlayer.pauseAtEndOfMediaItems = false
         onTransitionDisplayPlayerListeners.forEach { it(incomingPlayer) }
@@ -2110,5 +2190,15 @@ class DualPlayerEngine @Inject constructor(
         playerB?.release()
         playerB = null
         isReleased = true
+    }
+
+    fun getObservedTiers(extensionId: String): Set<StreamingQuality>? {
+        val cached = observedTiersCache[extensionId] ?: return null
+        // 1 hour cache TTL
+        if (System.currentTimeMillis() - cached.timestamp > 1000L * 60 * 60) {
+            observedTiersCache.remove(extensionId)
+            return null
+        }
+        return cached.tiers
     }
 }

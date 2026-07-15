@@ -16,7 +16,10 @@ import com.theveloper.pixelplay.data.playlist.M3uManager
 import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.repository.ExtensionRepository
+import com.theveloper.pixelplay.data.database.toSong
+import com.theveloper.pixelplay.data.database.toCacheEntity
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import com.theveloper.pixelplay.extensions.core.toAppPlaylist
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -47,6 +50,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.FeatureFlags
 
 data class PlaylistUiState(
     val playlists: List<Playlist> = emptyList(),
@@ -73,6 +77,7 @@ sealed class PlaylistSongsOrderMode {
     data class Sorted(val option: SortOption) : PlaylistSongsOrderMode()
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
@@ -82,11 +87,17 @@ class PlaylistViewModel @Inject constructor(
     private val dailyMixManager: DailyMixManager,
     private val aiPlaylistGenerator: AiPlaylistGenerator,
     private val m3uManager: M3uManager,
+    private val extensionTrackCacheDao: com.theveloper.pixelplay.data.database.ExtensionTrackCacheDao,
+    private val localPlaylistDao: com.theveloper.pixelplay.data.database.LocalPlaylistDao,
+    private val libraryStateHolder: LibraryStateHolder,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlaylistUiState())
     val uiState: StateFlow<PlaylistUiState> = _uiState.asStateFlow()
+
+    private val _libraryPlaylistsUiState = MutableStateFlow(LibraryPlaylistsUiState())
+    val libraryPlaylistsUiState: StateFlow<LibraryPlaylistsUiState> = _libraryPlaylistsUiState.asStateFlow()
 
     private val _playlistCreationEvent = MutableSharedFlow<Boolean>(
         extraBufferCapacity = 1,
@@ -115,10 +126,22 @@ class PlaylistViewModel @Inject constructor(
 
     init {
         loadPlaylistsAndInitialSortOption()
-        observeExtensionPlaylists()
         observeTelegramCloudPlaylistVisibility()
         observeTelegramTopicDisplayMode()
         observePlaylistOrderModes()
+        viewModelScope.launch {
+            val mixedSourceIdsFlow = localPlaylistDao.getMixedSourcePlaylistIds()
+            libraryStateHolder.currentSourceScope.flatMapLatest { scope ->
+                buildLibraryPlaylistsUiState(
+                    scope = scope,
+                    localPlaylistsFlow = playlistPreferencesRepository.userPlaylistsFlow,
+                    mixedSourceIdsFlow = mixedSourceIdsFlow,
+                    extensionRepository = extensionRepository
+                )
+            }.collect { newState ->
+                _libraryPlaylistsUiState.value = newState
+            }
+        }
     }
 
     fun fetchRemotePlaylists(song: Song) {
@@ -227,6 +250,10 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
+    fun getPlaylistsForExtension(extensionId: String): kotlinx.coroutines.flow.Flow<List<Playlist>> {
+        return playlistPreferencesRepository.getPlaylistsForExtension(extensionId)
+    }
+
     fun loadPlaylistDetails(playlistId: String) {
         viewModelScope.launch {
             val shouldKeepExisting = _uiState.value.currentPlaylistDetails?.id == playlistId
@@ -289,7 +316,15 @@ class PlaylistViewModel @Inject constructor(
                             ?: PlaylistSongsOrderMode.Manual
 
                         val songsList: List<Song> = withContext(Dispatchers.IO) {
-                            musicRepository.getSongsByIds(playlist.songIds).first()
+                            val dbSongs = musicRepository.getSongsByIds(playlist.songIds).first()
+                            val dbSongMap = dbSongs.associateBy { it.id }
+                            
+                            playlist.songIds.map { sid ->
+                                dbSongMap[sid] ?: run {
+                                    // Fallback to isolated extension track cache
+                                    extensionTrackCacheDao.getTrack(sid)?.toSong()
+                                }
+                            }.filterNotNull()
                         }
 
                         val orderedSongs = when (orderMode) {
@@ -374,7 +409,9 @@ class PlaylistViewModel @Inject constructor(
         coverShapeDetail3: Float? = null,
         coverShapeDetail4: Float? = null,
         source: String = "LOCAL",
-        smartRuleKey: String? = null
+        smartRuleKey: String? = null,
+        extensionId: String? = null,
+        songObjects: List<Song> = emptyList()
     ) {
         viewModelScope.launch {
             var savedCoverPath: String? = null
@@ -404,9 +441,38 @@ class PlaylistViewModel @Inject constructor(
                 else -> source
             }
 
+            // Save metadata of remote extension songs added to this playlist
+            withContext(Dispatchers.IO) {
+                val remoteSongsToCache = if (songObjects.isNotEmpty()) {
+                    songObjects.filter { it.id.startsWith("extension:") }
+                } else {
+                    val remoteIds = resolvedSongIds.filter { it.startsWith("extension:") }
+                    if (remoteIds.isNotEmpty()) {
+                        musicRepository.getSongsByIds(remoteIds).first()
+                    } else {
+                        emptyList()
+                    }
+                }
+                remoteSongsToCache.forEach { s ->
+                    extensionTrackCacheDao.insertTrack(s.toCacheEntity())
+                }
+            }
+
             playlistPreferencesRepository.createPlaylist(
                 name = name,
-                songIds = resolvedSongIds
+                songIds = resolvedSongIds,
+                isAiGenerated = isAiGenerated,
+                isQueueGenerated = isQueueGenerated,
+                coverImageUri = savedCoverPath ?: coverImageUri,
+                coverColorArgb = coverColor,
+                coverIconName = coverIcon,
+                coverShapeType = coverShapeType,
+                coverShapeDetail1 = coverShapeDetail1,
+                coverShapeDetail2 = coverShapeDetail2,
+                coverShapeDetail3 = coverShapeDetail3,
+                coverShapeDetail4 = coverShapeDetail4,
+                source = resolvedSource,
+                extensionId = extensionId
             )
             _playlistCreationEvent.emit(true)
         }
@@ -560,7 +626,7 @@ class PlaylistViewModel @Inject constructor(
             try {
                 val (name, songIds) = m3uManager.parseM3u(uri)
                 if (songIds.isNotEmpty()) {
-                    playlistPreferencesRepository.createPlaylist(name, songIds)
+                    createPlaylist(name, songIds = songIds)
                 }
             } catch (e: Exception) {
                 Log.e("PlaylistViewModel", "Error importing M3U", e)
@@ -676,6 +742,17 @@ class PlaylistViewModel @Inject constructor(
     fun addSongsToPlaylist(playlistId: String, songIdsToAdd: List<String>) {
         if (isFolderPlaylistId(playlistId)) return
         viewModelScope.launch {
+            if (!playlistId.startsWith("extension:")) {
+                withContext(Dispatchers.IO) {
+                    val remoteIds = songIdsToAdd.filter { it.startsWith("extension:") }
+                    if (remoteIds.isNotEmpty()) {
+                        val resolvedSongs = musicRepository.getSongsByIds(remoteIds).first()
+                        resolvedSongs.forEach { s ->
+                            extensionTrackCacheDao.insertTrack(s.toCacheEntity())
+                        }
+                    }
+                }
+            }
             if (playlistId.startsWith("extension:")) {
                 extensionRepository.addTracksToExtensionPlaylist(playlistId, songIdsToAdd)
             } else {
@@ -683,6 +760,54 @@ class PlaylistViewModel @Inject constructor(
             }
             if (_uiState.value.currentPlaylistDetails?.id == playlistId) {
                 loadPlaylistDetails(playlistId)
+            }
+        }
+    }
+
+    fun addSongsToPlaylist(playlistId: String, songObjects: List<Song>, songIdsToAdd: List<String>) {
+        if (isFolderPlaylistId(playlistId)) return
+        viewModelScope.launch {
+            if (!playlistId.startsWith("extension:")) {
+                withContext(Dispatchers.IO) {
+                    songObjects.filter { it.id.startsWith("extension:") }.forEach { s ->
+                        extensionTrackCacheDao.insertTrack(s.toCacheEntity())
+                    }
+                }
+            }
+            if (playlistId.startsWith("extension:")) {
+                extensionRepository.addTracksToExtensionPlaylist(playlistId, songIdsToAdd)
+            } else {
+                playlistPreferencesRepository.addSongsToPlaylist(playlistId, songIdsToAdd)
+            }
+            if (_uiState.value.currentPlaylistDetails?.id == playlistId) {
+                loadPlaylistDetails(playlistId)
+            }
+        }
+    }
+
+    fun addOrRemoveSongFromPlaylists(
+        song: Song,
+        playlistIds: List<String>,
+        currentPlaylistId: String?
+    ) {
+        viewModelScope.launch {
+            val extensionPlaylists = playlistIds.filter { it.startsWith("extension:") }
+            val localPlaylists = playlistIds.filter { !it.startsWith("extension:") }
+            
+            extensionPlaylists.forEach { pid ->
+                 extensionRepository.addTracksToExtensionPlaylist(pid, listOf(song.id))
+            }
+
+            if (localPlaylists.isNotEmpty() && song.id.startsWith("extension:")) {
+                withContext(Dispatchers.IO) {
+                    extensionTrackCacheDao.insertTrack(song.toCacheEntity())
+                }
+            }
+
+            val removedFromPlaylists =
+                playlistPreferencesRepository.addOrRemoveSongFromPlaylists(song.id, localPlaylists)
+            if (currentPlaylistId != null && removedFromPlaylists.contains (currentPlaylistId)) {
+                removeSongFromPlaylist(currentPlaylistId, song.id)
             }
         }
     }
@@ -724,12 +849,40 @@ class PlaylistViewModel @Inject constructor(
         return removed
     }
 
+    fun addSongsToPlaylistsWithMetadata(songs: List<Song>, playlistIds: List<String>) {
+        viewModelScope.launch {
+            playlistIds.forEach { playlistId ->
+                if (playlistId.startsWith("extension:")) {
+                    extensionRepository.addTracksToExtensionPlaylist(playlistId, songs.map { it.id })
+                } else {
+                    if (songs.any { it.id.startsWith("extension:") }) {
+                        withContext(Dispatchers.IO) {
+                            songs.filter { it.id.startsWith("extension:") }.forEach { s ->
+                                extensionTrackCacheDao.insertTrack(s.toCacheEntity())
+                            }
+                        }
+                    }
+                    playlistPreferencesRepository.addSongsToPlaylist(playlistId, songs.map { it.id })
+                }
+            }
+        }
+    }
+
     fun addSongsToPlaylists(songIds: List<String>, playlistIds: List<String>) {
         viewModelScope.launch {
             playlistIds.forEach { playlistId ->
                 if (playlistId.startsWith("extension:")) {
                     extensionRepository.addTracksToExtensionPlaylist(playlistId, songIds)
                 } else {
+                    val remoteIds = songIds.filter { it.startsWith("extension:") }
+                    if (remoteIds.isNotEmpty()) {
+                        withContext(Dispatchers.IO) {
+                            val resolvedSongs = musicRepository.getSongsByIds(remoteIds).first()
+                            resolvedSongs.forEach { s ->
+                                extensionTrackCacheDao.insertTrack(s.toCacheEntity())
+                            }
+                        }
+                    }
                     playlistPreferencesRepository.addSongsToPlaylist(playlistId, songIds)
                 }
             }
@@ -947,13 +1100,14 @@ class PlaylistViewModel @Inject constructor(
                 result.onSuccess { selectedSongs ->
                     val playlistName = "AI: $prompt".take(50)
 
-                    playlistPreferencesRepository.createPlaylist(
+                    createPlaylist(
                         name = playlistName,
-                        songIds = selectedSongs.map { it.id }
+                        songIds = selectedSongs.map { it.id },
+                        songObjects = selectedSongs,
+                        isAiGenerated = true
                     )
 
                     _uiState.update { it.copy(isAiGenerating = false) }
-                    _playlistCreationEvent.emit(true)
                 }.onFailure { e ->
                     _uiState.update { it.copy(isAiGenerating = false, aiGenerationError = e.message) }
                 }
@@ -990,8 +1144,7 @@ class PlaylistViewModel @Inject constructor(
                     .toList()
 
                 if (mergedSongIds.isNotEmpty()) {
-                    playlistPreferencesRepository.createPlaylist(newPlaylistName, mergedSongIds)
-                    _playlistCreationEvent.emit(true)
+                    createPlaylist(newPlaylistName, songIds = mergedSongIds)
                 }
             } catch (e: Exception) {
                 Log.e("PlaylistViewModel", "Error merging playlists", e)

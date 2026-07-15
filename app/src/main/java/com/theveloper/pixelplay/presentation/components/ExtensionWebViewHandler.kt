@@ -117,12 +117,22 @@ private fun WebViewContainer(
         webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
         
         val cookieManager = CookieManager.getInstance()
+        if (request.request.dontCache) {
+            cookieManager.removeAllCookies(null)
+            cookieManager.flush()
+            webView.clearCache(true)
+            webView.clearHistory()
+        }
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
         
         webView.addJavascriptInterface(bridge, "bridge")
         
-        val stopRegex = request.request.stopUrlRegex
+        val stopRegex = if (request.request.initialUrl.url.contains("spotify")) {
+            Regex("(https://accounts\\.spotify\\.com/.*status.*)|(https://open\\.spotify\\.com.*)")
+        } else {
+            request.request.stopUrlRegex
+        }
         val interceptRegex = if (request.request is WebViewRequest.Headers) {
             request.request.interceptUrlRegex
         } else {
@@ -369,7 +379,13 @@ private fun <T> triggerStop(
             if (req is WebViewRequest.Cookie) {
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.flush()
-                val cookies = cookieManager.getCookie(url) ?: ""
+                var cookies = cookieManager.getCookie(url) ?: ""
+                if (url.contains("spotify") && !cookies.contains("sp_dc")) {
+                    val fallbackCookies = cookieManager.getCookie("https://open.spotify.com")
+                    if (!fallbackCookies.isNullOrBlank()) {
+                        cookies = if (cookies.isBlank()) fallbackCookies else "$cookies; $fallbackCookies"
+                    }
+                }
                 cookieRes = req.onStop(
                     NetworkRequest(NetworkRequest.Method.GET, url),
                     cookies

@@ -8,7 +8,7 @@ import android.util.Log
 import kotlinx.coroutines.withContext
 import androidx.compose.animation.core.Animatable
 import androidx.core.content.ContextCompat
-import com.theveloper.pixelplay.data.model.LibraryTabId
+import com.theveloper.pixelplay.presentation.library.LibraryTabId
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -52,7 +52,7 @@ import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.StreamingQuality
 import com.theveloper.pixelplay.data.model.SourceScope
 import com.theveloper.pixelplay.data.model.SortOption
-import com.theveloper.pixelplay.data.model.toLibraryTabIdOrNull
+import com.theveloper.pixelplay.presentation.library.toLibraryTabIdOrNull
 import com.theveloper.pixelplay.data.provider.SharedArtworkContentProvider
 import com.theveloper.pixelplay.data.preferences.CarouselStyle
 import com.theveloper.pixelplay.data.preferences.LibraryNavigationMode
@@ -68,7 +68,12 @@ import com.theveloper.pixelplay.data.repository.LyricsSearchResult
 import dev.brahmkshatriya.echo.common.MusicExtension
 import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.getIf
 import dev.brahmkshatriya.echo.extension.loader.ExtensionUtils.getAs
+import dev.brahmkshatriya.echo.common.clients.AlbumClient
+import dev.brahmkshatriya.echo.common.clients.PlaylistClient
 import dev.brahmkshatriya.echo.common.clients.RadioClient
+import dev.brahmkshatriya.echo.common.models.EchoMediaItem
+import com.theveloper.pixelplay.extensions.core.loadAll
+import dev.brahmkshatriya.echo.common.models.Shelf
 import kotlinx.coroutines.sync.withLock
 import dev.brahmkshatriya.echo.common.models.ImageHolder.Companion.toImageHolder
 import com.theveloper.pixelplay.extensions.core.toSong
@@ -369,12 +374,19 @@ class PlayerViewModel @Inject constructor(
                 activeRadioLoadJob = launch {
                     try {
                         val extension = extensionRepository.allExtensions.value.find { it.metadata.id == extensionId } ?: return@launch
-                        val radio = extension.getAs<RadioClient, dev.brahmkshatriya.echo.common.models.Radio> {
+                        
+                        var radioResult = extension.getAs<RadioClient, dev.brahmkshatriya.echo.common.models.Radio> {
                             val rawItemId = when {
                                 artist.mediaId?.startsWith("extension:") == true -> {
-                                    val prefix = "extension:$extensionId:artist:"
-                                    if (artist.mediaId.startsWith(prefix)) {
-                                        artist.mediaId.removePrefix(prefix)
+                                    val parts = artist.mediaId.split(":")
+                                    if (parts.size >= 4) {
+                                        var itemId = parts.drop(3).joinToString(":")
+                                        if (extensionId == "spotify") {
+                                            itemId = if (itemId.startsWith("spotify:")) itemId
+                                            else if (itemId.startsWith("artist:")) "spotify:$itemId"
+                                            else "spotify:artist:$itemId"
+                                        }
+                                        itemId
                                     } else {
                                         artist.mediaId.substringAfter("artist:")
                                     }
@@ -387,15 +399,50 @@ class PlayerViewModel @Inject constructor(
                                 cover = artist.effectiveImageUrl?.toImageHolder()
                             )
                             radio(echoArtist, null)
-                        }.getOrNull() ?: return@launch
+                        }.getOrNull()
 
+                        if (radioResult == null) {
+                            Timber.tag("PlayerViewModel").d("Direct artist radio returned null. Falling back to artist tracks for seeding.")
+                            // Fallback: load artist details to find a track to seed the radio
+                            val details = extensionRepository.loadArtistDetails(artist.mediaId ?: "")
+                            if (details != null) {
+                                val allItems = details.shelves.flatMap { shelf ->
+                                    when (shelf) {
+                                        is Shelf.Lists<*> -> shelf.list.filterIsInstance<EchoMediaItem>()
+                                        is Shelf.Item -> listOf(shelf.media)
+                                        else -> emptyList()
+                                    }
+                                }
+                                var targetTrack = allItems.filterIsInstance<dev.brahmkshatriya.echo.common.models.Track>().firstOrNull()
+                                
+                                if (targetTrack == null) {
+                                    val albums = allItems.filterIsInstance<dev.brahmkshatriya.echo.common.models.Album>()
+                                    val firstAlbum = albums.firstOrNull()
+                                    if (firstAlbum != null) {
+                                        val albumTracks = extension.getAs<AlbumClient, dev.brahmkshatriya.echo.common.models.Feed<dev.brahmkshatriya.echo.common.models.Track>?> {
+                                            loadTracks(firstAlbum)
+                                        }.getOrNull()?.loadAll() ?: emptyList()
+                                        targetTrack = albumTracks.firstOrNull()
+                                    }
+                                }
+                                
+                                if (targetTrack != null) {
+                                    radioResult = extension.getAs<RadioClient, dev.brahmkshatriya.echo.common.models.Radio> {
+                                        radio(targetTrack, null)
+                                    }.getOrNull()
+                                }
+                            }
+                        }
+
+                        val radio = radioResult ?: return@launch
+ 
                         val pagedData = extension.getAs<RadioClient, dev.brahmkshatriya.echo.common.models.Feed<dev.brahmkshatriya.echo.common.models.Track>> {
                             loadTracks(radio)
                         }.getOrNull() ?: return@launch
-
+ 
                         val initialPage = pagedData.pagedDataOfFirst().loadPage(null)
                         val sortedTracks = extensionRepository.rankTracksByEngagement(initialPage.data, extensionId)
-
+ 
                         currentRadioSession = RadioSession(
                             extensionId = extensionId,
                             radio = radio,
@@ -403,7 +450,7 @@ class PlayerViewModel @Inject constructor(
                             nextToken = initialPage.continuation,
                             isEndReached = initialPage.continuation == null
                         )
-
+ 
                         val recommendedSongs = sortedTracks.map { it.toSong(extensionId) }
                         if (recommendedSongs.isNotEmpty()) {
                             queueSyncMutex.withLock {
@@ -424,6 +471,65 @@ class PlayerViewModel @Inject constructor(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    fun playExtensionArtistShuffled(artist: Artist, shelves: List<Shelf>) {
+        val extensionId = artist.extensionId ?: return
+        viewModelScope.launch {
+            try {
+                val allItems = shelves.flatMap { shelf ->
+                    when (shelf) {
+                        is Shelf.Lists<*> -> shelf.list.filterIsInstance<EchoMediaItem>()
+                        is Shelf.Item -> listOf(shelf.media)
+                        else -> emptyList()
+                    }
+                }
+
+                // Collect direct tracks from shelves
+                val directTracks = allItems.filterIsInstance<dev.brahmkshatriya.echo.common.models.Track>()
+                if (directTracks.isNotEmpty()) {
+                    val songs = directTracks.map { it.toSong(extensionId) }
+                    playSongsShuffled(songs, artist.name, startAtZero = true)
+                    return@launch
+                }
+
+                // If no tracks, try to find an album or playlist
+                val albums = allItems.filterIsInstance<dev.brahmkshatriya.echo.common.models.Album>()
+                val firstAlbum = albums.firstOrNull()
+                if (firstAlbum != null) {
+                    val extension = extensionRepository.allExtensions.value.find { it.metadata.id == extensionId } ?: return@launch
+                    val albumTracks = extension.getAs<AlbumClient, dev.brahmkshatriya.echo.common.models.Feed<dev.brahmkshatriya.echo.common.models.Track>?> {
+                        loadTracks(firstAlbum)
+                    }.getOrNull()?.loadAll() ?: emptyList()
+
+                    if (albumTracks.isNotEmpty()) {
+                        val songs = albumTracks.map { it.toSong(extensionId, albumContext = firstAlbum) }
+                        playSongsShuffled(songs, firstAlbum.title, startAtZero = true)
+                        return@launch
+                    }
+                }
+                
+                val playlists = allItems.filterIsInstance<dev.brahmkshatriya.echo.common.models.Playlist>()
+                val firstPlaylist = playlists.firstOrNull()
+                if (firstPlaylist != null) {
+                    val extension = extensionRepository.allExtensions.value.find { it.metadata.id == extensionId } ?: return@launch
+                    val playlistTracks = extension.getAs<PlaylistClient, dev.brahmkshatriya.echo.common.models.Feed<dev.brahmkshatriya.echo.common.models.Track>?> {
+                        loadTracks(firstPlaylist)
+                    }.getOrNull()?.loadAll() ?: emptyList()
+
+                    if (playlistTracks.isNotEmpty()) {
+                        val songs = playlistTracks.map { it.toSong(extensionId) }
+                        playSongsShuffled(songs, firstPlaylist.title, startAtZero = true)
+                        return@launch
+                    }
+                }
+
+                _toastEvents.emit("No playable tracks found for this artist.")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to load extension artist tracks for shuffling")
+                _toastEvents.emit("Couldn't shuffle artist tracks")
             }
         }
     }
@@ -592,21 +698,28 @@ class PlayerViewModel @Inject constructor(
         override fun onLoadingStarted(songId: String) {
             playbackStateHolder.updateStablePlayerState { state ->
                 if (state.currentSong?.id != songId) state
-                else state.copy(isLoadingLyrics = true, lyrics = null)
+                else state.copy(isLoadingLyrics = true, lyrics = null, lyricsError = null)
             }
         }
 
         override fun onLyricsLoaded(songId: String, lyrics: Lyrics?) {
             playbackStateHolder.updateStablePlayerState { state ->
                 if (state.currentSong?.id != songId) state
-                else state.copy(isLoadingLyrics = false, lyrics = lyrics)
+                else state.copy(isLoadingLyrics = false, lyrics = lyrics, lyricsError = null)
+            }
+        }
+
+        override fun onLyricsLoadError(songId: String, error: String) {
+            playbackStateHolder.updateStablePlayerState { state ->
+                if (state.currentSong?.id != songId) state
+                else state.copy(isLoadingLyrics = false, lyrics = null, lyricsError = error)
             }
         }
     }
 
 
 
-    private val _playlistPickerSourceScope = MutableStateFlow<SourceScope>(SourceScope.All)
+    private val _playlistPickerSourceScope = MutableStateFlow<SourceScope>(SourceScope.Local)
     val playlistPickerSourceScope: StateFlow<SourceScope> = _playlistPickerSourceScope.asStateFlow()
 
     /**
@@ -1040,8 +1153,7 @@ class PlayerViewModel @Inject constructor(
                     // Smart Locate: Switch to the song's actual scope
                     val targetScope = when {
                         currentSong.extensionId != null -> com.theveloper.pixelplay.data.model.SourceScope.Extension(currentSong.extensionId!!)
-                        currentSong.id.toLongOrNull() != null && currentSong.id.toLong() >= 0 -> com.theveloper.pixelplay.data.model.SourceScope.Local
-                        else -> com.theveloper.pixelplay.data.model.SourceScope.All
+                        else -> com.theveloper.pixelplay.data.model.SourceScope.Local
                     }
 
                     if (targetScope != currentScope) {
@@ -1054,7 +1166,6 @@ class PlayerViewModel @Inject constructor(
 
                         if (index != -1) {
                             val scopeName = when(targetScope) {
-                                com.theveloper.pixelplay.data.model.SourceScope.All -> context.getString(R.string.library_storage_filter_all_songs)
                                 com.theveloper.pixelplay.data.model.SourceScope.Local -> context.getString(R.string.library_storage_filter_offline)
                                 is com.theveloper.pixelplay.data.model.SourceScope.Extension -> {
                                     extensionEngine.music.value.find { it.metadata.id == targetScope.extensionId }?.metadata?.name 
@@ -1151,8 +1262,16 @@ class PlayerViewModel @Inject constructor(
             // Defer synchronization until properties are ready
             yield() 
             
-            extensionRepository.currentMusicExtension.collect {
-                forceUpdateDailyMix()
+            launch {
+                extensionRepository.currentMusicExtension.collect {
+                    forceUpdateDailyMix()
+                }
+            }
+
+            launch {
+                libraryStateHolder.currentSourceScope.collect {
+                    _loadedTabs.value = emptySet()
+                }
             }
         }
 
@@ -1458,7 +1577,7 @@ class PlayerViewModel @Inject constructor(
     private val _loadedTabs = MutableStateFlow(emptySet<String>())
     private var lastBlockedDirectories: Set<String>? = null
 
-    private val _currentLibraryTabId = MutableStateFlow(LibraryTabId.SONGS)
+    private val _currentLibraryTabId = MutableStateFlow(LibraryTabId.Songs)
     val currentLibraryTabId: StateFlow<LibraryTabId> = _currentLibraryTabId.asStateFlow()
 
     private val _isSortingSheetVisible = MutableStateFlow(false)
@@ -1469,12 +1588,13 @@ class PlayerViewModel @Inject constructor(
             Trace.beginSection("PlayerViewModel.availableSortOptionsMapping")
             try {
                 when (tabId) {
-                    LibraryTabId.SONGS -> SortOption.SONGS
-                    LibraryTabId.ALBUMS -> SortOption.ALBUMS
-                    LibraryTabId.ARTISTS -> SortOption.ARTISTS
-                    LibraryTabId.PLAYLISTS -> SortOption.PLAYLISTS
-                    LibraryTabId.FOLDERS -> SortOption.FOLDERS
-                    LibraryTabId.LIKED -> SortOption.LIKED
+                    LibraryTabId.Songs -> SortOption.SONGS
+                    LibraryTabId.Albums -> SortOption.ALBUMS
+                    LibraryTabId.Artists -> SortOption.ARTISTS
+                    LibraryTabId.Playlists -> SortOption.PLAYLISTS
+                    LibraryTabId.Folders -> SortOption.FOLDERS
+                    LibraryTabId.Liked -> SortOption.LIKED
+                    LibraryTabId.Overview -> emptyList()
                 }
             } finally {
                 Trace.endSection()
@@ -2099,7 +2219,7 @@ class PlayerViewModel @Inject constructor(
 
         viewModelScope.launch {
             combine(libraryTabsFlow, lastLibraryTabIndexFlow) { tabs, index ->
-                tabs.getOrNull(index)?.toLibraryTabIdOrNull() ?: LibraryTabId.SONGS
+                tabs.getOrNull(index)?.toLibraryTabIdOrNull() ?: LibraryTabId.Songs
             }.collect { tabId ->
                 _currentLibraryTabId.value = tabId
             }
@@ -2728,6 +2848,10 @@ class PlayerViewModel @Inject constructor(
 
     fun setTemporaryQualityOverride(quality: StreamingQuality?) {
         dualPlayerEngine.setTemporaryQualityOverride(quality)
+    }
+
+    fun getObservedTiers(extensionId: String): Set<StreamingQuality>? {
+        return dualPlayerEngine.getObservedTiers(extensionId)
     }
 
     fun selectTrackSource(source: dev.brahmkshatriya.echo.common.models.Streamable.Source) {

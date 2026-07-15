@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 44,
-    "identityHash": "1997cd9b11be96ce0bc209e5d60e1f66",
+    "version": 47,
+    "identityHash": "31db802755452fba57132fcac45d1f6b",
     "entities": [
       {
         "tableName": "album_art_themes",
@@ -644,11 +644,22 @@
           "columnNames": [
             "id"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_search_history_timestamp",
+            "unique": false,
+            "columnNames": [
+              "timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_search_history_timestamp` ON `${TABLE_NAME}` (`timestamp`)"
+          }
+        ]
       },
       {
         "tableName": "songs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `title` TEXT NOT NULL, `artist_name` TEXT NOT NULL, `artist_id` INTEGER NOT NULL, `album_artist` TEXT, `album_name` TEXT NOT NULL, `album_id` INTEGER NOT NULL, `content_uri_string` TEXT NOT NULL, `album_art_uri_string` TEXT, `duration` INTEGER NOT NULL, `genre` TEXT, `file_path` TEXT NOT NULL, `parent_directory_path` TEXT NOT NULL, `is_favorite` INTEGER NOT NULL DEFAULT 0, `lyrics` TEXT DEFAULT null, `track_number` INTEGER NOT NULL DEFAULT 0, `disc_number` INTEGER DEFAULT null, `year` INTEGER NOT NULL DEFAULT 0, `date_added` INTEGER NOT NULL DEFAULT 0, `mime_type` TEXT, `bitrate` INTEGER, `sample_rate` INTEGER, `telegram_chat_id` INTEGER, `telegram_file_id` INTEGER, `artists_json` TEXT, `source_type` INTEGER NOT NULL DEFAULT 0, `extension_id` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`album_id`) REFERENCES `albums`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`artist_id`) REFERENCES `artists`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `title` TEXT NOT NULL, `artist_name` TEXT NOT NULL, `artist_id` INTEGER NOT NULL, `album_artist` TEXT, `album_name` TEXT NOT NULL, `album_id` INTEGER NOT NULL, `content_uri_string` TEXT NOT NULL, `album_art_uri_string` TEXT, `duration` INTEGER NOT NULL, `genre` TEXT, `file_path` TEXT NOT NULL, `parent_directory_path` TEXT NOT NULL, `is_favorite` INTEGER NOT NULL DEFAULT 0, `lyrics` TEXT DEFAULT null, `track_number` INTEGER NOT NULL DEFAULT 0, `disc_number` INTEGER DEFAULT null, `year` INTEGER NOT NULL DEFAULT 0, `date_added` INTEGER NOT NULL DEFAULT 0, `mime_type` TEXT, `bitrate` INTEGER, `sample_rate` INTEGER, `telegram_chat_id` INTEGER, `telegram_file_id` INTEGER, `artists_json` TEXT, `source_type` INTEGER NOT NULL DEFAULT 0, `extension_id` TEXT, `background_uri_string` TEXT, `subtitle_uri_string` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`album_id`) REFERENCES `albums`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`artist_id`) REFERENCES `artists`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -805,6 +816,16 @@
           {
             "fieldPath": "extensionId",
             "columnName": "extension_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "backgroundUriString",
+            "columnName": "background_uri_string",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "subtitleUriString",
+            "columnName": "subtitle_uri_string",
             "affinity": "TEXT"
           }
         ],
@@ -1564,6 +1585,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_song_engagements_play_count` ON `${TABLE_NAME}` (`play_count`)"
+          },
+          {
+            "name": "index_song_engagements_last_played_timestamp",
+            "unique": false,
+            "columnNames": [
+              "last_played_timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_song_engagements_last_played_timestamp` ON `${TABLE_NAME}` (`last_played_timestamp`)"
           }
         ]
       },
@@ -2880,6 +2910,85 @@
         ]
       },
       {
+        "tableName": "extension_track_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `artist` TEXT NOT NULL, `album` TEXT NOT NULL, `duration` INTEGER NOT NULL, `album_art_uri` TEXT, `extension_id` TEXT NOT NULL, `cached_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "artist",
+            "columnName": "artist",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "album",
+            "columnName": "album",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "duration",
+            "columnName": "duration",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "albumArtUri",
+            "columnName": "album_art_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "extensionId",
+            "columnName": "extension_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cachedAt",
+            "columnName": "cached_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_extension_track_cache_extension_id",
+            "unique": false,
+            "columnNames": [
+              "extension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_extension_track_cache_extension_id` ON `${TABLE_NAME}` (`extension_id`)"
+          },
+          {
+            "name": "index_extension_track_cache_cached_at",
+            "unique": false,
+            "columnNames": [
+              "cached_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_extension_track_cache_cached_at` ON `${TABLE_NAME}` (`cached_at`)"
+          }
+        ]
+      },
+      {
         "tableName": "ExtensionEntity",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `type` TEXT NOT NULL, `enabled` INTEGER NOT NULL, PRIMARY KEY(`id`, `type`))",
         "fields": [
@@ -2981,7 +3090,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1997cd9b11be96ce0bc209e5d60e1f66')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '31db802755452fba57132fcac45d1f6b')"
     ]
   }
 }

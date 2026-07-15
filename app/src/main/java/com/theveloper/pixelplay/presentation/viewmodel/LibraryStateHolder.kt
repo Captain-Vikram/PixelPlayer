@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.toArgb
 import android.util.Log
 import com.theveloper.pixelplay.data.model.Album
 import com.theveloper.pixelplay.data.model.Artist
-import com.theveloper.pixelplay.data.model.LibraryTabId
+import com.theveloper.pixelplay.presentation.library.LibraryTabId
 import com.theveloper.pixelplay.data.model.MusicFolder
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.SortOption
@@ -78,7 +78,7 @@ class LibraryStateHolder @Inject constructor(
     val currentSongSortOption = _currentSongSortOption.asStateFlow()
 
     // Filter Options
-    private val _currentSourceScope = MutableStateFlow<SourceScope>(SourceScope.All)
+    private val _currentSourceScope = MutableStateFlow<SourceScope>(SourceScope.Local)
     val currentSourceScope = _currentSourceScope.asStateFlow()
 
     /**
@@ -102,7 +102,7 @@ class LibraryStateHolder @Inject constructor(
             sort to scope
         }.flatMapLatest { (sortOption, scope) ->
             if (scope is SourceScope.Extension) {
-                val pagedData = extensionRepository.getPagedDataByType(LibraryTabId.SONGS)
+                val pagedData = extensionRepository.getPagedDataByType(LibraryTabId.Songs)
                 if (pagedData != null) {
                     androidx.paging.Pager(
                         config = androidx.paging.PagingConfig(pageSize = 50),
@@ -145,7 +145,7 @@ class LibraryStateHolder @Inject constructor(
             Triple(sort, scope, minTracks)
         }.flatMapLatest { (sortOption, scope, minTracks) ->
             if (scope is SourceScope.Extension) {
-                val pagedData = extensionRepository.getPagedDataByType(LibraryTabId.ALBUMS)
+                val pagedData = extensionRepository.getPagedDataByType(LibraryTabId.Albums)
                 if (pagedData != null) {
                     androidx.paging.Pager(
                         config = androidx.paging.PagingConfig(pageSize = 50),
@@ -172,7 +172,7 @@ class LibraryStateHolder @Inject constructor(
             sort to scope
         }.flatMapLatest { (sortOption, scope) ->
             if (scope is SourceScope.Extension) {
-                val pagedData = extensionRepository.getPagedDataByType(LibraryTabId.ARTISTS)
+                val pagedData = extensionRepository.getPagedDataByType(LibraryTabId.Artists)
                 if (pagedData != null) {
                     androidx.paging.Pager(
                         config = androidx.paging.PagingConfig(pageSize = 50),
@@ -301,21 +301,28 @@ class LibraryStateHolder @Inject constructor(
         }
 
         // Sync SourceScope changes back to ExtensionRepository
+        var isApplyingScope = false
         scope.launch {
             _currentSourceScope.collect { scope ->
-                val currentExt = extensionRepository.currentMusicExtension.value
-                if (scope is SourceScope.Extension) {
-                    val targetId = scope.extensionId
-                    if (currentExt?.metadata?.id != targetId) {
-                        val extension = extensionRepository.allExtensions.value.find { it.metadata.id == targetId } as? dev.brahmkshatriya.echo.common.MusicExtension
-                        if (extension != null) {
-                            extensionRepository.selectMusicExtension(extension)
+                if (isApplyingScope) return@collect
+                isApplyingScope = true
+                try {
+                    val currentExt = extensionRepository.currentMusicExtension.value
+                    if (scope is SourceScope.Extension) {
+                        val targetId = scope.extensionId
+                        if (currentExt?.metadata?.id != targetId) {
+                            val extension = extensionRepository.allExtensions.value.find { it.metadata.id == targetId } as? dev.brahmkshatriya.echo.common.MusicExtension
+                            if (extension != null) {
+                                extensionRepository.selectMusicExtension(extension)
+                            }
+                        }
+                    } else if (scope is SourceScope.Local) {
+                        if (currentExt != null) {
+                            extensionRepository.selectMusicExtension(null)
                         }
                     }
-                } else if (scope is SourceScope.Local) {
-                    if (currentExt != null) {
-                        extensionRepository.selectMusicExtension(null)
-                    }
+                } finally {
+                    isApplyingScope = false
                 }
             }
         }
@@ -328,8 +335,8 @@ class LibraryStateHolder @Inject constructor(
                 if (current is SourceScope.Extension) {
                     val stillInstalled = extensions.any { it.metadata.id == current.extensionId }
                     if (!stillInstalled) {
-                        Log.w("LibraryStateHolder", "Extension ${current.extensionId} uninstalled. Falling back to All scope.")
-                        setSourceScope(SourceScope.All)
+                        Log.w("LibraryStateHolder", "Extension ${current.extensionId} uninstalled. Falling back to Local scope.")
+                        setSourceScope(SourceScope.Local)
                     }
                 }
             }

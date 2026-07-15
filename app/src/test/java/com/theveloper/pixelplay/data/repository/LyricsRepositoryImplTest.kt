@@ -14,6 +14,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
+import dev.brahmkshatriya.echo.extension.loader.ExtensionLoader
 import java.io.File
 import java.nio.file.Files
 import org.junit.jupiter.api.Test
@@ -41,7 +42,8 @@ class LyricsRepositoryImplTest {
             context = mockk<Context>(relaxed = true),
             lrcLibApiService = mockk<LrcLibApiService>(relaxed = true),
             lyricsDao = mockk<LyricsDao>(relaxed = true),
-            okHttpClient = mockk<OkHttpClient>(relaxed = true)
+            okHttpClient = mockk<OkHttpClient>(relaxed = true),
+            extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         )
         val song = Song(
             id = "12",
@@ -75,7 +77,8 @@ class LyricsRepositoryImplTest {
             context = mockk<Context>(relaxed = true),
             lrcLibApiService = apiService,
             lyricsDao = mockk<LyricsDao>(relaxed = true),
-            okHttpClient = mockk<OkHttpClient>(relaxed = true)
+            okHttpClient = mockk<OkHttpClient>(relaxed = true),
+            extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         )
         val song = Song(
             id = "45",
@@ -117,7 +120,8 @@ class LyricsRepositoryImplTest {
             context = mockk<Context>(relaxed = true),
             lrcLibApiService = apiService,
             lyricsDao = lyricsDao,
-            okHttpClient = mockk<OkHttpClient>(relaxed = true)
+            okHttpClient = mockk<OkHttpClient>(relaxed = true),
+            extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         )
         val song = Song(
             id = "77",
@@ -165,7 +169,8 @@ class LyricsRepositoryImplTest {
             context = testContext(),
             lrcLibApiService = apiService,
             lyricsDao = lyricsDao,
-            okHttpClient = mockk<OkHttpClient>(relaxed = true)
+            okHttpClient = mockk<OkHttpClient>(relaxed = true),
+            extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         )
         val song = testSong(
             id = "101",
@@ -197,7 +202,8 @@ class LyricsRepositoryImplTest {
             context = testContext(),
             lrcLibApiService = apiService,
             lyricsDao = lyricsDao,
-            okHttpClient = mockk<OkHttpClient>(relaxed = true)
+            okHttpClient = mockk<OkHttpClient>(relaxed = true),
+            extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         )
         val song = testSong(
             id = "102",
@@ -229,7 +235,8 @@ class LyricsRepositoryImplTest {
             context = testContext(),
             lrcLibApiService = apiService,
             lyricsDao = lyricsDao,
-            okHttpClient = mockk<OkHttpClient>(relaxed = true)
+            okHttpClient = mockk<OkHttpClient>(relaxed = true),
+            extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         )
         val song = testSong(
             id = "103",
@@ -262,7 +269,8 @@ class LyricsRepositoryImplTest {
             context = testContext(),
             lrcLibApiService = apiService,
             lyricsDao = lyricsDao,
-            okHttpClient = mockk<OkHttpClient>(relaxed = true)
+            okHttpClient = mockk<OkHttpClient>(relaxed = true),
+            extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         )
         val song = testSong(
             id = "104",

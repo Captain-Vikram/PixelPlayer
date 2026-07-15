@@ -21,7 +21,8 @@ class ExtensionMetadataCache @Inject constructor(
         val title: String,
         val artist: String?,
         val album: String?,
-        val genres: List<String> = emptyList()
+        val genres: List<String> = emptyList(),
+        val albumArtUri: String? = null
     )
 
     init {
@@ -47,10 +48,10 @@ class ExtensionMetadataCache @Inject constructor(
         }
     }
 
-    fun saveMetadata(songId: String, title: String, artist: String?, album: String?, genres: List<String> = emptyList()) {
+    fun saveMetadata(songId: String, title: String, artist: String?, album: String?, genres: List<String> = emptyList(), albumArtUri: String? = null) {
         if (songId.isBlank()) return
         synchronized(lock) {
-            val updated = TrackMetadata(title = title, artist = artist, album = album, genres = genres)
+            val updated = TrackMetadata(title = title, artist = artist, album = album, genres = genres, albumArtUri = albumArtUri)
             if (metadataMap[songId] == updated) return
             metadataMap[songId] = updated
             try {

@@ -609,6 +609,36 @@ private fun String.capitalizeFirstLetter(): String {
 
 object LyricsUtils {
 
+    fun levenshteinRatio(s1: String, s2: String): Double {
+        val len1 = s1.length
+        val len2 = s2.length
+        val dp = Array(len1 + 1) { IntArray(len2 + 1) }
+
+        for (i in 0..len1) dp[i][0] = i
+        for (j in 0..len2) dp[0][j] = j
+
+        for (i in 1..len1) {
+            for (j in 1..len2) {
+                val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
+                dp[i][j] = minOf(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + cost
+                )
+            }
+        }
+        val distance = dp[len1][len2]
+        val maxLen = maxOf(len1, len2)
+        if (maxLen == 0) return 1.0
+        return (maxLen - distance).toDouble() / maxLen.toDouble()
+    }
+
+    fun isPlausibleMatch(songTitle: String, candidateTitle: String?): Boolean {
+        if (candidateTitle == null) return true
+        val similarity = levenshteinRatio(songTitle.lowercase(), candidateTitle.lowercase())
+        return similarity > 0.6
+    }
+
     private val LRC_LINE_REGEX = Pattern.compile("^\\[(\\d{2}):(\\d{2})[.:](\\d{2,3})](.*)$")
     private val LRC_WORD_REGEX = Pattern.compile("<(\\d{2}):(\\d{2})[.:](\\d{2,3})>([^<]*)")
     private val LRC_WORD_TAG_REGEX = Regex("<\\d{2}:\\d{2}[.:]\\d{2,3}>")
@@ -698,11 +728,11 @@ object LyricsUtils {
                             val timedWordText = timedWordTextRaw.trim()
                             pendingWordBoundary = timedWordTextRaw.lastOrNull()?.isWhitespace() == true
                             val wordMillis = if (wordMatcher.group(3)?.length == 2) wordFraction * 10 else wordFraction
-                            val wordTimestamp = wordMinutes * 60 * 1000 + wordSeconds * 1000 + wordMillis
+                            val wordTimestamp = wordMinutes * 60 * 1000L + wordSeconds * 1000L + wordMillis
                             if (timedWordText.isNotEmpty()) {
                                 words.add(
                                     SyncedWord(
-                                        time = wordTimestamp.toInt(),
+                                        time = wordTimestamp,
                                         word = timedWordText,
                                         startsNewWord = startsNewWord
                                     )
@@ -720,7 +750,7 @@ object LyricsUtils {
                                 if (visibleLeading.isNotEmpty()) {
                                     words.add(
                                         SyncedWord(
-                                            time = lineTimestamp.toInt(),
+                                            time = lineTimestamp,
                                             word = visibleLeading,
                                             startsNewWord = words.isEmpty() || startsNewWord
                                         )
@@ -733,12 +763,12 @@ object LyricsUtils {
                     }
 
                     if (words.isNotEmpty()) {
-                        syncedLines.add(SyncedLine(lineTimestamp.toInt(), displayText, words))
+                        syncedLines.add(SyncedLine(lineTimestamp, displayText, words))
                     } else {
-                        syncedLines.add(SyncedLine(lineTimestamp.toInt(), displayText))
+                        syncedLines.add(SyncedLine(lineTimestamp, displayText))
                     }
                 } else {
-                    syncedLines.add(SyncedLine(lineTimestamp.toInt(), text))
+                    syncedLines.add(SyncedLine(lineTimestamp, text))
                 }
             } else {
                 // Line WITHOUT timestamp
@@ -879,7 +909,7 @@ object LyricsUtils {
 
                 words.add(
                     SyncedWord(
-                        time = (lineStartMs + wordOffsetMs).toInt(),
+                        time = lineStartMs + wordOffsetMs,
                         word = wordText,
                         startsNewWord = startsNew
                     )
@@ -892,7 +922,7 @@ object LyricsUtils {
 
             syncedLines.add(
                 SyncedLine(
-                    time = lineStartMs.toInt(),
+                    time = lineStartMs,
                     line = plainText,
                     words = words.takeIf { it.isNotEmpty() }
                 )
@@ -1112,9 +1142,9 @@ fun ProviderText(
 @Composable
 fun BubblesLine(
     positionFlow: Flow<Long>,
-    time: Int,
+    time: Long,
     color: Color,
-    nextTime: Int,
+    nextTime: Long,
     modifier: Modifier = Modifier,
 ) {
     val position by positionFlow.collectAsStateWithLifecycle(initialValue = 0L)

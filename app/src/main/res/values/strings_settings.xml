@@ -667,7 +667,7 @@
     <string name="settings_wifi_quality_subtitle">Choose audio quality when connected to Wi-Fi</string>
     <string name="settings_cellular_quality_title">Preferred cellular quality</string>
     <string name="settings_cellular_quality_subtitle">Choose audio quality when on mobile data</string>
-    <string name="settings_quality_auto">Auto (Network-managed)</string>
+    <string name="settings_quality_auto">Auto (Adapts to sources/network)</string>
     <string name="settings_quality_data_saver">Data Saver (~96 kbps)</string>
     <string name="settings_quality_standard">Standard (~128–160 kbps)</string>
     <string name="settings_quality_high">High (~256–320 kbps)</string>

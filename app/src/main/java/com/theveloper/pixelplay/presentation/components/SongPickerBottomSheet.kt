@@ -36,7 +36,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.data.model.LibraryTabId
+import com.theveloper.pixelplay.presentation.library.LibraryTabId
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.SourceScope
 import com.theveloper.pixelplay.presentation.screens.TabAnimation
@@ -124,11 +124,10 @@ fun SongPickerContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val tabs = listOf(
-                        SourceScope.Local to R.string.library_storage_filter_offline,
-                        SourceScope.All to R.string.library_storage_filter_all_songs
+                    val tabs = listOf<Pair<SourceScope, Int>>(
+                        SourceScope.Local to R.string.library_storage_filter_offline
                     )
-                    val selectedTabIndex = tabs.indexOfFirst { it.first == sourceScope }.coerceAtLeast(0)
+                    val selectedTabIndex = 0
 
                     PrimaryTabRow(
                         selectedTabIndex = selectedTabIndex,
@@ -267,7 +266,6 @@ fun SongPickerSelectionPane(
                     is SourceScope.Extension -> songs.filter { s ->
                         s.extensionId == (sourceScope as SourceScope.Extension).extensionId
                     }
-                    else -> songs
                 }
             }
             .map<List<Song>, List<Song>?> { it }

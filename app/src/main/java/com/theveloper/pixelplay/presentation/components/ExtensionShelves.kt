@@ -18,6 +18,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
 import dev.brahmkshatriya.echo.common.models.Shelf
+import androidx.compose.foundation.background
+import androidx.compose.ui.text.style.TextAlign
+import com.theveloper.pixelplay.presentation.components.SmartImage
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
@@ -73,15 +78,21 @@ fun handleEchoItemClick(
         }
         is Album -> {
             val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:album:${item.id}"
-            navController.navigateSafely(Screen.AlbumDetail.createRoute(mediaId))
+            navController.navigateSafely(Screen.AlbumDetail.createRoute(mediaId)) {
+                launchSingleTop = false
+            }
         }
         is Artist -> {
             val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:artist:${item.id}"
-            navController.navigateSafely(Screen.ArtistDetail.createRoute(mediaId))
+            navController.navigateSafely(Screen.ArtistDetail.createRoute(mediaId)) {
+                launchSingleTop = false
+            }
         }
         is Playlist -> {
             val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:playlist:${item.id}"
-            navController.navigateSafely(Screen.PlaylistDetail.createRoute(mediaId))
+            navController.navigateSafely(Screen.PlaylistDetail.createRoute(mediaId)) {
+                launchSingleTop = false
+            }
         }
         is dev.brahmkshatriya.echo.common.models.Radio -> {
             // Handle Radio
@@ -193,76 +204,24 @@ fun QuickPicksGrid(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 rowItems.forEach { item ->
-                    QuickPickTile(
-                        item = item,
-                        onClick = { onItemClick(item.mediaItem) },
+                    val media = item.mediaItem
+                    val imageUrl = (media.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
+                        ?: (media.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder)?.uri?.toString()
+                    val isCircle = getShelfMediaType(media).isCircleShape
+                    MediaShelfCard(
+                        title = item.title,
+                        subtitle = media.subtitleWithOutE,
+                        imageUrl = imageUrl,
+                        isCircle = isCircle,
+                        layout = ShelfCardLayout.Horizontal,
+                        size = ShelfCardSize.Row,
+                        alignment = ShelfCardAlignment.Start,
+                        onClick = { onItemClick(media) },
                         modifier = Modifier.weight(1f)
                     )
                 }
                 if (rowItems.size == 1) {
                     Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun QuickPickTile(
-    item: QuickPickItem,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isArtist = item.mediaItem is dev.brahmkshatriya.echo.common.models.Artist
-    val imageUrl = remember(item.mediaItem.cover) {
-        when (val cover = item.mediaItem.cover) {
-            is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> cover.request.url
-            is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> cover.uri.toString()
-            else -> null
-        }
-    }
-    Surface(
-        modifier = modifier
-            .height(64.dp)
-            .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            SmartImage(
-                model = imageUrl,
-                contentDescription = item.title,
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(if (isArtist) CircleShape else RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
-                    .padding(if (isArtist) 6.dp else 0.dp),
-                contentScale = ContentScale.Crop
-            )
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                val subtitle = item.mediaItem.subtitleWithOutE
-                if (!subtitle.isNullOrBlank()) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
             }
         }
@@ -350,11 +309,17 @@ fun ExtensionShelf(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 rowItems.forEach { item ->
-                                    QuickPickTile(
-                                        item = QuickPickItem(
-                                            title = item.title,
-                                            mediaItem = item
-                                        ),
+                                    val imageUrl = (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
+                                        ?: (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder)?.uri?.toString()
+                                    val isCircle = getShelfMediaType(item).isCircleShape
+                                    MediaShelfCard(
+                                        title = item.title,
+                                        subtitle = item.subtitleWithOutE,
+                                        imageUrl = imageUrl,
+                                        isCircle = isCircle,
+                                        layout = ShelfCardLayout.Horizontal,
+                                        size = ShelfCardSize.Row,
+                                        alignment = ShelfCardAlignment.Start,
                                         onClick = { onItemClick(item) },
                                         modifier = Modifier.weight(1f)
                                     )
@@ -372,10 +337,21 @@ fun ExtensionShelf(
                     ) {
                         items(shelf.list, key = { (it as? EchoMediaItem)?.id ?: it.hashCode() }) { item ->
                             if (item is EchoMediaItem) {
-                                ExtensionMediaItemCard(
-                                    item = item,
+                                val imageUrl = (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
+                                    ?: (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder)?.uri?.toString()
+                                val typeBadge = getShelfMediaType(item)
+                                val isCircle = typeBadge.isCircleShape
+                                val featured = isTrending || isCharts
+                                MediaShelfCard(
+                                    title = item.title,
+                                    subtitle = item.subtitleWithOutE,
+                                    imageUrl = imageUrl,
+                                    isCircle = isCircle,
+                                    layout = ShelfCardLayout.Vertical,
+                                    size = if (featured) ShelfCardSize.Featured else ShelfCardSize.Compact,
+                                    alignment = ShelfCardAlignment.Start,
                                     onClick = { onItemClick(item) },
-                                    isFeatured = isTrending || isCharts
+                                    typeBadge = typeBadge
                                 )
                             }
                         }
@@ -384,86 +360,26 @@ fun ExtensionShelf(
             }
             is Shelf.Item -> {
                 Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    ExtensionMediaItemCard(
-                        item = shelf.media,
-                        onClick = { onItemClick(shelf.media) },
-                        isFeatured = isTrending
+                    val item = shelf.media
+                    val imageUrl = (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
+                        ?: (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder)?.uri?.toString()
+                    val typeBadge = getShelfMediaType(item)
+                    val isCircle = typeBadge.isCircleShape
+                    MediaShelfCard(
+                        title = item.title,
+                        subtitle = item.subtitleWithOutE,
+                        imageUrl = imageUrl,
+                        isCircle = isCircle,
+                        layout = ShelfCardLayout.Vertical,
+                        size = if (isTrending) ShelfCardSize.Featured else ShelfCardSize.Compact,
+                        alignment = ShelfCardAlignment.Start,
+                        onClick = { onItemClick(item) },
+                        typeBadge = typeBadge
                     )
                 }
             }
             else -> {}
         }
-    }
-}
-
-@Composable
-fun ExtensionMediaItemCard(
-    item: EchoMediaItem,
-    onClick: () -> Unit,
-    isFeatured: Boolean = false
-) {
-    val title = item.title
-    val subtitle = item.subtitleWithOutE ?: ""
-    val imageUrl = (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
-
-    val typeIcon: ImageVector? = when (item) {
-        is Album -> Icons.Rounded.Album
-        is Playlist -> Icons.Rounded.PlaylistPlay
-        is dev.brahmkshatriya.echo.common.models.Artist -> Icons.Rounded.Person
-        else -> null
-    }
-
-    val cardSize = if (isFeatured) 180.dp else 160.dp
-
-    Column(
-        modifier = Modifier
-            .width(cardSize)
-            .clickable(onClick = onClick)
-    ) {
-        Box {
-            SmartImage(
-                model = imageUrl,
-                contentDescription = title,
-                modifier = Modifier
-                    .size(cardSize)
-                    .clip(RoundedCornerShape(if (item is dev.brahmkshatriya.echo.common.models.Artist) cardSize / 2 else 16.dp)),
-                contentScale = ContentScale.Crop
-            )
-            
-            if (typeIcon != null) {
-                Surface(
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .align(Alignment.TopEnd),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f),
-                    shape = CircleShape
-                ) {
-                    Icon(
-                        imageVector = typeIcon,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = title,
-            style = if (isFeatured) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall,
-            fontWeight = if (isFeatured) FontWeight.SemiBold else FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 
@@ -540,3 +456,59 @@ fun ExtensionLoginBanner(
         }
     }
 }
+
+@Composable
+fun LibraryMediaCard(
+    title: String,
+    subtitle: String,
+    imageUrl: String?,
+    isCircle: Boolean = false,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(140.dp)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        SmartImage(
+            model = imageUrl,
+            contentDescription = title,
+            modifier = Modifier
+                .size(140.dp)
+                .clip(if (isCircle) CircleShape else RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+        )
+    }
+}
+
+@Composable
+fun LibraryShelfHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleLarge,
+        fontFamily = GoogleSansRounded,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+    )
+}
+

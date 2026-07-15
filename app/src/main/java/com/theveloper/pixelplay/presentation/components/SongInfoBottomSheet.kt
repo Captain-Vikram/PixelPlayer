@@ -176,6 +176,9 @@ fun SongInfoBottomSheet(
     val isDownloaded = remember(song.id, completedDownloads) {
         completedDownloads.contains(song.id)
     }
+    // TODO: update if a local extension ID constant exists (none found, so using extensionId == null)
+    val isLocal = remember(song.extensionId) { song.extensionId == null }
+    val isLocalOrDownloaded = remember(isLocal, isDownloaded) { isLocal || isDownloaded }
 
     val ringtonePermissionMissingMsg = stringResource(R.string.song_info_ringtone_permission_missing)
     val ringtoneFailedFormat = stringResource(R.string.song_info_ringtone_failed)
@@ -574,7 +577,7 @@ fun SongInfoBottomSheet(
                                             },
                                             playButtonShape = playButtonShape,
                                             evenCornerRadiusElems = evenCornerRadiusElems,
-                                            showFavorite = (song.extensionId == null || isDownloaded)
+                                            showFavorite = isLocalOrDownloaded
                                         )
 
                                         Row2Actions(
@@ -1638,7 +1641,7 @@ private fun Row3Actions(
     val showPlaylist = !isExtension || (caps?.canEditPlaylists == true)
     val showDelete = !isExtension
     val showRadio = isExtension && (caps?.canRadio == true)
-    val showDownload = isExtension && isDownloadable
+    val showDownload = isExtension && isDownloadable && !isDownloaded
 
     Row(
         modifier = Modifier
@@ -1752,13 +1755,13 @@ private fun Row3Actions(
         }
 
         if (showDownload) {
-            val enabled = downloadProgress == null && !isDownloaded
+            val enabled = downloadProgress == null
             FilledTonalButton(
                 modifier = commonModifier,
                 enabled = enabled,
                 colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (isDownloaded) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = if (isDownloaded) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 contentPadding = PaddingValues(horizontal = 10.dp),
                 shape = CircleShape,
@@ -1774,19 +1777,6 @@ private fun Row3Actions(
                         modifier = Modifier.size(20.dp),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         strokeWidth = 3.dp
-                    )
-                } else if (isDownloaded) {
-                    Icon(
-                        imageVector = Icons.Rounded.CheckCircle,
-                        contentDescription = "Downloaded"
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    TightWrapText(
-                        text = "Downloaded",
-                        modifier = Modifier.padding(end = 4.dp),
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 1,
-                        lineHeight = 20.sp
                     )
                 } else {
                     Icon(

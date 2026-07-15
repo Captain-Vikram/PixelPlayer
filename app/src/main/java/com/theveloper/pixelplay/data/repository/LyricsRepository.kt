@@ -4,7 +4,17 @@ import com.theveloper.pixelplay.data.model.Lyrics
 import com.theveloper.pixelplay.data.model.LyricsSourcePreference
 import com.theveloper.pixelplay.data.model.Song
 
+sealed interface LyricsFetchState {
+    object Idle : LyricsFetchState
+    object Loading : LyricsFetchState
+    data class Success(val lyrics: Lyrics) : LyricsFetchState
+    object NotFound : LyricsFetchState
+    data class Error(val reason: String) : LyricsFetchState
+}
+
 interface LyricsRepository {
+    val lyricsFetchState: kotlinx.coroutines.flow.StateFlow<LyricsFetchState>
+
     /**
      * Returns already-persisted lyrics without performing any network request.
      */

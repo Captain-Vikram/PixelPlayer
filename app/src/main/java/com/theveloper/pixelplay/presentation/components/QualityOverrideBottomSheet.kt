@@ -44,15 +44,40 @@ fun QualityOverrideBottomSheet(
     onOverrideSelected: (StreamingQuality?) -> Unit,
     availableSources: List<dev.brahmkshatriya.echo.common.models.Streamable.Source> = emptyList(),
     selectedSource: dev.brahmkshatriya.echo.common.models.Streamable.Source? = null,
+    confirmedTiers: Set<StreamingQuality>? = null,
     onSourceSelected: (dev.brahmkshatriya.echo.common.models.Streamable.Source) -> Unit = {},
     onDismiss: () -> Unit
 ) {
-    val options = listOf(
+    val allOptions = listOf(
         Triple(StreamingQuality.DATA_SAVER, stringResource(R.string.settings_quality_data_saver), "Low bandwidth, saves mobile data"),
         Triple(StreamingQuality.STANDARD, stringResource(R.string.settings_quality_standard), "Balanced speed and fidelity"),
         Triple(StreamingQuality.HIGH, stringResource(R.string.settings_quality_high), "High-bitrate audio"),
         Triple(StreamingQuality.LOSSLESS, stringResource(R.string.settings_quality_lossless), "Maximum fidelity format (if available)")
     )
+
+    fun getQualityTierForInt(quality: Int): StreamingQuality {
+        return when {
+            quality <= 0 || quality <= 96 -> StreamingQuality.DATA_SAVER
+            quality == 1 || (quality in 97..160) -> StreamingQuality.STANDARD
+            quality == 2 || (quality in 161..320) -> StreamingQuality.HIGH
+            else -> StreamingQuality.LOSSLESS
+        }
+    }
+
+    val resolvedTiers = remember(availableSources) {
+        availableSources.map { getQualityTierForInt(it.quality) }.toSet()
+    }
+
+    val effectiveConfirmedTiers = remember(confirmedTiers, resolvedTiers) {
+        if (!resolvedTiers.isEmpty()) resolvedTiers
+        else confirmedTiers
+    }
+
+    val isCacheMiss = remember(confirmedTiers, resolvedTiers) {
+        confirmedTiers == null && resolvedTiers.isEmpty()
+    }
+
+    val options = allOptions
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -180,11 +205,16 @@ fun QualityOverrideBottomSheet(
 
                     items(options.size) { index ->
                         val option = options[index]
+                        val isAvailable = isCacheMiss || effectiveConfirmedTiers?.contains(option.first) == true
+                        val labelText = if (isCacheMiss) "${option.second} (Unconfirmed)"
+                                        else if (!isAvailable) "${option.second} (Unavailable)"
+                                        else option.second
                         QualityItem(
-                            label = option.second,
+                            label = labelText,
                             subtitle = option.third,
-                            icon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) },
+                            icon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = if (isAvailable) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
                             selected = currentOverride == option.first,
+                            enabled = isAvailable,
                             onClick = {
                                 onOverrideSelected(option.first)
                                 onDismiss()
@@ -203,6 +233,7 @@ private fun QualityItem(
     subtitle: String,
     icon: @Composable () -> Unit,
     selected: Boolean,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val animBgColor by animateColorAsState(
@@ -211,7 +242,9 @@ private fun QualityItem(
         label = "qualityItemBg"
     )
     val animTextColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        targetValue = if (selected) MaterialTheme.colorScheme.onPrimaryContainer 
+                      else if (!enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                      else MaterialTheme.colorScheme.onSurface,
         animationSpec = tween(durationMillis = 200),
         label = "qualityItemText"
     )
@@ -219,7 +252,7 @@ private fun QualityItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .qualityClickable(shape = RoundedCornerShape(16.dp), onClick = onClick)
+            .qualityClickable(shape = RoundedCornerShape(16.dp), enabled = enabled, onClick = onClick)
             .background(animBgColor)
             .border(
                 width = 1.dp,
@@ -253,7 +286,9 @@ private fun QualityItem(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = GoogleSansRounded),
-                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) 
+                            else if (!enabled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

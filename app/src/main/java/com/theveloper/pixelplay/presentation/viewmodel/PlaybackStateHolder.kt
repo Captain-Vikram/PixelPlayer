@@ -216,12 +216,7 @@ class PlaybackStateHolder @Inject constructor(
     }
 
     private fun activeLocalPlayer(): Player {
-        val controller = mediaController
-        return if (controller?.isConnected == true) {
-            controller
-        } else {
-            dualPlayerEngine.masterPlayer
-        }
+        return dualPlayerEngine.masterPlayer
     }
     
     fun updateStablePlayerState(update: (StablePlayerState) -> StablePlayerState) {
@@ -705,6 +700,26 @@ class PlaybackStateHolder @Inject constructor(
                     }
                 } else {
                      val controller = activeLocalPlayer()
+                     
+                     // Force sync states to recover from missed MediaController events (AndroidX Media3 bug)
+                     // Because this runs every tick, we avoid relying solely on flaky event callbacks.
+                     val actualIsBuffering = controller.playbackState == Player.STATE_BUFFERING && controller.playWhenReady
+                     val actualIsPlaying = controller.isPlaying
+                     val actualPlayWhenReady = controller.playWhenReady
+                     
+                     val current = _stablePlayerState.value
+                     if (current.isPlaying != actualIsPlaying || 
+                         current.isBuffering != actualIsBuffering || 
+                         current.playWhenReady != actualPlayWhenReady) {
+                         _stablePlayerState.update { state ->
+                             state.copy(
+                                 isPlaying = actualIsPlaying,
+                                 playWhenReady = actualPlayWhenReady,
+                                 isBuffering = actualIsBuffering
+                             )
+                         }
+                     }
+
                      if (shouldSampleLocalProgress(controller)) {
                          val visibleSong = _stablePlayerState.value.currentSong
                          val currentMediaId = controller.currentMediaItem?.mediaId

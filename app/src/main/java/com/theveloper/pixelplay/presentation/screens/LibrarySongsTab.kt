@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
-import com.theveloper.pixelplay.data.model.LibraryTabId
+import com.theveloper.pixelplay.presentation.library.LibraryTabId
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.StorageFilter
 import com.theveloper.pixelplay.data.model.SortOption
@@ -80,7 +80,7 @@ fun LibrarySongsTab(
     getSelectionIndex: (String) -> Int? = { null },
     onLocateCurrentSongVisibilityChanged: (Boolean) -> Unit = {},
     onRegisterLocateCurrentSongAction: ((() -> Unit)?) -> Unit = {},
-    currentSourceScope: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.All,
+    currentSourceScope: com.theveloper.pixelplay.data.model.SourceScope = com.theveloper.pixelplay.data.model.SourceScope.Local,
     hasCurrentSong: Boolean = false
 ) {
     val listState = rememberLazyListState()
@@ -276,7 +276,7 @@ fun LibrarySongsTab(
         }
         songs.itemCount == 0 && refreshState is LoadState.NotLoading && reachedEndOfPagination -> {
             LibraryExpressiveEmptyState(
-                tabId = LibraryTabId.SONGS,
+                tabId = LibraryTabId.Songs,
                 currentSourceScope = currentSourceScope,
                 bottomBarHeight = bottomBarHeight
             )

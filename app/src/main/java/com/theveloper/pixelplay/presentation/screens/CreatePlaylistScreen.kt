@@ -49,6 +49,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.flow.first
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -352,12 +353,21 @@ private fun CreatePlaylistContent(
                             }
                         }
 
-                        // All (Cloud) Tab
+                        // Extension Tab (if any) or just a single Local mode if no extension active
+                        val lastSourceScope by playerViewModel.userPreferencesRepository.lastSourceScopeFlow.collectAsStateWithLifecycle(initialValue = SourceScope.Local)
+                        val activeExtensionId = (lastSourceScope as? SourceScope.Extension)?.extensionId
+                        
                         TabAnimation(
                             index = 1,
-                            title = "All",
+                            title = "Cloud",
                             selectedIndex = selectedTabIndex,
-                            onClick = { playerViewModel.setPlaylistPickerSourceScope(SourceScope.All) },
+                            onClick = {
+                                if (activeExtensionId != null) {
+                                    playerViewModel.setPlaylistPickerSourceScope(SourceScope.Extension(activeExtensionId))
+                                } else {
+                                    playerViewModel.setPlaylistPickerSourceScope(SourceScope.Local)
+                                }
+                            },
                             transformOrigin = TransformOrigin(1f, 0.5f)
                         ) {
                             Row(
@@ -371,7 +381,7 @@ private fun CreatePlaylistContent(
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = "All",
+                                    text = "Cloud",
                                     fontFamily = GoogleSansRounded,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(end = 4.dp)

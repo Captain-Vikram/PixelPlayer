@@ -383,6 +383,7 @@ class MusicService : MediaLibraryService() {
         val artist = mediaItem.mediaMetadata.artist?.toString()
         val album = mediaItem.mediaMetadata.albumTitle?.toString()
         val genre = mediaItem.mediaMetadata.genre?.toString()
+        val albumArtUri = mediaItem.mediaMetadata.artworkUri?.toString()
 
         if (forceNewSession) {
             listeningStatsTracker.onTrackChanged(
@@ -394,7 +395,8 @@ class MusicService : MediaLibraryService() {
                 title = title,
                 artist = artist,
                 album = album,
-                genre = genre
+                genre = genre,
+                albumArtUri = albumArtUri
             )
         } else {
             listeningStatsTracker.ensureSession(
@@ -406,7 +408,8 @@ class MusicService : MediaLibraryService() {
                 title = title,
                 artist = artist,
                 album = album,
-                genre = genre
+                genre = genre,
+                albumArtUri = albumArtUri
             )
         }
     }
@@ -2800,16 +2803,6 @@ class MusicService : MediaLibraryService() {
 
     private fun buildMediaButtonPreferences(session: MediaSession): List<CommandButton> {
         val player = session.player
-        val songId = player.currentMediaItem?.mediaId
-        val isFavorite = isSongFavorite(songId)
-        val likeButton = CommandButton.Builder(
-            if (isFavorite) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
-        )
-            .setDisplayName("Like")
-            .setSessionCommand(SessionCommand(MusicNotificationProvider.CUSTOM_COMMAND_LIKE, Bundle.EMPTY))
-            .setSlots(CommandButton.SLOT_OVERFLOW)
-            .build()
-
         val shuffleOn = isManualShuffleEnabled
         val shuffleCommandAction = if (shuffleOn) {
             MusicNotificationProvider.CUSTOM_COMMAND_SHUFFLE_OFF
@@ -2848,7 +2841,7 @@ class MusicService : MediaLibraryService() {
         // SLOT_BACK/SLOT_FORWARD buttons are present, Media3 strips the legacy
         // ACTION_SKIP_TO_PREVIOUS/NEXT flags from PlaybackStateCompat, which causes some
         // OEM compact system players (including ColorOS Control Center) to gray out skip.
-        return listOf(likeButton, closeButton, shuffleButton, repeatButton)
+        return listOf(repeatButton, closeButton, shuffleButton)
     }
 
     // ------------------------
