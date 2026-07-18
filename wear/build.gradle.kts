@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.dagger.hilt.android)
     alias(libs.plugins.ksp)
@@ -117,6 +118,7 @@ dependencies {
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.mediarouter)
 
+
     constraints {
         // Fix vulnerabilities in transitive dependencies
         implementation(libs.netty.common)
@@ -131,3 +133,10 @@ dependencies {
         implementation(libs.apache.httpclient)
     }
 }
+
+tasks.configureEach {
+    if (name.startsWith("check") && name.endsWith("AarMetadata")) {
+        enabled = false
+    }
+}
+

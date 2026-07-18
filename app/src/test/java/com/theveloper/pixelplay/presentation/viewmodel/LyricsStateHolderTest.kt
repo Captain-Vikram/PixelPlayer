@@ -58,6 +58,7 @@ class LyricsStateHolderTest {
         val songMetadataEditor = mockk<SongMetadataEditor>(relaxed = true)
         val extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         every { extensionLoader.all } returns MutableStateFlow(emptyList())
+        every { extensionLoader.lyrics } returns MutableStateFlow(emptyList())
         val holder = LyricsStateHolder(
             musicRepository = musicRepository,
             lyricsRepository = mockk<LyricsRepository>(relaxed = true),
@@ -131,7 +132,7 @@ class LyricsStateHolderTest {
         val mockInjectable = mockk<dev.brahmkshatriya.echo.common.helpers.Injectable<dev.brahmkshatriya.echo.common.clients.LyricsClient>>(relaxed = true)
         
         every { extensionLoader.all } returns MutableStateFlow(listOf(mockExtension))
-        every { extensionLoader.lyrics } returns MutableStateFlow(emptyList())
+        every { extensionLoader.lyrics } returns MutableStateFlow(listOf(mockExtension))
         every { mockExtension.metadata.id } returns "spotify"
         every { mockExtension.instance } returns mockInjectable
         coEvery { mockInjectable.value() } returns Result.success(mockClient)
@@ -169,6 +170,7 @@ class LyricsStateHolderTest {
         val songMetadataEditor = mockk<SongMetadataEditor>(relaxed = true)
         val extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         every { extensionLoader.all } returns MutableStateFlow(emptyList())
+        every { extensionLoader.lyrics } returns MutableStateFlow(emptyList())
         
         val errorCallback = object : LyricsLoadCallback {
             var receivedError: String? = null

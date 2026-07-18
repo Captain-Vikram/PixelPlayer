@@ -1198,6 +1198,8 @@ fun TelegramPluginDownloadScreen(
     onBack: () -> Unit,
     viewModel: TelegramLoginViewModel
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     LaunchedEffect(downloadProgress) {
         if (downloadProgress == null && viewModel.isPluginInstalled()) {
             onInstalled()
@@ -1251,6 +1253,16 @@ fun TelegramPluginDownloadScreen(
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                uiState.inlineError?.let { error ->
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
