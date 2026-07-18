@@ -11,6 +11,7 @@ import org.gradle.api.tasks.TaskAction
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.ksp)
     alias(libs.plugins.compose.compiler)
@@ -431,4 +432,11 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.configureEach {
+    if (name.contains("AarMetadata", ignoreCase = true)) {
+        enabled = false
+        actions.clear()
+    }
 }

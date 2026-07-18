@@ -62,14 +62,17 @@ class TelegramClientManager @Inject constructor(
     }
 
     fun getPluginDownloadUrl(): String? {
-        val abi = android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: return null
-        return "https://github.com/Konstantin/tdlib-binaries/raw/main/android/$abi/libtdjni.so"
+        return "https://jitpack.io/com/github/tdlibx/td/1.8.56/td-1.8.56.aar"
     }
 
     suspend fun downloadAndInstallPlugin(): Result<Unit> = withContext(Dispatchers.IO) {
         val urlStr = getPluginDownloadUrl() ?: return@withContext Result.failure(
+            Exception("Invalid download URL")
+        )
+        val abi = android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: return@withContext Result.failure(
             Exception("Unsupported CPU architecture")
         )
+        
         _downloadProgress.value = 0f
         try {
             val url = URL(urlStr)
@@ -88,24 +91,47 @@ class TelegramClientManager @Inject constructor(
             if (!pluginDir.exists()) {
                 pluginDir.mkdirs()
             }
+            
             val tempFile = File(pluginDir, "libtdjni.so.tmp")
-            val output = tempFile.outputStream()
+            val zipInput = java.util.zip.ZipInputStream(input)
+            var entry = zipInput.nextEntry
+            var found = false
+            val targetEntryName = "jni/$abi/libtdjni.so"
 
-            val data = ByteArray(4096)
-            var total = 0L
-            var count: Int
-            while (input.read(data).also { count = it } != -1) {
-                total += count
-                if (fileLength > 0) {
-                    _downloadProgress.value = total.toFloat() / fileLength
-                } else {
-                    _downloadProgress.value = 0.5f
+            while (entry != null) {
+                if (entry.name == targetEntryName) {
+                    found = true
+                    val output = tempFile.outputStream()
+                    val data = ByteArray(4096)
+                    var count: Int
+                    var total = 0L
+                    val entrySize = entry.size
+                    
+                    while (zipInput.read(data).also { count = it } != -1) {
+                        output.write(data, 0, count)
+                        total += count
+                        if (entrySize > 0) {
+                            _downloadProgress.value = total.toFloat() / entrySize
+                        } else if (fileLength > 0) {
+                            // Fallback progress estimation if entry size is unknown
+                            _downloadProgress.value = total.toFloat() / fileLength
+                        } else {
+                            _downloadProgress.value = 0.5f
+                        }
+                    }
+                    output.flush()
+                    output.close()
+                    break
                 }
-                output.write(data, 0, count)
+                zipInput.closeEntry()
+                entry = zipInput.nextEntry
             }
-            output.flush()
-            output.close()
+            zipInput.close()
             input.close()
+
+            if (!found) {
+                throw Exception("Native library not found in AAR for architecture: $abi")
+            }
 
             val finalFile = File(pluginDir, "libtdjni.so")
             if (tempFile.renameTo(finalFile)) {

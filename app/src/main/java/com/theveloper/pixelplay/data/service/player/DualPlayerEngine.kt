@@ -102,16 +102,16 @@ internal fun shouldResumeAfterTransientAudioFocusLoss(
 }
 
 internal fun shouldDisableAudioOffloadByDefaultForDevice(
-    manufacturer: String,
-    brand: String,
-    model: String,
-    hardware: String,
+    manufacturer: String?,
+    brand: String?,
+    model: String?,
+    hardware: String?,
     sdkInt: Int
 ): Boolean {
-    val manufacturerName = manufacturer.trim().lowercase()
-    val brandName = brand.trim().lowercase()
-    val modelName = model.trim().lowercase()
-    val hardwareName = hardware.trim().lowercase()
+    val manufacturerName = manufacturer?.trim()?.lowercase() ?: ""
+    val brandName = brand?.trim()?.lowercase() ?: ""
+    val modelName = model?.trim()?.lowercase() ?: ""
+    val hardwareName = hardware?.trim()?.lowercase() ?: ""
 
     val isXiaomiFamilyDevice = manufacturerName == "xiaomi" ||
         brandName == "xiaomi" ||
@@ -667,6 +667,18 @@ class DualPlayerEngine @Inject constructor(
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val previousMediaItem = lastActiveMediaItem
+            lastActiveMediaItem = mediaItem
+            if (previousMediaItem != null && previousMediaItem.mediaId != mediaItem?.mediaId) {
+                previousMediaItem.localConfiguration?.uri?.let { uri ->
+                    val uriString = uri.toString()
+                    val resolved = resolvedUriCache.remove(uriString)
+                    if (resolved != null) {
+                        resolvedHeadersCache.remove(resolved.uri.toString())
+                        rawSourceMap.remove(resolved.uri.toString())
+                    }
+                }
+            }
             lastMediaItemTransitionAtMs = SystemClock.elapsedRealtime()
             cancelAudioOffloadFallback()
             AdvancedPerformanceDiagnostics.recordEventIfEnabled(
@@ -986,6 +998,7 @@ class DualPlayerEngine @Inject constructor(
     private val observedTiersCache = java.util.concurrent.ConcurrentHashMap<String, ObservedTiers>()
     private var lastErrorMediaId: String? = null
     private var errorRetryCount = 0
+    private var lastActiveMediaItem: MediaItem? = null
 
     // Whether the OS classifies this as a low-RAM device. Used to cap the player's max
     // prefetch depth so hi-res/lossless buffering (and the second player during a crossfade)
