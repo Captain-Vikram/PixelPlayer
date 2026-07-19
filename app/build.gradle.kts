@@ -103,7 +103,16 @@ android {
             excludes += listOf(
                 "**/libjsound.so",
                 "**/libsound.so",
-                "**/libtdjni.so"
+                // TDLib native binary — loaded dynamically at runtime from internal storage.
+                // The AAR is downloaded from JitPack and all .so files are extracted by
+                // TelegramClientManager.downloadAndInstallPlugin() on first Telegram login.
+                // See: Section 5 of the Modularization Blueprint for extraction + loading order.
+                "**/libtdjni.so",
+                // TDLib's transitive OpenSSL dependencies — extracted alongside libtdjni.so
+                // and loaded BEFORE it by TelegramClientManager.loadLibrary() to resolve
+                // native linker dependencies (prevents UnsatisfiedLinkError at startup).
+                "**/libcrypto.so",
+                "**/libssl.so"
             )
         }
     }
