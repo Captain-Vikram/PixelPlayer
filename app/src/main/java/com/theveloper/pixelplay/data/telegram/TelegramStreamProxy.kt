@@ -276,12 +276,12 @@ class TelegramStreamProxy @Inject constructor(
 
     private var actualPort: Int = 0
 
-    fun startIfNeeded() {
+    override fun startIfNeeded() {
         if (isReady() || startJob?.isActive == true) return
         start()
     }
 
-    fun start() {
+    override fun start() {
         startJob?.cancel()
         startJob = proxyScope.launch {
             try {
@@ -300,7 +300,7 @@ class TelegramStreamProxy @Inject constructor(
         }
     }
 
-    fun stop() {
+    override fun stop() {
         startJob?.cancel()
         startJob = null
         proxyScope.coroutineContext.cancelChildren()
@@ -328,14 +328,14 @@ class TelegramStreamProxy @Inject constructor(
     /**
      * Quick check if the proxy server is ready (port is bound).
      */
-    fun isReady(): Boolean = actualPort > 0
+    override fun isReady(): Boolean = actualPort > 0
     
     /**
      * Suspends until the proxy server is ready (port bound).
      * @param timeoutMs Maximum time to wait
      * @return true if ready, false if timed out
      */
-    suspend fun awaitReady(timeoutMs: Long = 10_000L): Boolean {
+    override suspend fun awaitReady(timeoutMs: Long): Boolean {
         if (isReady()) return true
         
         val stepMs = 50L
@@ -352,7 +352,7 @@ class TelegramStreamProxy @Inject constructor(
         return false
     }
 
-    suspend fun ensureReady(timeoutMs: Long = 10_000L): Boolean {
+    override suspend fun ensureReady(timeoutMs: Long): Boolean {
         startIfNeeded()
         return awaitReady(timeoutMs)
     }
