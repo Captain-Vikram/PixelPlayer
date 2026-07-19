@@ -24,9 +24,9 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":core:common"))
-    implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.cio)
+    api(project(":core:common"))
+    api(libs.ktor.server.core)
+    api(libs.ktor.server.cio)
     implementation(libs.timber)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.core)
