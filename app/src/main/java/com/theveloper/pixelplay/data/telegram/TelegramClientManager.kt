@@ -31,9 +31,27 @@ class TelegramClientManager @Inject constructor(
         @Synchronized
         fun loadLibrary(context: Context): Boolean {
             if (isLibraryLoaded) return true
-            val pluginFile = File(context.filesDir, "plugins/libtdjni.so")
+            val pluginDir = File(context.filesDir, "plugins")
+            val pluginFile = File(pluginDir, "libtdjni.so")
+            
+            // Delete corrupt files
+            if (pluginFile.exists() && pluginFile.length() < 1024 * 1024) {
+                Timber.w("TDLib: libtdjni.so is corrupted or too small (${pluginFile.length()} bytes). Deleting it.")
+                pluginFile.delete()
+            }
+            
             if (pluginFile.exists()) {
                 try {
+                    // Try to load dependencies in order if they exist
+                    val cryptoFile = File(pluginDir, "libcrypto.so")
+                    if (cryptoFile.exists()) {
+                        try { System.load(cryptoFile.absolutePath) } catch (e: Throwable) {}
+                    }
+                    val sslFile = File(pluginDir, "libssl.so")
+                    if (sslFile.exists()) {
+                        try { System.load(sslFile.absolutePath) } catch (e: Throwable) {}
+                    }
+                    
                     System.load(pluginFile.absolutePath)
                     isLibraryLoaded = true
                     Timber.d("TDLib: Successfully loaded dynamic plugin from ${pluginFile.absolutePath}")
@@ -92,15 +110,16 @@ class TelegramClientManager @Inject constructor(
                 pluginDir.mkdirs()
             }
             
-            val tempFile = File(pluginDir, "libtdjni.so.tmp")
             val zipInput = java.util.zip.ZipInputStream(input)
             var entry = zipInput.nextEntry
             var found = false
-            val targetEntryName = "jni/$abi/libtdjni.so"
+            val targetPrefix = "jni/$abi/"
 
             while (entry != null) {
-                if (entry.name == targetEntryName) {
+                if (entry.name.startsWith(targetPrefix) && entry.name.endsWith(".so")) {
                     found = true
+                    val fileName = entry.name.substringAfterLast("/")
+                    val tempFile = File(pluginDir, "$fileName.tmp")
                     val output = tempFile.outputStream()
                     val data = ByteArray(4096)
                     var count: Int
@@ -110,18 +129,22 @@ class TelegramClientManager @Inject constructor(
                     while (zipInput.read(data).also { count = it } != -1) {
                         output.write(data, 0, count)
                         total += count
-                        if (entrySize > 0) {
-                            _downloadProgress.value = total.toFloat() / entrySize
-                        } else if (fileLength > 0) {
-                            // Fallback progress estimation if entry size is unknown
-                            _downloadProgress.value = total.toFloat() / fileLength
-                        } else {
-                            _downloadProgress.value = 0.5f
+                        if (fileName == "libtdjni.so") {
+                            if (entrySize > 0) {
+                                _downloadProgress.value = total.toFloat() / entrySize
+                            } else if (fileLength > 0) {
+                                _downloadProgress.value = total.toFloat() / fileLength
+                            } else {
+                                _downloadProgress.value = 0.5f
+                            }
                         }
                     }
                     output.flush()
                     output.close()
-                    break
+                    
+                    val finalFile = File(pluginDir, fileName)
+                    if (finalFile.exists()) finalFile.delete()
+                    tempFile.renameTo(finalFile)
                 }
                 zipInput.closeEntry()
                 entry = zipInput.nextEntry
@@ -133,17 +156,12 @@ class TelegramClientManager @Inject constructor(
                 throw Exception("Native library not found in AAR for architecture: $abi")
             }
 
-            val finalFile = File(pluginDir, "libtdjni.so")
-            if (tempFile.renameTo(finalFile)) {
-                _downloadProgress.value = null
-                if (loadLibrary(context)) {
-                    initializeClient()
-                    Result.success(Unit)
-                } else {
-                    Result.failure(Exception("Failed to load downloaded library"))
-                }
+            _downloadProgress.value = null
+            if (loadLibrary(context)) {
+                initializeClient()
+                Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed to rename temporary file"))
+                Result.failure(Exception("Failed to load downloaded library"))
             }
         } catch (e: Exception) {
             _downloadProgress.value = null
