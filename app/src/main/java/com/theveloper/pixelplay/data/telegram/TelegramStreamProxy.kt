@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.data.telegram
 
 import com.theveloper.pixelplay.utils.LogUtils
 import com.theveloper.pixelplay.data.stream.CloudStreamSecurity
+import com.theveloper.pixelplay.data.stream.StreamProxy
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.engine.embeddedServer
@@ -33,7 +34,7 @@ import javax.inject.Singleton
 @Singleton
 class TelegramStreamProxy @Inject constructor(
     private val telegramRepository: TelegramRepository
-) {
+) : StreamProxy {
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     private val proxyScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var startJob: Job? = null

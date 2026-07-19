@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.data.gdrive
 
 import android.net.Uri
 import com.theveloper.pixelplay.data.stream.CloudStreamSecurity
+import com.theveloper.pixelplay.data.stream.StreamProxy
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -43,7 +44,7 @@ import javax.inject.Singleton
 class GDriveStreamProxy @Inject constructor(
     private val repository: GDriveRepository,
     private val okHttpClient: OkHttpClient
-) {
+) : StreamProxy {
     private companion object {
         val ALLOWED_REMOTE_HOST_SUFFIXES = setOf(
             "googleapis.com",

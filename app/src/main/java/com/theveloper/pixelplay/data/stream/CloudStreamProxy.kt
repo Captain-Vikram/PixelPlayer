@@ -40,7 +40,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 abstract class CloudStreamProxy<K : Any>(
     private val okHttpClient: OkHttpClient
-) {
+) : StreamProxy {
     // ─── Subclass Configuration ────────────────────────────────────────
 
     protected abstract val allowedHostSuffixes: Set<String>
