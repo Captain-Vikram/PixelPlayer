@@ -362,11 +362,6 @@ object AppModule {
         )
     }
 
-    @Singleton
-    @Provides
-    fun provideTelegramDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.TelegramDao {
-        return database.telegramDao()
-    }
 
     @Provides
     @Singleton
