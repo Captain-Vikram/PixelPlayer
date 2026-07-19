@@ -167,6 +167,10 @@
 # 3. Keep all concrete proxy implementations (referenced by DualPlayerEngine via injection)
 -keep,allowoptimization class com.theveloper.pixelplay.data.telegram.TelegramStreamProxy { *; }
 -keep,allowoptimization class com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy { *; }
+-keep,allowoptimization class com.theveloper.pixelplay.data.netease.NeteaseStreamProxy { *; }
+-keep,allowoptimization class com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy { *; }
+-keep,allowoptimization class com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy { *; }
+-keep,allowoptimization class com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy { *; }
 
 # 4. Keep shared data model classes so dynamic modules can serialize/deserialize them
 -keep,allowoptimization class com.theveloper.pixelplay.data.model.** { *; }
