@@ -352,8 +352,6 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.collections.immutable)
-    implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.cio)
 
     // Identity & Background
     implementation(libs.androidx.work.runtime.ktx)
@@ -387,6 +385,7 @@ dependencies {
     // Projects
     implementation(project(":core:shared"))
     implementation(project(":core:common"))
+    implementation(project(":feature:ktor-server"))
 
     // Testing (Unit)
     testImplementation(libs.junit.jupiter.api)
