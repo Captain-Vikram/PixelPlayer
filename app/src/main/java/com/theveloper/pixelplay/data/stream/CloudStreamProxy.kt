@@ -80,14 +80,14 @@ abstract class CloudStreamProxy<K : Any>(
 
     // ─── Public API ────────────────────────────────────────────────────
 
-    fun isReady(): Boolean = actualPort > 0
+    override fun isReady(): Boolean = actualPort > 0
 
-    fun startIfNeeded() {
+    override fun startIfNeeded() {
         if (isReady() || startJob?.isActive == true) return
         start()
     }
 
-    suspend fun awaitReady(timeoutMs: Long = 10_000L): Boolean {
+    override suspend fun awaitReady(timeoutMs: Long): Boolean {
         if (isReady()) return true
         val stepMs = 50L
         var elapsed = 0L
@@ -99,7 +99,7 @@ abstract class CloudStreamProxy<K : Any>(
         return false
     }
 
-    suspend fun ensureReady(timeoutMs: Long = 10_000L): Boolean {
+    override suspend fun ensureReady(timeoutMs: Long): Boolean {
         startIfNeeded()
         return awaitReady(timeoutMs)
     }
@@ -123,7 +123,7 @@ abstract class CloudStreamProxy<K : Any>(
         return getProxyUrl(id)
     }
 
-    fun start() {
+    override fun start() {
         startJob?.cancel()
         startJob = proxyScope.launch {
             try {
@@ -141,7 +141,7 @@ abstract class CloudStreamProxy<K : Any>(
         }
     }
 
-    fun stop() {
+    override fun stop() {
         startJob?.cancel()
         startJob = null
         proxyScope.coroutineContext.cancelChildren()
