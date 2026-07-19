@@ -36,5 +36,6 @@ include(":core:shared")
 include(":core:common")
 include(":wear")
 include(":baselineprofile")
+include(":feature:ktor-server")
 // Official Echo modules are available in the workspace but excluded from
 // project includes for local app assemble until their Gradle setup is aligned.
