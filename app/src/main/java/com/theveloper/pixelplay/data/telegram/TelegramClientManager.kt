@@ -15,6 +15,7 @@ import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 import timber.log.Timber
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
@@ -50,6 +51,59 @@ class TelegramClientManager @Inject constructor(
                     val sslFile = File(pluginDir, "libssl.so")
                     if (sslFile.exists()) {
                         try { System.load(sslFile.absolutePath) } catch (e: Throwable) {}
+                    }
+                    
+                    // Inject pluginDir into ClassLoader's native library search paths so the system linker
+                    // can resolve libcrypto and libssl transitive dependencies on Android 7.0+ namespace system.
+                    try {
+                        val classLoader = context.classLoader
+                        val pathListField = classLoader.javaClass.superclass.getDeclaredField("pathList")
+                        pathListField.isAccessible = true
+                        val pathList = pathListField.get(classLoader)
+                        
+                        val nativeDirsField = pathList.javaClass.getDeclaredField("nativeLibraryDirectories")
+                        nativeDirsField.isAccessible = true
+                        
+                        @Suppress("UNCHECKED_CAST")
+                        val nativeLibraryDirectories = nativeDirsField.get(pathList) as ArrayList<File>
+                        if (!nativeLibraryDirectories.contains(pluginDir)) {
+                            nativeLibraryDirectories.add(pluginDir)
+                            
+                            // Rebuild nativeLibraryPathElements to apply changes
+                            val nativeElementsField = pathList.javaClass.getDeclaredField("nativeLibraryPathElements")
+                            nativeElementsField.isAccessible = true
+                            
+                            // BaseDexClassLoader / DexPathList.makePathElements has different signatures across API levels.
+                            // The most robust way to trigger path recreation is using reflection or calling makePathElements.
+                            try {
+                                val makePathElementsMethod = pathList.javaClass.getDeclaredMethod(
+                                    "makePathElements",
+                                    List::class.java
+                                )
+                                makePathElementsMethod.isAccessible = true
+                                val elements = makePathElementsMethod.invoke(pathList, nativeLibraryDirectories) as Array<*>
+                                nativeElementsField.set(pathList, elements)
+                            } catch (e: Exception) {
+                                // Fallback for newer Android versions if makePathElements signature differs
+                                val makePathElementsMethod = pathList.javaClass.getDeclaredMethod(
+                                    "makePathElements",
+                                    List::class.java,
+                                    List::class.java,
+                                    ClassLoader::class.java
+                                )
+                                makePathElementsMethod.isAccessible = true
+                                val suppressedExceptions = ArrayList<IOException>()
+                                val elements = makePathElementsMethod.invoke(
+                                    null,
+                                    nativeLibraryDirectories,
+                                    suppressedExceptions,
+                                    classLoader
+                                ) as Array<*>
+                                nativeElementsField.set(pathList, elements)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "TDLib: Failed to inject path to ClassLoader")
                     }
                     
                     System.load(pluginFile.absolutePath)
