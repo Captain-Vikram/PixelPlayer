@@ -144,6 +144,15 @@
 -dontwarn org.eclipse.jetty.npn.NextProtoNego$ServerProvider
 -dontwarn org.eclipse.jetty.npn.NextProtoNego
 
+# Echo Extension System Rules
+# Keep all interfaces, classes, and sub-packages in dev.brahmkshatriya.echo namespace
+# so that dynamic class loaders can load external extension APKs and cast them to these types.
+-keep class dev.brahmkshatriya.echo.** { *; }
+-keep interface dev.brahmkshatriya.echo.** { *; }
+-keepclassmembers class dev.brahmkshatriya.echo.** { *; }
+-dontwarn dev.brahmkshatriya.echo.**
+
+
 # TDLib (Telegram Database Library) rules
 # The native libtdjni.so is loaded dynamically at runtime (not bundled in the APK).
 # We must keep the Java API classes so TelegramClientManager can call them via reflection.
