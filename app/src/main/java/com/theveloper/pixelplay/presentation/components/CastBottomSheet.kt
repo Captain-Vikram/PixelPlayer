@@ -1,4 +1,5 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.res.vectorResource
 
 import android.Manifest
 import androidx.compose.animation.AnimatedVisibility
@@ -54,17 +55,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cast
-import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.rounded.Bluetooth
-import androidx.compose.material.icons.rounded.BluetoothDisabled
-import androidx.compose.material.icons.rounded.BatteryFull
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Speaker
-import androidx.compose.material.icons.rounded.Tv
-import androidx.compose.material.icons.rounded.Wifi
-import androidx.compose.material.icons.rounded.WifiOff
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.BottomSheetDefaults
@@ -296,10 +288,10 @@ fun CastBottomSheet(
             subtitle = stringResource(R.string.cast_subtitle_session),
             isRemote = true,
             icon = when (remoteRoute.deviceType) {
-                MediaRouter.RouteInfo.DEVICE_TYPE_TV -> Icons.Rounded.Tv
-                MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER, MediaRouter.RouteInfo.DEVICE_TYPE_BUILTIN_SPEAKER -> Icons.Rounded.Speaker
-                MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH_A2DP -> Icons.Rounded.Bluetooth
-                else -> Icons.Filled.Cast
+                MediaRouter.RouteInfo.DEVICE_TYPE_TV -> ImageVector.vectorResource(R.drawable.rounded_tv_24)
+                MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER, MediaRouter.RouteInfo.DEVICE_TYPE_BUILTIN_SPEAKER -> ImageVector.vectorResource(R.drawable.rounded_speaker_24)
+                MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH_A2DP -> ImageVector.vectorResource(R.drawable.rounded_bluetooth_24)
+                else -> ImageVector.vectorResource(R.drawable.rounded_cast_24)
             },
             isConnecting = isCastConnecting,
             volume = routeVolume.toFloat().coerceAtLeast(0f),
@@ -313,7 +305,7 @@ fun CastBottomSheet(
             title = if (isBluetoothAudio) activeBluetoothName else stringResource(R.string.cast_this_phone),
             subtitle = if (isBluetoothAudio) stringResource(R.string.cast_bluetooth_audio) else stringResource(R.string.cast_local_playback),
             isRemote = false,
-            icon = if (isBluetoothAudio) Icons.Rounded.Bluetooth else Icons.Rounded.Headphones,
+            icon = if (isBluetoothAudio) ImageVector.vectorResource(R.drawable.rounded_bluetooth_24) else ImageVector.vectorResource(R.drawable.rounded_headphones_24),
             isConnecting = false,
             volume = trackVolume,
             volumeRange = 0f..1f,
@@ -351,7 +343,7 @@ fun CastBottomSheet(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 12.dp
     ) {
-        // AQUÍ APLICAMOS EL FIX: Anulamos la fábrica de overscroll para todo lo que esté aquí adentro
+        // AQUÃ APLICAMOS EL FIX: Anulamos la fÃ¡brica de overscroll para todo lo que estÃ© aquÃ­ adentro
         CompositionLocalProvider(
             LocalOverscrollFactory provides null
         ) {
@@ -489,12 +481,12 @@ private fun CastPermissionStep(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 PermissionHighlight(
-                    icon = Icons.Rounded.Bluetooth,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_bluetooth_24),
                     title = stringResource(R.string.cast_perm_nearby_title),
                     description = stringResource(R.string.cast_perm_nearby_desc)
                 )
                 PermissionHighlight(
-                    icon = Icons.Rounded.Wifi,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_wifi_24),
                     title = stringResource(R.string.cast_perm_location_title),
                     description = stringResource(R.string.cast_perm_location_desc)
                 )
@@ -707,7 +699,7 @@ private fun CastSheetContent(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Rounded.Speaker,
+                        ImageVector.vectorResource(R.drawable.rounded_speaker_24),
                         contentDescription = stringResource(R.string.cast_tab_controls),
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
@@ -733,7 +725,7 @@ private fun CastSheetContent(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Filled.Devices,
+                        ImageVector.vectorResource(R.drawable.rounded_cast_24),
                         contentDescription = stringResource(R.string.cast_tab_devices),
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
@@ -1116,7 +1108,7 @@ private fun CastSheetContainer(
         }
     }
 
-    // Cast overlay fraction is handled at state-level to avoid frame-by-frame parent recomposition.
+    // ImageVector.vectorResource(R.drawable.rounded_cast_24) overlay fraction is handled at state-level to avoid frame-by-frame parent recomposition.
 }
 
 @Composable
@@ -1366,7 +1358,7 @@ private fun ActiveDeviceHero(
 
                     val statusText = buildString {
                         append(device.subtitle)
-                        append(" • ")
+                        append(" â€¢ ")
                         append(device.connectionLabel)
                     }
 
@@ -1403,7 +1395,7 @@ private fun ActiveDeviceHero(
                 }
             }
 
-            // Sección de Volumen (Sin cambios)
+            // SecciÃ³n de Volumen (Sin cambios)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1495,7 +1487,7 @@ private fun EmptyDeviceState() {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
-                imageVector = Icons.Filled.Devices,
+                imageVector = ImageVector.vectorResource(R.drawable.rounded_cast_24),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(36.dp)
@@ -1549,10 +1541,10 @@ private fun CastDeviceRow(
     )
 
     val deviceIcon = when (device.deviceType) {
-        MediaRouter.RouteInfo.DEVICE_TYPE_TV -> Icons.Rounded.Tv
-        MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER, MediaRouter.RouteInfo.DEVICE_TYPE_BUILTIN_SPEAKER -> Icons.Rounded.Speaker
-        MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH_A2DP -> Icons.Rounded.Bluetooth
-        else -> Icons.Filled.Cast
+        MediaRouter.RouteInfo.DEVICE_TYPE_TV -> ImageVector.vectorResource(R.drawable.rounded_tv_24)
+        MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER, MediaRouter.RouteInfo.DEVICE_TYPE_BUILTIN_SPEAKER -> ImageVector.vectorResource(R.drawable.rounded_speaker_24)
+        MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH_A2DP -> ImageVector.vectorResource(R.drawable.rounded_bluetooth_24)
+        else -> ImageVector.vectorResource(R.drawable.rounded_cast_24)
     }
 
     Surface(
@@ -1587,7 +1579,7 @@ private fun CastDeviceRow(
             Box(
                 modifier = Modifier
                     .size(52.dp)
-                    .padding(start = 4.dp), // Tamaño fijo para asegurar simetría
+                    .padding(start = 4.dp), // TamaÃ±o fijo para asegurar simetrÃ­a
                 contentAlignment = Alignment.Center
             ) {
                 Box(
@@ -1683,7 +1675,7 @@ private fun BluetoothMetricIndicator(
     ) {
         if (batteryPercent != null) {
             Icon(
-                imageVector = Icons.Rounded.BatteryFull,
+                imageVector = Icons.Rounded.Info,
                 contentDescription = stringResource(R.string.cast_cd_battery),
                 tint = contentColor,
                 modifier = Modifier.size(14.dp)
@@ -1762,7 +1754,7 @@ private fun QuickSettingsRow(
                 wifiConnected -> stringResource(R.string.cast_wifi_connected)
                 else -> stringResource(R.string.cast_wifi_on)
             },
-            icon = if (wifiOn) Icons.Rounded.Wifi else Icons.Rounded.WifiOff,
+            icon = if (wifiOn) ImageVector.vectorResource(R.drawable.rounded_wifi_24) else ImageVector.vectorResource(R.drawable.rounded_wifi_24),
             isActive = wifiOn,
             onClick = onWifiClick,
             modifier = Modifier.weight(1f)
@@ -1772,7 +1764,7 @@ private fun QuickSettingsRow(
             subtitle = if (bluetoothEnabled) {
                 if (!bluetoothName.isNullOrEmpty()) stringResource(R.string.cast_bt_connected) else stringResource(R.string.cast_bt_on)
             } else stringResource(R.string.cast_bt_off),
-            icon = if (bluetoothEnabled) Icons.Rounded.Bluetooth else Icons.Rounded.BluetoothDisabled,
+            icon = if (bluetoothEnabled) ImageVector.vectorResource(R.drawable.rounded_bluetooth_24) else ImageVector.vectorResource(R.drawable.rounded_bluetooth_24),
             isActive = bluetoothEnabled,
             onClick = onBluetoothClick,
             modifier = Modifier.weight(1f)
@@ -1789,7 +1781,7 @@ private fun QuickSettingTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Definimos la forma específica para el estado activo
+    // Definimos la forma especÃ­fica para el estado activo
     val activeShape = remember {
         AbsoluteSmoothCornerShape(
             cornerRadiusTL = 18.dp,
@@ -1803,11 +1795,11 @@ private fun QuickSettingTile(
         )
     }
 
-    // El fondo del Tile ahora siempre es surface, pero mantenemos una transición suave si quisieras cambiarlo levemente
+    // El fondo del Tile ahora siempre es surface, pero mantenemos una transiciÃ³n suave si quisieras cambiarlo levemente
     val containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     val contentColor = MaterialTheme.colorScheme.onSurface
 
-    // Colores dinámicos para el ICONO (Círculo interno)
+    // Colores dinÃ¡micos para el ICONO (CÃ­rculo interno)
     val iconBoxColor by animateColorAsState(
         targetValue = if (isActive) MaterialTheme.colorScheme.primary else contentColor.copy(alpha = 0.1f),
         label = "iconBoxColor"
@@ -1820,7 +1812,7 @@ private fun QuickSettingTile(
     Surface(
         modifier = modifier
             .height(72.dp)
-            // Aquí alternamos la forma según el estado
+            // AquÃ­ alternamos la forma segÃºn el estado
             .clip(if (isActive) activeShape else CircleShape)
             .clickable(onClick = onClick),
         color = containerColor,
@@ -1834,7 +1826,7 @@ private fun QuickSettingTile(
             // El contenedor del icono es el que lleva el color primario ahora
             Box(
                 modifier = Modifier
-                    .size(40.dp) // Un poco más grande para lucir la forma y el color
+                    .size(40.dp) // Un poco mÃ¡s grande para lucir la forma y el color
                     .clip(CircleShape)
                     .background(iconBoxColor),
                 contentAlignment = Alignment.Center
@@ -1931,14 +1923,14 @@ private fun CastSheetScanningPreview() {
             title = "This phone",
             subtitle = "Local playback",
             isRemote = false,
-            icon = Icons.Rounded.Headphones,
+            icon = ImageVector.vectorResource(R.drawable.rounded_headphones_24),
             isConnecting = false,
             volume = 0.4f,
             volumeRange = 0f..1f,
             connectionLabel = "Playing"
         ),
         isBluetoothEnabled = true,
-        bluetoothName = "Headphones"
+        bluetoothName = "ImageVector.vectorResource(R.drawable.rounded_headphones_24)"
     )
     CastSheetContent(
         state = state,
@@ -1988,9 +1980,9 @@ private fun CastSheetDevicesPreview() {
         activeDevice = ActiveDeviceUi(
             id = "2",
             title = "Pixel Buds Pro",
-            subtitle = "Connected via Bluetooth",
+            subtitle = "Connected via ImageVector.vectorResource(R.drawable.rounded_bluetooth_24)",
             isRemote = true,
-            icon = Icons.Rounded.Bluetooth,
+            icon = ImageVector.vectorResource(R.drawable.rounded_bluetooth_24),
             isConnecting = false,
             volume = 12f,
             volumeRange = 0f..25f,
@@ -2024,7 +2016,7 @@ private fun CastSheetWifiOffPreview() {
             title = "This phone",
             subtitle = "Local playback",
             isRemote = false,
-            icon = Icons.Rounded.Headphones,
+            icon = ImageVector.vectorResource(R.drawable.rounded_headphones_24),
             isConnecting = false,
             volume = 0.5f,
             volumeRange = 0f..1f,

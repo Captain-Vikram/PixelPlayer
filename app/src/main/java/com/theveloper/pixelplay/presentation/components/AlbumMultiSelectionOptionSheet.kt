@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -21,9 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -165,7 +164,7 @@ fun AlbumMultiSelectionOptionSheet(
                     ),
                     icon = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_playlist_add_24),
                             contentDescription = stringResource(R.string.song_info_cd_add_to_playlist)
                         )
                     },
@@ -196,7 +195,7 @@ fun AlbumMultiSelectionOptionSheet(
                     ),
                     icon = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_queue_music_24),
                             contentDescription = stringResource(R.string.song_info_cd_queue_next)
                         )
                     },
@@ -217,7 +216,7 @@ fun AlbumMultiSelectionOptionSheet(
                     ),
                     icon = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_queue_music_24),
                             contentDescription = stringResource(R.string.song_info_cd_add_to_queue)
                         )
                     },

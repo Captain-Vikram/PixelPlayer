@@ -1,4 +1,5 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.res.vectorResource
 
 import android.content.Intent
 import android.text.format.Formatter
@@ -37,17 +38,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Assessment
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Speaker
-import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -312,7 +309,7 @@ private fun PerformanceReportCard(
 
     CapabilityCard(
         title = stringResource(R.string.settings_devcaps_report_title),
-        icon = Icons.Rounded.Assessment,
+        icon = Icons.Rounded.Info,
         modifier = modifier
     ) {
         Text(
@@ -374,7 +371,7 @@ private fun PerformanceReportCard(
                     }
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.ContentCopy,
+                        imageVector = ImageVector.vectorResource(R.drawable.rounded_attach_file_24),
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -588,7 +585,7 @@ private fun LocalMusicStorageCard(
 
     CapabilityCard(
         title = stringResource(R.string.settings_devcaps_storage_title),
-        icon = Icons.Rounded.Storage,
+        icon = Icons.Rounded.Settings,
         modifier = modifier
     ) {
         Row(
@@ -671,7 +668,7 @@ private fun PlaybackPathCard(
 
     CapabilityCard(
         title = stringResource(R.string.settings_devcaps_playback_path_title),
-        icon = Icons.Rounded.Speaker,
+        icon = ImageVector.vectorResource(R.drawable.rounded_speaker_24),
         modifier = modifier
     ) {
         Row(
@@ -748,7 +745,7 @@ private fun PlaybackPathCard(
                     label = stringResource(R.string.settings_devcaps_exoplayer_title),
                     value = exo.version,
                     supporting = stringResource(R.string.settings_devcaps_renderers_count, exo.renderers),
-                    icon = Icons.Rounded.Memory,
+                    icon = Icons.Rounded.Info,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -764,7 +761,7 @@ private fun FormatCompatibilityCard(
 ) {
     CapabilityCard(
         title = stringResource(R.string.settings_devcaps_formats_title),
-        icon = Icons.Rounded.GraphicEq,
+        icon = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
         verticalSpacing = 0.dp,
         modifier = modifier
     ) {
@@ -845,7 +842,7 @@ private fun PlaybackFindingsCard(
 
         if (compatibility.unsupportedLibrarySongCount > 0) {
             FindingRow(
-                icon = Icons.Rounded.ErrorOutline,
+                icon = Icons.Rounded.Warning,
                 title = stringResource(
                     R.string.settings_devcaps_finding_unsupported_title,
                     compatibility.unsupportedLibrarySongCount
@@ -1147,7 +1144,7 @@ private fun FormatSupportTile(
                     color = statusColor
                 ) {
                     Icon(
-                        imageVector = if (format.isDecoderAvailable) Icons.Rounded.CheckCircle else Icons.Rounded.ErrorOutline,
+                        imageVector = if (format.isDecoderAvailable) Icons.Rounded.CheckCircle else Icons.Rounded.Warning,
                         contentDescription = null,
                         tint = statusContentColor,
                         modifier = Modifier
@@ -1256,7 +1253,7 @@ private fun OutputRouteRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = if (category == AudioOutputCategory.BuiltIn) Icons.Rounded.Speaker else Icons.Rounded.Headphones,
+                imageVector = if (category == AudioOutputCategory.BuiltIn) ImageVector.vectorResource(R.drawable.rounded_speaker_24) else ImageVector.vectorResource(R.drawable.rounded_headphones_24),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)

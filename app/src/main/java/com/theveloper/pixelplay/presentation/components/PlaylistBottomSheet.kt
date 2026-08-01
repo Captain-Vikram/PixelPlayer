@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Done
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -260,7 +260,7 @@ fun PlaylistBottomSheet(
                     playerViewModel.sendToast(if (songs.size > 1) songAddedToPlaylistsMessage else commonSavedMessage)
                     playerViewModel.multiSelectionStateHolder.clearSelection()
                 },
-                icon = { Icon(Icons.Rounded.Save, saveActionText) },
+                icon = { Icon(Icons.Rounded.Done, saveActionText) },
                 text = { Text(if (songs.size > 1) stringResource(R.string.common_add) else saveActionText) },
             )
         }

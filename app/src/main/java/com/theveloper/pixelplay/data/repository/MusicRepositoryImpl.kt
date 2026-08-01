@@ -347,6 +347,18 @@ class MusicRepositoryImpl @Inject constructor(
         ).map { it.toSong() }
     }
 
+    override suspend fun getSongsPage(limit: Int, offset: Int): List<Song> =
+        getSongsPage(limit, offset, SortOption.SongDefaultOrder, SourceScope.Local)
+
+    override suspend fun getFavoriteSongsPage(limit: Int, offset: Int): List<Song> =
+        getFavoriteSongsPage(limit, offset, SortOption.SongDefaultOrder, SourceScope.Local)
+
+    override suspend fun getAlbumsPage(limit: Int, offset: Int, minTracks: Int): List<Album> =
+        getAlbumsPage(limit, offset, SortOption.AlbumTitleAZ, SourceScope.Local, minTracks)
+
+    override suspend fun getArtistsPage(limit: Int, offset: Int): List<Artist> =
+        getArtistsPage(limit, offset, SortOption.ArtistNameAZ, SourceScope.Local)
+
     override suspend fun getAlbumsPage(
         limit: Int,
         offset: Int,

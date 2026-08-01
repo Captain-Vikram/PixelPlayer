@@ -992,10 +992,11 @@ object LyricsUtils {
             val seconds = (totalMs % 60000) / 1000
             val hundredths = (totalMs % 1000) / 10
             val timestamp = "[%02d:%02d.%02d]".format(minutes, seconds, hundredths)
+            val translation = line.translation
             buildList {
                 add("$timestamp${line.line}")
-                if (!line.translation.isNullOrBlank()) {
-                    line.translation
+                if (!translation.isNullOrBlank()) {
+                    translation
                         .lines()
                         .filter { it.isNotBlank() }
                         .forEach { translationLine ->
@@ -1025,12 +1026,14 @@ object LyricsUtils {
      * @return A string representation of the lyrics.
      */
     fun toLrcString(lyrics: Lyrics, preferSynced: Boolean = true): String {
-        return if (preferSynced && !lyrics.synced.isNullOrEmpty()) {
-            syncedToLrcString(lyrics.synced)
-        } else if (!lyrics.plain.isNullOrEmpty()) {
-            plainToString(lyrics.plain)
-        } else if (!lyrics.synced.isNullOrEmpty()) {
-            syncedToLrcString(lyrics.synced)
+        val synced = lyrics.synced
+        val plain = lyrics.plain
+        return if (preferSynced && !synced.isNullOrEmpty()) {
+            syncedToLrcString(synced)
+        } else if (!plain.isNullOrEmpty()) {
+            plainToString(plain)
+        } else if (!synced.isNullOrEmpty()) {
+            syncedToLrcString(synced)
         } else {
             ""
         }

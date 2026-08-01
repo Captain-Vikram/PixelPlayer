@@ -38,6 +38,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.absoluteValue
 
+import com.theveloper.pixelplay.data.repository.JellyfinRepositoryContract
+
 @Suppress("DEPRECATION")
 @Singleton
 class JellyfinRepository @Inject constructor(
@@ -46,7 +48,7 @@ class JellyfinRepository @Inject constructor(
     private val musicDao: MusicDao,
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
     @ApplicationContext private val context: Context
-) {
+) : JellyfinRepositoryContract {
     private companion object {
         private const val TAG = "JellyfinRepo"
         private const val PREFS_NAME = "jellyfin_prefs"
@@ -81,7 +83,7 @@ class JellyfinRepository @Inject constructor(
     }
 
     private val _isLoggedInFlow = MutableStateFlow(false)
-    val isLoggedInFlow: StateFlow<Boolean> = _isLoggedInFlow.asStateFlow()
+    override val isLoggedInFlow: kotlinx.coroutines.flow.Flow<Boolean> = _isLoggedInFlow.asStateFlow()
 
     init {
         initFromSavedCredentials()
@@ -114,12 +116,12 @@ class JellyfinRepository @Inject constructor(
     val isLoggedIn: Boolean
         get() = _isLoggedInFlow.value
 
-    val serverUrl: String?
+    override val serverUrl: String?
         get() = prefs.getString(KEY_SERVER_URL, null)
 
     fun getAuthorizationHeader(): String? = api.getAuthorizationHeader()
 
-    val username: String?
+    override val username: String?
         get() = prefs.getString(KEY_USERNAME, null)
 
     suspend fun login(serverUrl: String, username: String, password: String): Result<String> {
@@ -169,7 +171,7 @@ class JellyfinRepository @Inject constructor(
         }
     }
 
-    suspend fun logout() {
+    override suspend fun logout() {
         Timber.d("$TAG: Logging out")
         api.clearCredentials()
         prefs.edit().clear().apply()
@@ -392,6 +394,7 @@ class JellyfinRepository @Inject constructor(
     }
 
     fun getPlaylists(): Flow<List<JellyfinPlaylistEntity>> = dao.getAllPlaylists()
+    override fun getPlaylistCount(): Flow<Int> = dao.getAllPlaylists().map { it.size }
 
     fun getPlaylistSongs(playlistId: String): Flow<List<Song>> {
         return dao.getSongsByPlaylist(playlistId).map { entities ->
@@ -441,7 +444,7 @@ class JellyfinRepository @Inject constructor(
 
     // ─── Media URLs ────────────────────────────────────────────────────────
 
-    fun getStreamUrl(songId: String, maxBitRate: Int = 0): String {
+    override fun getStreamUrl(songId: String, maxBitRate: Int): String {
         return api.getStreamUrl(songId, maxBitRate)
     }
 

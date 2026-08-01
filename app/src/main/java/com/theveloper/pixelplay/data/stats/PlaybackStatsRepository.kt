@@ -303,7 +303,7 @@ class PlaybackStatsRepository @Inject constructor(
             .groupBy { (songId, _) ->
                 val song = songMap[songId]
                 if (song != null) {
-                    if (song.genre.isNullOrBlank()) "Unknown Genre" else song.genre
+                    song.genre?.takeIf { it.isNotBlank() } ?: "Unknown Genre"
                 } else if (songId.startsWith("extension:")) {
                     val cached = extensionMetadataCache.getMetadata(songId)
                     cached?.genres?.firstOrNull() ?: "Unknown Genre"

@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 
@@ -29,10 +31,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Album
+
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Topic
+import androidx.compose.material.icons.rounded.List
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -147,7 +148,7 @@ fun PlaylistContainer(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.PlaylistPlay,
+                                ImageVector.vectorResource(R.drawable.rounded_playlist_play_24),
                                 contentDescription = null,
                                 modifier = Modifier.size(32.dp),
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer
@@ -499,8 +500,8 @@ fun PlaylistItem(
                     if (playlist.source == "TELEGRAM_TOPIC") {
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
-                            imageVector = Icons.Rounded.Topic,
-                            contentDescription = "Topic",
+                            imageVector = Icons.Rounded.List,
+                            contentDescription = "List",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
                         )
@@ -508,9 +509,9 @@ fun PlaylistItem(
                     if (playlist.source == "QQMUSIC") {
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
-                            imageVector = Icons.Rounded.Album,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_album_24),
                             contentDescription = "QQ Music",
-                            tint = Color(0xFF2E7D32), // 修改为绿色
+                            tint = Color(0xFF2E7D32), // ä¿®æ”¹ä¸ºç»¿è‰²
                             modifier = Modifier.size(18.dp)
                         )
                     }

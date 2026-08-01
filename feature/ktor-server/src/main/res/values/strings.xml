@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cast_server_channel_name">Cast Server</string>
+    <string name="cast_server_notification_title">PixelPlayer Streaming Server</string>
+    <string name="cast_server_notification_text">Streaming media to Google Cast device...</string>
+    <string name="cast_server_foreground_error">Failed to start foreground service: %1$s (%2$s)</string>
+    <string name="common_error_unknown">Unknown error</string>
+</resources>

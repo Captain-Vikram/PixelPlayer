@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import android.app.Activity
 import android.util.Log
@@ -12,7 +14,7 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -577,7 +579,7 @@ private fun DiscoveryFeed(
                                 },
                                 label = { Text(historyItem.query, fontFamily = GoogleSansRounded) },
                                 shape = CircleShape,
-                                leadingIcon = { Icon(Icons.Rounded.History, null, modifier = Modifier.size(16.dp)) },
+                                leadingIcon = { Icon(ImageVector.vectorResource(R.drawable.rounded_schedule_24), null, modifier = Modifier.size(16.dp)) },
                                 trailingIcon = {
                                     IconButton(
                                         onClick = { playerViewModel.deleteSearchHistoryItem(historyItem.query) },
@@ -685,7 +687,7 @@ private fun SearchShelf(
                 if (sourceLabel != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = if (isLocal) Icons.Rounded.Storage else Icons.Rounded.Cloud,
+                            imageVector = if (isLocal) Icons.Rounded.Settings else ImageVector.vectorResource(R.drawable.rounded_music_cast_24),
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
@@ -868,8 +870,8 @@ fun SourceSwitcher(
             ) {
                 Icon(
                     imageVector = when (currentScope) {
-                        SourceScope.Local -> Icons.Rounded.Storage
-                        else -> Icons.Rounded.Cloud
+                        SourceScope.Local -> Icons.Rounded.Settings
+                        else -> ImageVector.vectorResource(R.drawable.rounded_music_cast_24)
                     },
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.secondary,

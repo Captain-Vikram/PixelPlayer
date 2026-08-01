@@ -114,7 +114,15 @@ private fun WebViewContainer(
         webView.settings.databaseEnabled = true
         webView.settings.setSupportMultipleWindows(true)
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+        val initialUrl = request.request.initialUrl.url
+        val isGoogleAuth = initialUrl.contains("google", ignoreCase = true) || 
+                           initialUrl.contains("youtube", ignoreCase = true) ||
+                           request.reason.contains("google", ignoreCase = true)
+        webView.settings.userAgentString = if (isGoogleAuth) {
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        } else {
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        }
         
         val cookieManager = CookieManager.getInstance()
         if (request.request.dontCache) {
@@ -253,7 +261,12 @@ private fun WebViewContainer(
             ): Boolean {
                 val transport = resultMsg?.obj as? WebView.WebViewTransport
                 if (transport != null) {
-                    val tempWebView = WebView(view!!.context)
+                    val tempWebView = WebView(view!!.context).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.userAgentString = view.settings.userAgentString
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                    }
                     tempWebView.webViewClient = object : WebViewClient() {
                         @Deprecated("Deprecated in Java")
                         override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {

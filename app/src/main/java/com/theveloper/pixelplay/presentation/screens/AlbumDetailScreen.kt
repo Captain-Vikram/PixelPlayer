@@ -1,6 +1,8 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+﻿@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
@@ -29,7 +31,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -573,7 +574,7 @@ private fun SharedAlbumTopBarProbe(
 
         CollapsibleCommonTopBar(
             title = album.title,
-            subtitle = "${album.artist} • ${formatSongCount(songsCount)}",
+            subtitle = "${album.artist} â€¢ ${formatSongCount(songsCount)}",
             collapseFraction = collapseFraction,
             headerHeight = headerHeight,
             onBackClick = onBackPressed,
@@ -612,7 +613,7 @@ private fun SharedAlbumTopBarProbe(
                     alpha = expandedContentAlpha
                 }
         ) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
+            Icon(ImageVector.vectorResource(R.drawable.rounded_shuffle_24), contentDescription = stringResource(R.string.common_shuffle_play_album))
         }
     }
 }
@@ -786,7 +787,7 @@ private fun CollapsingAlbumTopBar(
                             alpha = fabScale
                         }
                 ) {
-                    Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
+                    Icon(ImageVector.vectorResource(R.drawable.rounded_shuffle_24), contentDescription = stringResource(R.string.common_shuffle_play_album))
                 }
             }
         }

@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -29,12 +31,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.AutoAwesomeMotion
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Save
-import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Done
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -105,7 +106,7 @@ fun EditTransitionScreen(
     val hasCustomRule = uiState.rule != null && !uiState.useGlobalDefaults
     val isCrossfadeEnabled = displayedSettings.mode != TransitionMode.NONE
 
-    // Configuración para el comportamiento de la TopBar colapsable (Material 3)
+    // ConfiguraciÃ³n para el comportamiento de la TopBar colapsable (Material 3)
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     LaunchedEffect(uiState.isSaved, isPlaylistScope, uiState.useGlobalDefaults) {
@@ -153,7 +154,7 @@ fun EditTransitionScreen(
                         enabled = !uiState.isLoading,
                         colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer)
                     ){
-                        Icon(Icons.Rounded.Save, contentDescription = stringResource(R.string.common_save))
+                        Icon(Icons.Rounded.Done, contentDescription = stringResource(R.string.common_save))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -168,8 +169,8 @@ fun EditTransitionScreen(
 //                ExtendedFloatingActionButton(
 //                    modifier = Modifier.padding(),
 //                    onClick = { viewModel.saveSettings() },
-//                    icon = { Icon(Icons.Rounded.Save, contentDescription = null) },
-//                    text = { Text("Save changes") },
+//                    icon = { Icon(Icons.Rounded.Done, contentDescription = null) },
+//                    text = { Text("Done changes") },
 //                    containerColor = MaterialTheme.colorScheme.primaryContainer,
 //                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
 //                    elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(0.dp) // Flat style for consistency
@@ -225,7 +226,7 @@ fun EditTransitionScreen(
                     )
                 }
 
-                // Animación de visibilidad: Oculta controles complejos si no hay transición
+                // AnimaciÃ³n de visibilidad: Oculta controles complejos si no hay transiciÃ³n
                 item {
                     AnimatedVisibility(
                         visible = isCrossfadeEnabled,
@@ -279,7 +280,7 @@ private fun TransitionSummaryCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Rounded.AutoAwesomeMotion,
+                        Icons.Rounded.Star,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -351,7 +352,7 @@ private fun TransitionModeSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(ImageVector.vectorResource(R.drawable.rounded_music_note_24), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Column {
                 Text(stringResource(R.string.transition_style_title), style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -362,7 +363,7 @@ private fun TransitionModeSection(
             }
         }
 
-        // Componente Toggle rediseñado: Plano, simétrico, sin sombras raras
+        // Componente Toggle rediseÃ±ado: Plano, simÃ©trico, sin sombras raras
         ExpressiveMorphingToggle(
             options = listOf(TransitionMode.NONE, TransitionMode.OVERLAP),
             selectedOption = selected,
@@ -378,7 +379,7 @@ private fun ExpressiveMorphingToggle(
     onOptionSelected: (TransitionMode) -> Unit
 ) {
     val selectedIndex = if (selectedOption == TransitionMode.OVERLAP) 1 else 0
-    val shape = CircleShape //RoundedCornerShape(16.dp) // Menos redondeado para más estructura, o 50 para capsula
+    val shape = CircleShape //RoundedCornerShape(16.dp) // Menos redondeado para mÃ¡s estructura, o 50 para capsula
     val crossfadeLabel = stringResource(R.string.transition_mode_crossfade)
     val noneLabel = stringResource(R.string.transition_mode_none)
 
@@ -401,13 +402,13 @@ private fun ExpressiveMorphingToggle(
             label = "offset"
         )
 
-        // El indicador se mueve detrás del texto
+        // El indicador se mueve detrÃ¡s del texto
         Box(
             modifier = Modifier
                 .width(indicatorWidth)
                 .fillMaxSize()
                 .offset(x = indicatorOffset)
-                .clip(CircleShape) // Un poco más pequeño que el contenedor
+                .clip(CircleShape) // Un poco mÃ¡s pequeÃ±o que el contenedor
                 .background(MaterialTheme.colorScheme.secondaryContainer)
         )
 
@@ -476,7 +477,7 @@ private fun TransitionDurationSection(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
-                Icon(Icons.Rounded.Tune, contentDescription = stringResource(R.string.transition_reset_cd))
+                Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.transition_reset_cd))
             }
         }
 
@@ -509,7 +510,7 @@ private fun TransitionDurationSection(
 private fun CrossfadeVisualizer(durationMs: Int) {
     val maxDuration = 12000f
     val normalized = durationMs.coerceIn(0, 12000)
-    // Porcentaje de la superposición respecto al máximo
+    // Porcentaje de la superposiciÃ³n respecto al mÃ¡ximo
     val overlapFactor by animateFloatAsState(targetValue = normalized / maxDuration, label = "width")
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -540,7 +541,7 @@ private fun CrossfadeVisualizer(durationMs: Int) {
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Barra Canción 1 (Izquierda -> Derecha)
+                // Barra CanciÃ³n 1 (Izquierda -> Derecha)
                 // Se extiende hasta la mitad + la mitad del overlap
                 Box(
                     modifier = Modifier
@@ -552,11 +553,11 @@ private fun CrossfadeVisualizer(durationMs: Int) {
                             shape = RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp)
                         )
                 ) {
-                    // Extensión visual de la barra superior (Song 1 Ending)
-                    // Esta lógica es visual para representar el "overlap"
+                    // ExtensiÃ³n visual de la barra superior (Song 1 Ending)
+                    // Esta lÃ³gica es visual para representar el "overlap"
                 }
 
-                // Barra Canción 2 (Derecha -> Izquierda)
+                // Barra CanciÃ³n 2 (Derecha -> Izquierda)
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -569,11 +570,11 @@ private fun CrossfadeVisualizer(durationMs: Int) {
                 )
             }
 
-            // Área de superposición dinámica (El "Crossfade")
+            // Ãrea de superposiciÃ³n dinÃ¡mica (El "Crossfade")
             // Representa el tiempo compartido
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.1f + (overlapFactor * 0.4f)) // Mínimo visual + factor
+                    .fillMaxWidth(0.1f + (overlapFactor * 0.4f)) // MÃ­nimo visual + factor
                     .background(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceContainerLow//.copy(alpha = 0.8f) // Masking effect
@@ -585,7 +586,7 @@ private fun CrossfadeVisualizer(durationMs: Int) {
 //                        RoundedCornerShape(8.dp)
 //                    )
             ) {
-                // Representación interna del cruce
+                // RepresentaciÃ³n interna del cruce
                 Row(modifier = Modifier.fillMaxSize()) {
                     Box(
                         modifier = Modifier
@@ -627,7 +628,7 @@ private fun CrossfadeVisualizer(durationMs: Int) {
                 }
                 // Icono central
                 Icon(
-                    Icons.Rounded.AutoAwesomeMotion,
+                    Icons.Rounded.Star,
                     contentDescription = null,
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -637,7 +638,7 @@ private fun CrossfadeVisualizer(durationMs: Int) {
             }
         }
 
-        // Explicación textual dinámica
+        // ExplicaciÃ³n textual dinÃ¡mica
         Text(
             text = stringResource(
                 R.string.transition_overlap_explanation_format,
@@ -659,7 +660,7 @@ private fun TransitionCurvesSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Rounded.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Column {
                 Text(stringResource(R.string.transition_curves_title), style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -719,7 +720,7 @@ private fun CurveSelectionColumn(
                 Curve.entries.forEach { curve ->
                     val isSelected = selected == curve
 
-                    // Diseño Expressive: La selección es una forma, no solo un check
+                    // DiseÃ±o Expressive: La selecciÃ³n es una forma, no solo un check
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

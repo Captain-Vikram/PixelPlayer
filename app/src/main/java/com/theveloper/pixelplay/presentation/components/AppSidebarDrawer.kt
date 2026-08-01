@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -9,8 +11,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.HorizontalDivider
@@ -131,7 +131,7 @@ private fun DrawerContent(
         NavigationDrawerItem(
             icon = {
                 Icon(
-                    imageVector = Icons.Rounded.GraphicEq,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                     contentDescription = stringResource(R.string.settings_category_equalizer_title)
                 )
             },
@@ -165,7 +165,7 @@ private fun DrawerContent(
         NavigationDrawerItem(
             icon = {
                 Icon(
-                    imageVector = Icons.Rounded.Cloud,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_music_cast_24),
                     contentDescription = stringResource(R.string.auth_telegram_title)
                 )
             },

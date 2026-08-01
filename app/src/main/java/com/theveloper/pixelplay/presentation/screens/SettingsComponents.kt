@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -27,9 +27,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -687,7 +687,7 @@ fun RefreshLibraryItem(
                         contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                            imageVector = Icons.Outlined.Sync,
+                            imageVector = Icons.Outlined.Refresh,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.secondary
                     )
@@ -756,7 +756,7 @@ fun RefreshLibraryItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.DeleteForever,
+                        imageVector = Icons.Outlined.Delete,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )

@@ -1,6 +1,8 @@
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
@@ -49,21 +51,18 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.filled.Album
+
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.SelectAll
-import androidx.compose.material.icons.rounded.Deselect
+import androidx.compose.material.icons.rounded.Done
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material.icons.rounded.ViewModule
 import com.theveloper.pixelplay.presentation.components.ToggleSegmentButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -461,7 +460,7 @@ fun LibraryScreen(
     extensionsViewModel: ExtensionsViewModel = hiltViewModel(),
     songInfoBottomSheetViewModel: SongInfoBottomSheetViewModel = hiltViewModel()
 ) {
-    // La recolección de estados de alto nivel se mantiene mínima.
+    // La recolecciÃ³n de estados de alto nivel se mantiene mÃ­nima.
     val context = LocalContext.current // Added context
     LaunchedEffect(extensionsViewModel.errors) {
         extensionsViewModel.errors.collect { error ->
@@ -470,7 +469,7 @@ fun LibraryScreen(
     }
     val haptic = LocalHapticFeedback.current
     val lastTabIndex by playerViewModel.lastLibraryTabIndexFlow.collectAsStateWithLifecycle()
-    val favoriteIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle() // Reintroducir favoriteIds aquí
+    val favoriteIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle() // Reintroducir favoriteIds aquÃ­
     val scope = rememberCoroutineScope() // Mantener si se usa para acciones de UI
     val syncManager = playerViewModel.syncManager
     var isRefreshing by remember { mutableStateOf(false) }
@@ -922,7 +921,7 @@ fun LibraryScreen(
             playerViewModel.clearAiPlaylistError()
         }
     }
-    // La lógica de carga diferida (lazy loading) se mantiene.
+    // La lÃ³gica de carga diferida (lazy loading) se mantiene.
     LaunchedEffect(Unit) {
         Trace.beginSection("LibraryScreen.InitialTabLoad")
         playerViewModel.onLibraryTabSelected(normalizedLastTabIndex)
@@ -1212,7 +1211,7 @@ fun LibraryScreen(
                     // shape = AbsoluteSmoothCornerShape(cornerRadiusTL = 24.dp, smoothnessAsPercentTR = 60, /*...*/) // Your custom shape
                 ) {
                     Column(Modifier.fillMaxSize()) {
-                        // OPTIMIZACIÓN: La lógica de ordenamiento ahora es más eficiente.
+                        // OPTIMIZACIÃ“N: La lÃ³gica de ordenamiento ahora es mÃ¡s eficiente.
                         val availableSortOptions by playerViewModel.availableSortOptions.collectAsStateWithLifecycle()
                         val sanitizedSortOptions: List<com.theveloper.pixelplay.data.model.SortOption> = remember(availableSortOptions, currentTabId) {
                             val defaultSort = currentTabId.sortOptions.firstOrNull() ?: SortOption.SongTitleAZ
@@ -1555,7 +1554,7 @@ fun LibraryScreen(
                                                 activeCornerRadius = 32.dp,
                                                 onClick = { playerViewModel.setAlbumsListView(false) },
                                                 text = stringResource(R.string.library_view_mode_grid),
-                                                imageVector = Icons.Rounded.ViewModule
+                                                imageVector = ImageVector.vectorResource(R.drawable.rounded_view_carousel_24)
                                             )
 
                                             // List Item
@@ -1569,7 +1568,7 @@ fun LibraryScreen(
                                                 activeCornerRadius = 32.dp,
                                                 onClick = { playerViewModel.setAlbumsListView(true) },
                                                 text = stringResource(R.string.library_view_mode_list),
-                                                imageVector = Icons.AutoMirrored.Rounded.ViewList
+                                                imageVector = ImageVector.vectorResource(R.drawable.rounded_format_list_bulleted_24)
                                             )
                                         }
                                     }
@@ -2499,7 +2498,7 @@ private fun LibraryInlineSyncIndicator(
         ) + androidx.compose.animation.fadeOut(animationSpec = tween(160))
     ) {
         // Collected inside this subtree so progress ticks don't recompose the
-        // parent screen — same pattern as LibrarySyncOverlay.
+        // parent screen â€” same pattern as LibrarySyncOverlay.
         val syncProgress by syncManager.syncProgress
             .collectAsStateWithLifecycle(initialValue = SyncProgress())
 
@@ -2548,8 +2547,8 @@ private fun LibraryInlineSyncIndicator(
  *
  * By collecting [SyncManager.syncProgress] HERE instead of in the parent [LibraryScreen],
  * only this small subtree recomposes on every progress tick (e.g., file count updates
- * during a library scan). The rest of [LibraryScreen] — including the Scaffold, pager,
- * and all tab content — remains unaffected during sync.
+ * during a library scan). The rest of [LibraryScreen] â€” including the Scaffold, pager,
+ * and all tab content â€” remains unaffected during sync.
  */
 @Composable
 private fun LibrarySyncOverlay(syncManager: com.theveloper.pixelplay.data.worker.SyncManager) {
@@ -2860,22 +2859,7 @@ private val LibraryNavigationPillArrowPaddingCompressed = 4.dp
 private fun rememberLibraryNavigationPillTitleStyle(widthAxis: Float): TextStyle {
     return remember(widthAxis) {
         TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.gflex_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(400),
-                        FontVariation.width(widthAxis.coerceIn(
-                            LibraryNavigationPillTitleWidthMin,
-                            LibraryNavigationPillTitleWidthMax
-                        )),
-                        FontVariation.Setting("ROND", 100f),
-                        FontVariation.Setting("XTRA", 520f),
-                        FontVariation.Setting("YOPQ", 90f),
-                        FontVariation.Setting("YTLC", 505f)
-                    )
-                )
-            ),
+            fontFamily = com.theveloper.pixelplay.ui.theme.GoogleSansRounded,
             fontWeight = FontWeight.SemiBold,
             fontSize = 26.sp,
             lineHeight = 28.sp,
@@ -3514,7 +3498,7 @@ fun AlbumGridItemRedesigned(
     val albumColorSchemePair by albumColorSchemePairFlow.collectAsStateWithLifecycle()
     val systemIsDark = LocalPixelPlayDarkTheme.current
 
-    // 1. Obtén el colorScheme del tema actual aquí, en el scope Composable.
+    // 1. ObtÃ©n el colorScheme del tema actual aquÃ­, en el scope Composable.
     val currentMaterialColorScheme = MaterialTheme.colorScheme
 
     val itemDesignColorScheme = remember(albumColorSchemePair, systemIsDark, currentMaterialColorScheme) {
@@ -3632,8 +3616,8 @@ fun AlbumGridItemRedesigned(
                             model = album.albumArtUriString,
                             contentDescription = stringResource(R.string.common_album_art_for_title, album.title),
                             contentScale = ContentScale.Crop,
-                            // Reducido el tamaño para mejorar el rendimiento del scroll, como se sugiere en el informe.
-                            // ContentScale.Crop se encargará de ajustar la imagen al aspect ratio.
+                            // Reducido el tamaÃ±o para mejorar el rendimiento del scroll, como se sugiere en el informe.
+                            // ContentScale.Crop se encargarÃ¡ de ajustar la imagen al aspect ratio.
                             targetSize = Size(256, 256),
                             modifier = Modifier
                                 .aspectRatio(3f / 2f)
@@ -3696,7 +3680,7 @@ fun AlbumGridItemRedesigned(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = selectionIndex?.toString() ?: "✓",
+                            text = selectionIndex?.toString() ?: "âœ“",
                             color = MaterialTheme.colorScheme.onPrimary,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
@@ -3780,7 +3764,7 @@ fun ArtistListItem(artist: Artist, onClick: () -> Unit, isLoading: Boolean = fal
                         )
                         if (sourceLabel != null) {
                             Text(
-                                text = " • $sourceLabel",
+                                text = " â€¢ $sourceLabel",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                                 maxLines = 1
@@ -3980,7 +3964,7 @@ fun AlbumListItem(
                             )
                             if (sourceLabel != null) {
                                 Text(
-                                    text = " • $sourceLabel",
+                                    text = " â€¢ $sourceLabel",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = onGradientColor.copy(alpha = 0.8f),
                                     maxLines = 1
@@ -4010,7 +3994,7 @@ fun AlbumListItem(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = selectionIndex?.toString() ?: "✓",
+                            text = selectionIndex?.toString() ?: "âœ“",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimary,
                             fontWeight = FontWeight.Bold

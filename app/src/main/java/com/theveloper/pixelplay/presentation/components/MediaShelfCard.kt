@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import com.theveloper.pixelplay.R
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -6,9 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -47,8 +47,8 @@ fun getShelfMediaType(item: EchoMediaItem): ShelfMediaType? {
 @Composable
 fun MediaTypeBadge(type: ShelfMediaType, modifier: Modifier = Modifier) {
     val typeIcon: ImageVector = when (type) {
-        ShelfMediaType.Album -> Icons.Rounded.Album
-        ShelfMediaType.Playlist -> Icons.Rounded.PlaylistPlay
+        ShelfMediaType.Album -> ImageVector.vectorResource(R.drawable.rounded_album_24)
+        ShelfMediaType.Playlist -> ImageVector.vectorResource(R.drawable.rounded_playlist_play_24)
         ShelfMediaType.Artist -> Icons.Rounded.Person
     }
 

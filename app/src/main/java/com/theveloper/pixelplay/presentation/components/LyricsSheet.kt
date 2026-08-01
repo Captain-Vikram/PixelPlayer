@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import android.widget.Toast
 import com.theveloper.pixelplay.data.model.Song
@@ -53,15 +55,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -266,12 +264,12 @@ fun LyricsSheet(
     highlightOffsetDp: Dp = 32.dp,
     autoscrollAnimationSpec: AnimationSpec<Float>? = null // null = auto-detect from preference
 ) {
-    // ─── Enter / Exit animation state ────────────────────────────────────────
+    // â”€â”€â”€ Enter / Exit animation state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Mirrors the player-sheet pattern: a plain Float in state drives graphicsLayer
     // at draw-phase (no recomposition per frame). 0f = fully visible, 1f = dismissed.
     var backProgress by remember { mutableFloatStateOf(1f) }
 
-    // Draw-phase lambda provider — read only inside graphicsLayer so layout is never
+    // Draw-phase lambda provider â€” read only inside graphicsLayer so layout is never
     // re-triggered during the gesture (same technique as SheetVisualState).
     val backProgressProvider = rememberUpdatedState(backProgress)
 
@@ -551,8 +549,8 @@ fun LyricsSheet(
     Scaffold(
         modifier = modifier
             .fillMaxSize()
-            // ─── Enter / Predictive-back exit transformation ──────────────────
-            // Read backProgressProvider inside graphicsLayer (draw-phase) — no layout
+            // â”€â”€â”€ Enter / Predictive-back exit transformation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // Read backProgressProvider inside graphicsLayer (draw-phase) â€” no layout
             // pass is triggered per gesture frame, same pattern as SheetVisualState.
             // 0f = fully visible, 1f = fully dismissed.
             // Effect: scale down to 92 % + slide down 8 % of height + fade to 72 % alpha.
@@ -880,7 +878,7 @@ fun LyricsSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Play/Pause Button (Smaller)
+                    // Play/ImageVector.vectorResource(R.drawable.rounded_pause_24) Button (Smaller)
                     val playPauseCornerRadius by animateDpAsState(
                         targetValue = if (isPlaying) 18.dp else 50.dp,
                         animationSpec = spring(stiffness = Spring.StiffnessLow),
@@ -905,8 +903,8 @@ fun LyricsSheet(
                             if (playing) {
                                 Icon(
                                     modifier = Modifier.size(32.dp),
-                                    imageVector = Icons.Rounded.Pause,
-                                    contentDescription = "Pause",
+                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_pause_24),
+                                    contentDescription = "ImageVector.vectorResource(R.drawable.rounded_pause_24)",
                                     tint = onPlayPauseColor
                                 )
                             } else {
@@ -1070,7 +1068,7 @@ fun LyricsSheet(
        if (isSwipeActive || swipeProgress.value > 0f) {
            val isNext = dragOffset < 0
            val overlayAlignment = if (isNext) Alignment.CenterEnd else Alignment.CenterStart
-           val icon = if (isNext) Icons.Rounded.SkipNext else Icons.Rounded.SkipPrevious
+           val icon = if (isNext) ImageVector.vectorResource(R.drawable.rounded_skip_next_24) else ImageVector.vectorResource(R.drawable.rounded_skip_previous_24)
            
            Box(
                modifier = Modifier
@@ -1633,7 +1631,7 @@ fun LyricWordSpan(
     )
 
     // Scale: pop up to 1.10 on highlight, settle back to 1f. Only active when
-    // animated lyrics is on — layout is untouched because it's applied in graphicsLayer.
+    // animated lyrics is on â€” layout is untouched because it's applied in graphicsLayer.
     val scale by animateFloatAsState(
         targetValue = if (useAnimatedLyrics && isHighlighted) 1.10f else 1f,
         animationSpec = wordAnimSpec,
@@ -1664,7 +1662,7 @@ fun LyricWordSpan(
             style = style,
             color = color,
             fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
-            // Scale and alpha applied at draw phase — zero layout impact per frame.
+            // Scale and alpha applied at draw phase â€” zero layout impact per frame.
             modifier = Modifier.graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -1965,7 +1963,7 @@ private fun LyricsTrackInfo(
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             // Spin forever. 8s per revolution halves the effective per-second animation work
-            // vs the original 4s cadence — visually still clearly a rotating "vinyl", but
+            // vs the original 4s cadence â€” visually still clearly a rotating "vinyl", but
             // drives fewer Compose invalidations during long listening sessions.
             while (true) {
                 currentRotation.animateTo(

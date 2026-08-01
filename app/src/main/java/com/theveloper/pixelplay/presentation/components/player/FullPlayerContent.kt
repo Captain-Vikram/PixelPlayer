@@ -1,4 +1,6 @@
 package com.theveloper.pixelplay.presentation.components.player
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import android.annotation.SuppressLint
 import androidx.compose.ui.viewinterop.AndroidView
@@ -111,7 +113,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.derivedStateOf
@@ -330,7 +331,7 @@ fun FullPlayerContent(
         }
     }
 
-    // Single subscription — replaces 11 independent collectAsStateWithLifecycle calls.
+    // Single subscription â€” replaces 11 independent collectAsStateWithLifecycle calls.
     // distinctUntilChanged in the ViewModel ensures this only emits when something
     // actually changed, batching multiple rapid updates into one recomposition.
     val fullPlayerSlice by playerViewModel.fullPlayerSlice.collectAsStateWithLifecycle()
@@ -417,11 +418,11 @@ fun FullPlayerContent(
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
 
-    // Lógica para el botón de Lyrics en el reproductor expandido
+    // LÃ³gica para el botÃ³n de Lyrics en el reproductor expandido
     val onLyricsClick = {
         val lyrics = lyricsProvider()
         if (lyrics?.synced.isNullOrEmpty() && lyrics?.plain.isNullOrEmpty()) {
-            // Si no hay letra, mostramos el diálogo para buscar
+            // Si no hay letra, mostramos el diÃ¡logo para buscar
             showFetchLyricsDialog = true
         } else {
             // Si hay letra, mostramos el sheet directamente
@@ -439,7 +440,7 @@ fun FullPlayerContent(
                 uiState = lyricsSearchUiState,
                 currentSong = song, // Use 'song' which is derived from args/retained
                 onConfirm = { forcePick ->
-                    // El usuario confirma, iniciamos la búsqueda
+                    // El usuario confirma, iniciamos la bÃºsqueda
                     playerViewModel.fetchLyricsForCurrentSong(forcePick)
                 },
                 onPickResult = { result ->
@@ -452,7 +453,7 @@ fun FullPlayerContent(
                     playerViewModel.selectLyricsSource(extId)
                 },
                 onDismiss = {
-                    // El usuario cancela o cierra el diálogo
+                    // El usuario cancela o cierra el diÃ¡logo
                     showFetchLyricsDialog = false
                     playerViewModel.resetLyricsSearchState()
                 },
@@ -463,7 +464,7 @@ fun FullPlayerContent(
         }
     }
 
-    // Observador para reaccionar al resultado de la búsqueda de letras
+    // Observador para reaccionar al resultado de la bÃºsqueda de letras
     LaunchedEffect(lyricsSearchUiState) {
         when (val state = lyricsSearchUiState) {
             is LyricsSearchUiState.Success -> {
@@ -774,7 +775,7 @@ fun FullPlayerContent(
             }
         },
         topBar = {
-            // MD3: TopAppBar 在竖屏时滑入，横屏时向上滑出淡出
+            // MD3: TopAppBar åœ¨ç«–å±æ—¶æ»‘å…¥ï¼Œæ¨ªå±æ—¶å‘ä¸Šæ»‘å‡ºæ·¡å‡º
             AnimatedVisibility(
                 visible = !isLandscape,
                 enter = fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
@@ -815,7 +816,7 @@ fun FullPlayerContent(
 
                                     if (currentSong != null && (currentSong.telegramChatId != null || currentSong.contentUriString.startsWith("telegram:"))) {
                                         Icon(
-                                            imageVector = androidx.compose.material.icons.Icons.Rounded.Cloud,
+                                            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_cast_24),
                                             contentDescription = stringResource(R.string.player_cd_cloud_stream),
                                             tint = LocalMaterialTheme.current.onPrimaryContainer.copy(alpha = 0.6f),
                                             modifier = Modifier.padding(start = 8.dp).size(16.dp)
@@ -828,13 +829,13 @@ fun FullPlayerContent(
                     navigationIcon = {
                         Box(
                             modifier = Modifier
-                                // Ancho total = 14dp de padding + 42dp del botón
+                                // Ancho total = 14dp de padding + 42dp del botÃ³n
                                 .width(56.dp)
                                 .height(42.dp),
-                            // 2. Alinea el contenido (el botón) al final (derecha) y centrado verticalmente
+                            // 2. Alinea el contenido (el botÃ³n) al final (derecha) y centrado verticalmente
                             contentAlignment = Alignment.CenterEnd
                         ) {
-                            // 3. Tu botón circular original, sin cambios
+                            // 3. Tu botÃ³n circular original, sin cambios
                             Box(
                                 modifier = Modifier
                                     .size(42.dp)
@@ -1001,7 +1002,7 @@ fun FullPlayerContent(
             }
         }
     ) { paddingValues ->
-        // MD3: 方向变化时先 alpha=0 再淡入新布局，避免双布局同时测量导致错位
+        // MD3: æ–¹å‘å˜åŒ–æ—¶å…ˆ alpha=0 å†æ·¡å…¥æ–°å¸ƒå±€ï¼Œé¿å…åŒå¸ƒå±€åŒæ—¶æµ‹é‡å¯¼è‡´é”™ä½
         var contentVisible by remember(isLandscape) { mutableStateOf(false) }
         LaunchedEffect(isLandscape) { contentVisible = true }
         val contentAlpha by animateFloatAsState(
@@ -1063,7 +1064,7 @@ fun FullPlayerContent(
             lyricsSyncOffset = lyricsSyncOffset,
             onLyricsSyncOffsetChange = { currentSong?.id?.let { songId -> playerViewModel.setLyricsSyncOffset(songId, it) } },
             // Use the platform default font (fontFamily = null) for lyrics so extended
-            // Unicode glyphs (e.g. Icelandic æ ð þ) render instead of tofu. The bundled
+            // Unicode glyphs (e.g. Icelandic Ã¦ Ã° Ã¾) render instead of tofu. The bundled
             // Google Sans Rounded variable font drops these codepoints at runtime. (#2427)
             lyricsTextStyle = MaterialTheme.typography.titleLarge.copy(fontFamily = null),
             colorScheme = LocalMaterialTheme.current,
@@ -1850,7 +1851,7 @@ private fun PlayerProgressBarSection(
     )
 
     var sliderDragValue by remember { mutableStateOf<Float?>(null) }
-    // Held seek target (fraction) — mirrors PlayerSeekBar so the slider stays where the user
+    // Held seek target (fraction) â€” mirrors PlayerSeekBar so the slider stays where the user
     // dropped it until real playback catches up. Fraction-based so it survives duration drift.
     var targetSeekFraction by remember { mutableFloatStateOf(-1f) }
     var lastSeekFinishedTime by remember { mutableLongStateOf(0L) }
@@ -1863,7 +1864,7 @@ private fun PlayerProgressBarSection(
     }
 
     // Release the held target once smooth progress catches up (within 4%) or after a 5 s
-    // safety net — same thresholds as the LyricsSheet PlayerSeekBar. Re-keying on songId
+    // safety net â€” same thresholds as the LyricsSheet PlayerSeekBar. Re-keying on songId
     // restarts the snapshotFlow so the new song's progress drives the catch-up cleanly.
     LaunchedEffect(songId) {
         snapshotFlow { smoothProgressState.value }.collect { progress ->

@@ -1,6 +1,9 @@
-@file:kotlin.OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+﻿@file:kotlin.OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 
 package com.theveloper.pixelplay.presentation.components
+import com.theveloper.pixelplay.R
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,10 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ColorScheme
@@ -93,7 +93,7 @@ internal fun MiniPlayerContentInternal(
             key(song.id) {
                 SmartImage(
                     model = albumArtModel,
-                    contentDescription = "Carátula de ${song.title}",
+                    contentDescription = "CarÃ¡tula de ${song.title}",
                     shape = CircleShape,
                     targetSize = Size(150, 150),
                     modifier = Modifier.size(44.dp),
@@ -133,8 +133,8 @@ internal fun MiniPlayerContentInternal(
 
             AutoScrollingText(
                 text = when {
-                    isCastConnecting -> "Connecting to device…"
-                    isPreparingPlayback -> "Preparing playback…"
+                    isCastConnecting -> "Connecting to deviceâ€¦"
+                    isPreparingPlayback -> "Preparing playbackâ€¦"
                     else -> song.title
                 },
                 style = titleStyle,
@@ -142,7 +142,7 @@ internal fun MiniPlayerContentInternal(
                 canScroll = canScroll
             )
             AutoScrollingText(
-                text = if (isPreparingPlayback) "Loading audio…" else song.displayArtist,
+                text = if (isPreparingPlayback) "Loading audioâ€¦" else song.displayArtist,
                 style = artistStyle,
                 gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
                 canScroll = canScroll
@@ -162,7 +162,7 @@ internal fun MiniPlayerContentInternal(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.SkipPrevious,
+                imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_previous_24),
                 contentDescription = "Anterior",
                 tint = LocalMaterialTheme.current.primary,
                 modifier = Modifier.size(22.dp)
@@ -183,7 +183,7 @@ internal fun MiniPlayerContentInternal(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                imageVector = if (isPlaying) ImageVector.vectorResource(R.drawable.rounded_pause_24) else Icons.Rounded.PlayArrow,
                 contentDescription = if (isPlaying) "Pausar" else "Reproducir",
                 tint = LocalMaterialTheme.current.onPrimary,
                 modifier = Modifier.size(22.dp)
@@ -204,7 +204,7 @@ internal fun MiniPlayerContentInternal(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.SkipNext,
+                imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_next_24),
                 contentDescription = "Siguiente",
                 tint = LocalMaterialTheme.current.primary,
                 modifier = Modifier.size(22.dp)

@@ -34,8 +34,17 @@ rootProject.name = "PixelPlay"
 include(":app")
 include(":core:shared")
 include(":core:common")
+include(":core:database")
 include(":wear")
 include(":baselineprofile")
 include(":feature:ktor-server")
+include(":feature:cast")
+include(":feature:wear-sync")
+include(":feature:glance")
+include(":feature:telegram")
+include(":feature:gdrive")
+include(":feature:netease")
+include(":feature:qqmusic")
+include(":feature:navidrome")
 // Official Echo modules are available in the workspace but excluded from
 // project includes for local app assemble until their Gradle setup is aligned.

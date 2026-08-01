@@ -61,7 +61,9 @@ fun handleEchoItemClick(
     item: EchoMediaItem,
     playerViewModel: PlayerViewModel,
     navController: NavController,
-    activeExtensionId: String?
+    activeExtensionId: String?,
+    isExtensionLoggedIn: Boolean = true,
+    onLoginRequired: (() -> Unit)? = null
 ) {
     val idParts = item.id.split(":")
     val isExtension = idParts.getOrNull(0) == "extension"
@@ -69,6 +71,11 @@ fun handleEchoItemClick(
 
     when (item) {
         is Track -> {
+            // Gate playback behind login for extension sources that require it
+            if (!isExtensionLoggedIn && onLoginRequired != null) {
+                onLoginRequired()
+                return
+            }
             val song = if (extensionId != null) {
                 item.toSong(extensionId)
             } else {

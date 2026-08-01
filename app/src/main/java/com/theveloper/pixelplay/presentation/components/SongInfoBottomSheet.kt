@@ -1,4 +1,5 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.res.vectorResource
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
@@ -36,24 +37,15 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Sensors
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
@@ -391,7 +383,7 @@ fun SongInfoBottomSheet(
                 ?.let { add("${it / 1000} kbps") }
             formatLabel?.let { add(it) }
         }
-        parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+        parts.takeIf { it.isNotEmpty() }?.joinToString(" Â· ")
     }
     val songLocationInfo = remember(song.path, song.contentUriString) {
         songInfoViewModel.getSongLocationInfo(song)
@@ -443,7 +435,7 @@ fun SongInfoBottomSheet(
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                     ) {
-                        // Fila para la carátula del álbum y el título (Always visible)
+                        // Fila para la carÃ¡tula del Ã¡lbum y el tÃ­tulo (Always visible)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -669,16 +661,17 @@ fun SongInfoBottomSheet(
                                             SongInfoSegmentedListItem(
                                                 headline = stringResource(R.string.song_info_duration_label),
                                                 supporting = formatDuration(song.duration),
-                                                icon = Icons.Rounded.Schedule,
+                                                icon = ImageVector.vectorResource(R.drawable.rounded_schedule_24),
                                                 iconDescription = stringResource(R.string.song_info_duration_label),
                                                 shape = infoSegmentItemShape,
                                             )
 
-                                            if (!song.genre.isNullOrEmpty()) {
+                                            val genre = song.genre
+                                            if (!genre.isNullOrEmpty()) {
                                                 SongInfoSegmentedListItem(
                                                     headline = stringResource(R.string.song_info_genre_label),
-                                                    supporting = song.genre,
-                                                    icon = Icons.Rounded.MusicNote,
+                                                    supporting = genre,
+                                                    icon = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                                                     iconDescription = stringResource(R.string.song_info_genre_label),
                                                     shape = infoSegmentItemShape,
                                                     onClick = onNavigateToGenre,
@@ -688,7 +681,7 @@ fun SongInfoBottomSheet(
                                             SongInfoSegmentedListItem(
                                                 headline = stringResource(R.string.song_info_album_label),
                                                 supporting = song.album,
-                                                icon = Icons.Rounded.Album,
+                                                icon = ImageVector.vectorResource(R.drawable.rounded_album_24),
                                                 iconDescription = stringResource(R.string.song_info_album_label),
                                                 shape = infoSegmentItemShape,
                                                 onClick = onNavigateToAlbum,
@@ -722,7 +715,7 @@ fun SongInfoBottomSheet(
                                             SongInfoSegmentedListItem(
                                                 headline = songLocationInfo.label,
                                                 supporting = songLocationInfo.value,
-                                                icon = if (songLocationInfo.isCloud) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
+                                                icon = if (songLocationInfo.isCloud) ImageVector.vectorResource(R.drawable.rounded_music_cast_24) else ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                                                 iconDescription = stringResource(
                                                     if (songLocationInfo.isCloud) {
                                                         R.string.song_info_cd_provider
@@ -1132,7 +1125,7 @@ private fun ToneDialogIcon(
     ) {
         when (target) {
             ToneTarget.Ringtone -> Icon(
-                imageVector = Icons.Rounded.MusicNote,
+                imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                 contentDescription = null,
                 modifier = iconModifier,
                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -1570,7 +1563,7 @@ private fun Row2Actions(
             }
         ) {
             Icon(
-                Icons.AutoMirrored.Rounded.QueueMusic,
+                ImageVector.vectorResource(R.drawable.rounded_queue_music_24),
                 contentDescription = stringResource(R.string.song_info_cd_add_to_queue),
             )
             Spacer(Modifier.width(6.dp))
@@ -1608,7 +1601,7 @@ private fun Row2Actions(
             }
         ) {
             Icon(
-                Icons.AutoMirrored.Filled.QueueMusic,
+                ImageVector.vectorResource(R.drawable.rounded_queue_music_24),
                 contentDescription = stringResource(R.string.song_info_cd_queue_next)
             )
             Spacer(Modifier.width(6.dp))
@@ -1672,7 +1665,7 @@ private fun Row3Actions(
                 }
             ) {
                 Icon(
-                    Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    ImageVector.vectorResource(R.drawable.rounded_playlist_add_24),
                     contentDescription = stringResource(R.string.song_info_cd_add_to_playlist)
                 )
                 Spacer(Modifier.width(6.dp))
@@ -1706,7 +1699,7 @@ private fun Row3Actions(
                 }
             ) {
                 Icon(
-                    Icons.Default.DeleteForever,
+                    Icons.Default.Delete,
                     contentDescription = stringResource(R.string.song_info_action_delete)
                 )
                 Spacer(Modifier.width(6.dp))
@@ -1740,7 +1733,7 @@ private fun Row3Actions(
                 }
             ) {
                 Icon(
-                    Icons.Rounded.Sensors,
+                    Icons.Rounded.Settings,
                     contentDescription = "Start Radio"
                 )
                 Spacer(Modifier.width(6.dp))

@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
@@ -24,7 +24,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -510,7 +510,7 @@ fun GenreDetailScreen(
                                 ),
                                 shape = racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape(16.dp, 60)
                             ) {
-                                Icon(Icons.Rounded.AutoFixHigh, contentDescription = null)
+                                Icon(Icons.Rounded.Star, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 TightWrapText(
                                     text = stringResource(R.string.genre_quick_fill),
@@ -817,7 +817,7 @@ fun GenreCollapsibleTopBar(
                     contentColor = animatedContentColor
                 )
             ) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back), tint = animatedContentColor)
+                Icon(Icons.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back), tint = animatedContentColor)
             }
 
             ExpressiveTopBarContent(

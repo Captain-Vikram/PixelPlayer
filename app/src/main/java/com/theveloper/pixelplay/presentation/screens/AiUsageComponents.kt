@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -18,7 +20,6 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.database.AiUsageEntity
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Schedule
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -78,7 +79,7 @@ fun AiUsageLogItem(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Schedule,
+                        imageVector = ImageVector.vectorResource(R.drawable.rounded_schedule_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)

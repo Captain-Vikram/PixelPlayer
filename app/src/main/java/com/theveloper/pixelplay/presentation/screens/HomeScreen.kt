@@ -1,4 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
@@ -16,9 +18,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Login
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -549,7 +550,15 @@ fun HomeScreen(
                                         item = item,
                                         playerViewModel = playerViewModel,
                                         navController = navController as NavHostController,
-                                        activeExtensionId = currentMusicExtension?.metadata?.id
+                                        activeExtensionId = currentMusicExtension?.metadata?.id,
+                                        isExtensionLoggedIn = !caps.isLoginNeeded || isExtensionLoggedIn,
+                                        onLoginRequired = {
+                                            currentMusicExtension?.metadata?.id?.let { extId ->
+                                                navController.navigate(
+                                                    Screen.ExtensionLogin.createRoute(extId)
+                                                )
+                                            }
+                                        }
                                     )
                                 }
                             )
@@ -787,7 +796,7 @@ private fun YourMixEmptyPlaceholder(onRefresh: () -> Unit) {
                 contentColor = colors.onSecondaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(imageVector = Icons.Rounded.MusicNote, contentDescription = null, modifier = Modifier.size(34.dp))
+                    Icon(imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24), contentDescription = null, modifier = Modifier.size(34.dp))
                 }
             }
 
@@ -867,6 +876,6 @@ fun SongListItemFavsWrapper(song: Song, playerViewModel: PlayerViewModel, onClic
 @Composable
 private fun rememberYourMixTitleStyle(): TextStyle {
     return remember {
-        TextStyle(fontFamily = FontFamily(Font(resId = R.font.gflex_variable, variationSettings = FontVariation.Settings(FontVariation.weight(636), FontVariation.width(152f), FontVariation.Setting("ROND", 50f), FontVariation.Setting("XTRA", 520f), FontVariation.Setting("YOPQ", 90f), FontVariation.Setting("YTLC", 505f)))), fontWeight = FontWeight(760), fontSize = 64.sp, lineHeight = 62.sp)
+        TextStyle(fontFamily = com.theveloper.pixelplay.ui.theme.GoogleSansRounded, fontWeight = FontWeight(760), fontSize = 64.sp, lineHeight = 62.sp)
     }
 }

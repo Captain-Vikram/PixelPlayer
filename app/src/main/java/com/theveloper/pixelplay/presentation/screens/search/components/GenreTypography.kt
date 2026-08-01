@@ -350,21 +350,7 @@ object GenreTypography {
         ytlc: Float
     ): TextStyle {
         return TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.gflex_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(weight),
-                        FontVariation.width(width),
-                        FontVariation.slant(slant),
-                        FontVariation.grade(grade),
-                        FontVariation.Setting("ROND", rond),
-                        FontVariation.Setting("XTRA", xtra),
-                        FontVariation.Setting("YOPQ", yopq),
-                        FontVariation.Setting("YTLC", ytlc)
-                    )
-                )
-            ),
+            fontFamily = com.theveloper.pixelplay.ui.theme.GoogleSansRounded,
             fontWeight = FontWeight(weight),
             fontSize = fontSize.sp,
             lineHeight = (fontSize * 0.92f).sp,

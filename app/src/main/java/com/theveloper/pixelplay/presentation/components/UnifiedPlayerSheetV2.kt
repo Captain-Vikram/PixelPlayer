@@ -123,6 +123,7 @@ fun UnifiedPlayerSheetV2(
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestContext by rememberUpdatedState(context)
     var showNoInternetDialog by remember { mutableStateOf(false) }
+    var playbackErrorEvent by remember { mutableStateOf<com.theveloper.pixelplay.data.service.PlaybackErrorBus.PlaybackErrorEvent?>(null) }
 
     // MediaStore write-permission launcher (for metadata editing without MANAGE_EXTERNAL_STORAGE)
     val writePermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -143,6 +144,11 @@ fun UnifiedPlayerSheetV2(
             launch {
                 playerViewModel.toastEvents.collect { message ->
                     Toast.makeText(latestContext, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+            launch {
+                playerViewModel.playbackErrorEvents.collect { event ->
+                    playbackErrorEvent = event
                 }
             }
             launch {
@@ -174,6 +180,13 @@ fun UnifiedPlayerSheetV2(
                  playerViewModel.refreshLocalConnectionInfo()
                  showNoInternetDialog = false
             }
+        )
+    }
+
+    playbackErrorEvent?.let { event ->
+        PlaybackErrorDialog(
+            error = event,
+            onDismiss = { playbackErrorEvent = null }
         )
     }
 

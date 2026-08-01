@@ -1,6 +1,8 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+﻿@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
@@ -24,19 +26,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.rounded.Radio
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -144,7 +137,7 @@ fun ArtistDetailScreen(
 
     // --- Dynamic color palette from pre-warmed ViewModel state ---
     // artistColorScheme is set by the ViewModel BEFORE isLoading becomes false,
-    // so the very first composition already has the correct palette — no flash.
+    // so the very first composition already has the correct palette â€” no flash.
     val artistColorSchemePair by viewModel.artistColorScheme.collectAsStateWithLifecycle()
     val artistColorScheme = remember(artistColorSchemePair, isDarkTheme) {
         artistColorSchemePair?.let { pair -> if (isDarkTheme) pair.dark else pair.light }
@@ -164,7 +157,7 @@ fun ArtistDetailScreen(
         playerViewModel.collapsePlayerSheet()
     }
 
-    // --- Lógica del Header Colapsable ---
+    // --- LÃ³gica del Header Colapsable ---
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val minTopBarHeight = 64.dp + statusBarHeight
     val maxTopBarHeight = 300.dp
@@ -240,7 +233,7 @@ fun ArtistDetailScreen(
             }
         }
     }
-    // --- Fin de la lógica del Header ---
+    // --- Fin de la lÃ³gica del Header ---
 
     // Wrap in dynamic theme derived from the artist's image
     MaterialTheme(
@@ -548,7 +541,7 @@ fun ArtistDetailScreen(
         }
     } // End Surface
 
-    // Bottom sheets inherit the artist's dynamic color palette — same approach as AlbumDetailScreen
+    // Bottom sheets inherit the artist's dynamic color palette â€” same approach as AlbumDetailScreen
     if (showSongInfoBottomSheet && selectedSongForInfo != null) {
         val currentSong = selectedSongForInfo
         val isFavorite = remember(currentSong?.id, favoriteIds) {
@@ -665,7 +658,7 @@ private fun CollapsibleAlbumSectionHeader(
         buildString {
             section.year?.takeIf { it > 0 }?.let {
                 append(it.toString())
-                append(" • ")
+                append(" â€¢ ")
             }
             append(formatSongCount(section.songs.size))
         }
@@ -733,7 +726,7 @@ private fun CollapsibleAlbumSectionHeader(
                 Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.artist_cd_play_title, section.title))
             }
             Icon(
-                imageVector = Icons.Rounded.ExpandMore,
+                imageVector = Icons.Rounded.KeyboardArrowDown,
                 contentDescription = if (isExpanded) {
                     stringResource(R.string.artist_cd_collapse_title, section.title)
                 } else {
@@ -955,7 +948,7 @@ private fun SharedArtistTopBarProbe(
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.artist_action_change_photo)) },
                             leadingIcon = {
-                                Icon(Icons.Rounded.AddAPhoto, contentDescription = null)
+                                Icon(ImageVector.vectorResource(R.drawable.rounded_album_24), contentDescription = null)
                             },
                             onClick = {
                                 showImageMenu = false
@@ -999,8 +992,8 @@ private fun SharedArtistTopBarProbe(
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Radio,
-                        contentDescription = "Start Artist Radio"
+                        imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
+                        contentDescription = "Start Artist ImageVector.vectorResource(R.drawable.rounded_music_note_24)"
                     )
                 }
             }
@@ -1008,7 +1001,7 @@ private fun SharedArtistTopBarProbe(
                 onClick = onPlayClick,
                 shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
             ) {
-                Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.artist_cd_shuffle_play))
+                Icon(ImageVector.vectorResource(R.drawable.rounded_shuffle_24), contentDescription = stringResource(R.string.artist_cd_shuffle_play))
             }
         }
     }
@@ -1158,7 +1151,7 @@ private fun CustomCollapsingTopBar(
                         ) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.artist_action_change_photo)) },
-                                leadingIcon = { Icon(Icons.Rounded.AddAPhoto, contentDescription = null) },
+                                leadingIcon = { Icon(ImageVector.vectorResource(R.drawable.rounded_album_24), contentDescription = null) },
                                 onClick = {
                                     showImageMenu = false
                                     onChangeImage()
@@ -1178,7 +1171,7 @@ private fun CustomCollapsingTopBar(
                     }
                 }
 
-                // Box contenedor para el título
+                // Box contenedor para el tÃ­tulo
                 Box(
                     modifier = Modifier
                         .align(animatedTitleAlignment)
@@ -1211,7 +1204,7 @@ private fun CustomCollapsingTopBar(
                     }
                 }
 
-                // Botón de Play
+                // BotÃ³n de Play
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -1230,14 +1223,14 @@ private fun CustomCollapsingTopBar(
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                         ) {
-                            Icon(Icons.Rounded.Radio, contentDescription = "Start Artist Radio")
+                            Icon(ImageVector.vectorResource(R.drawable.rounded_music_note_24), contentDescription = "Start Artist ImageVector.vectorResource(R.drawable.rounded_music_note_24)")
                         }
                     }
                     LargeExtendedFloatingActionButton(
                         onClick = onPlayClick,
                         shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
                     ) {
-                        Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
+                        Icon(ImageVector.vectorResource(R.drawable.rounded_shuffle_24), contentDescription = stringResource(R.string.common_shuffle_play_album))
                     }
                 }
             }
@@ -1252,7 +1245,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
 
     Box(modifier = modifier.background(MaterialTheme.colorScheme.primaryContainer)) {
         Icon(
-            imageVector = Icons.Rounded.MusicNote,
+            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
             contentDescription = null, tint = color1,
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -1261,7 +1254,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = -12f }
         )
         Icon(
-            imageVector = Icons.Default.GraphicEq,
+            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
             contentDescription = null, tint = color1,
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -1270,7 +1263,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = 18f }
         )
         Icon(
-            imageVector = Icons.Rounded.Album,
+            imageVector = ImageVector.vectorResource(R.drawable.rounded_album_24),
             contentDescription = null, tint = color2,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -1279,7 +1272,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = 12f }
         )
         Icon(
-            imageVector = Icons.Rounded.Mic,
+            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
             contentDescription = null, tint = color1,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1288,7 +1281,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = 14f }
         )
         Icon(
-            imageVector = Icons.Rounded.SurroundSound,
+            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
             contentDescription = null, tint = color2,
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -1297,7 +1290,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = 10f }
         )
         Icon(
-            imageVector = Icons.Rounded.MusicNote,
+            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
             contentDescription = null, tint = color1,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -1306,7 +1299,7 @@ private fun MusicIconPattern(modifier: Modifier = Modifier) {
                 .graphicsLayer { rotationZ = -18f }
         )
         Icon(
-            imageVector = Icons.Rounded.Headphones,
+            imageVector = ImageVector.vectorResource(R.drawable.rounded_headphones_24),
             contentDescription = null, tint = color2,
             modifier = Modifier
                 .align(Alignment.Center)

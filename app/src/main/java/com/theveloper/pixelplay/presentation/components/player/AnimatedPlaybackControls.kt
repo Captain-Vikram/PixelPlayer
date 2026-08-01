@@ -1,4 +1,7 @@
-package com.theveloper.pixelplay.presentation.components.player
+﻿package com.theveloper.pixelplay.presentation.components.player
+import com.theveloper.pixelplay.R
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.AnimationSpec
@@ -18,10 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MotionScheme
@@ -164,7 +164,7 @@ fun AnimatedPlaybackControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.SkipPrevious,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_previous_24),
                     contentDescription = "Anterior",
                     tint = tintPreviousIcon,
                     modifier = Modifier.size(iconSize)
@@ -237,7 +237,7 @@ fun AnimatedPlaybackControls(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.SkipNext,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_skip_next_24),
                     contentDescription = "Siguiente",
                     tint = tintNextIcon,
                     modifier = Modifier.size(iconSize)
@@ -260,7 +260,7 @@ private fun MorphingPlayPauseIcon(
         label = "playPauseCrossfade"
     ) { playing ->
         Icon(
-            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            imageVector = if (playing) ImageVector.vectorResource(R.drawable.rounded_pause_24) else Icons.Rounded.PlayArrow,
             contentDescription = if (playing) "Pausar" else "Reproducir",
             tint = tint,
             modifier = Modifier.size(size)

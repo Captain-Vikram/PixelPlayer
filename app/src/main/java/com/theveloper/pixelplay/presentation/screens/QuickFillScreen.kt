@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
+﻿@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 
 package com.theveloper.pixelplay.presentation.screens
 
@@ -17,8 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -114,7 +114,7 @@ fun QuickFillContent(
                         )
                     ) {
                         Icon(
-                            if (step > 0) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Close,
+                            if (step > 0) Icons.Rounded.ArrowBack else Icons.Rounded.Close,
                             contentDescription = stringResource(R.string.common_back)
                         )
                     }
@@ -292,7 +292,7 @@ fun QuickFillContent(
                     )
                     Spacer(Modifier.width(8.dp))
                     Icon(
-                        if (step == 0) Icons.AutoMirrored.Rounded.ArrowForward else Icons.Rounded.AutoFixHigh,
+                        if (step == 0) Icons.Rounded.ArrowForward else Icons.Rounded.Star,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )

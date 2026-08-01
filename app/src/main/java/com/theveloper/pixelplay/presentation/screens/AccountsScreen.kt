@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+﻿@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.theveloper.pixelplay.presentation.screens
 
@@ -32,13 +32,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Logout
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.CloudQueue
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -476,7 +474,7 @@ private fun ConnectedAccountCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Sync,
+                        imageVector = Icons.Rounded.Refresh,
                         contentDescription = null,
                         tint = palette.iconTint,
                         modifier = Modifier.size(16.dp)
@@ -506,7 +504,7 @@ private fun ConnectedAccountCard(
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
                     Icon(
-                        imageVector = if (isComingSoon) Icons.Rounded.Link else Icons.AutoMirrored.Rounded.OpenInNew,
+                        imageVector = if (isComingSoon) Icons.Rounded.Menu else Icons.Rounded.Share,
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.size(8.dp))
@@ -531,7 +529,7 @@ private fun ConnectedAccountCard(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Logout,
+                        imageVector = Icons.Rounded.ExitToApp,
                         contentDescription = null
                     )
                 }
@@ -689,15 +687,16 @@ private fun servicePalette(service: ExternalServiceAccount?): ServicePalette {
     }
 }
 
+@Composable
 private fun accountIcon(service: ExternalServiceAccount?): ImageVector {
-    if (service == null) return Icons.Rounded.MusicNote
+    if (service == null) return ImageVector.vectorResource(R.drawable.rounded_music_note_24)
     return when (service) {
-        ExternalServiceAccount.TELEGRAM -> Icons.AutoMirrored.Rounded.Send
-        ExternalServiceAccount.GOOGLE_DRIVE -> Icons.Rounded.CloudQueue
-        ExternalServiceAccount.NETEASE -> Icons.Rounded.MusicNote
-        ExternalServiceAccount.QQ_MUSIC -> Icons.Rounded.MusicNote
-        ExternalServiceAccount.NAVIDROME -> Icons.Rounded.CloudQueue
-        ExternalServiceAccount.JELLYFIN -> Icons.Rounded.CloudQueue
+        ExternalServiceAccount.TELEGRAM -> Icons.Rounded.Send
+        ExternalServiceAccount.GOOGLE_DRIVE -> ImageVector.vectorResource(R.drawable.rounded_music_cast_24)
+        ExternalServiceAccount.NETEASE -> ImageVector.vectorResource(R.drawable.rounded_music_note_24)
+        ExternalServiceAccount.QQ_MUSIC -> ImageVector.vectorResource(R.drawable.rounded_music_note_24)
+        ExternalServiceAccount.NAVIDROME -> ImageVector.vectorResource(R.drawable.rounded_music_cast_24)
+        ExternalServiceAccount.JELLYFIN -> ImageVector.vectorResource(R.drawable.rounded_music_cast_24)
     }
 }
 
@@ -705,7 +704,7 @@ private fun accountIcon(service: ExternalServiceAccount?): ImageVector {
 private fun ServiceIcon(service: ExternalServiceAccount?, tint: Color, modifier: Modifier = Modifier) {
     if (service == null) {
         Icon(
-            imageVector = Icons.Rounded.MusicNote,
+            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
             contentDescription = null,
             tint = tint,
             modifier = modifier

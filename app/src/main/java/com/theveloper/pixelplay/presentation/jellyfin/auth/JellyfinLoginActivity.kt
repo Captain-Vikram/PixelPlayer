@@ -1,4 +1,5 @@
-package com.theveloper.pixelplay.presentation.jellyfin.auth
+﻿package com.theveloper.pixelplay.presentation.jellyfin.auth
+import androidx.compose.ui.res.vectorResource
 
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -23,12 +24,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -151,7 +150,7 @@ fun JellyfinLoginScreen(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = Icons.Rounded.ArrowBack,
                             contentDescription = stringResource(R.string.common_back)
                         )
                     }
@@ -268,7 +267,7 @@ fun JellyfinLoginScreen(
                         label = stringResource(R.string.auth_server_url_label),
                         placeholder = stringResource(R.string.auth_jellyfin_url_placeholder),
                         supportingText = stringResource(R.string.auth_jellyfin_url_hint),
-                        leadingIcon = Icons.Rounded.Dns,
+                        leadingIcon = Icons.Rounded.Settings,
                         enabled = !isLoading,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Uri,
@@ -333,7 +332,7 @@ fun JellyfinLoginScreen(
                                 enabled = !isLoading
                             ) {
                                 Icon(
-                                    imageVector = if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                    imageVector = if (passwordVisible) ImageVector.vectorResource(R.drawable.rounded_visibility_off_24) else ImageVector.vectorResource(R.drawable.rounded_visibility_24),
                                     contentDescription = stringResource(
                                         if (passwordVisible) R.string.auth_hide_pwd_action else R.string.auth_show_pwd_action
                                     )

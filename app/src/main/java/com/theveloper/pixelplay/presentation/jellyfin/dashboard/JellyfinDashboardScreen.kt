@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.jellyfin.dashboard
+﻿package com.theveloper.pixelplay.presentation.jellyfin.dashboard
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -14,12 +16,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Logout
-import androidx.compose.material.icons.rounded.CloudSync
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -80,7 +80,7 @@ fun JellyfinDashboardScreen(
                         )
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            Icons.Rounded.ArrowBack,
                             contentDescription = stringResource(R.string.common_back)
                         )
                     }
@@ -127,7 +127,7 @@ private fun JellyfinDashboardContent(
             .fillMaxSize()
             .padding(paddingValues)
     ) {
-        // Sync status banner
+        // Refresh status banner
         AnimatedVisibility(
             visible = syncMessage != null,
             enter = slideInVertically(
@@ -246,7 +246,7 @@ private fun JellyfinDashboardContent(
             if (playlists.isEmpty()) {
                 TextButton(onClick = onSyncAll) {
                     Icon(
-                        Icons.Rounded.Sync,
+                        Icons.Rounded.Refresh,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -368,7 +368,7 @@ private fun JellyfinMenuCard(
                         Text(stringResource(R.string.cloud_sync_status_syncing), fontFamily = GoogleSansRounded)
                     } else {
                         Icon(
-                            Icons.Rounded.CloudSync,
+                            ImageVector.vectorResource(R.drawable.rounded_music_cast_24),
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
@@ -386,7 +386,7 @@ private fun JellyfinMenuCard(
                     )
                 ) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.Logout,
+                        Icons.Rounded.ExitToApp,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -431,7 +431,7 @@ private fun JellyfinPlaylistCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Rounded.MusicNote,
+                    ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
@@ -466,7 +466,7 @@ private fun JellyfinPlaylistCard(
                 )
             ) {
                 Icon(
-                    Icons.Rounded.Sync,
+                    Icons.Rounded.Refresh,
                     contentDescription = stringResource(R.string.cloud_cd_sync),
                     modifier = Modifier.size(20.dp)
                 )

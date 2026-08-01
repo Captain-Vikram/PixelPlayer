@@ -1,4 +1,5 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -35,7 +35,7 @@ fun NoInternetDialog(
         onDismissRequest = onDismiss,
         icon = {
             Icon(
-                imageVector = Icons.Rounded.WifiOff,
+                imageVector = ImageVector.vectorResource(R.drawable.rounded_wifi_24),
                 contentDescription = null,
                 modifier = Modifier.size(24.dp)
             )
@@ -79,7 +79,7 @@ fun NoInternetScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
-                imageVector = Icons.Rounded.WifiOff,
+                imageVector = ImageVector.vectorResource(R.drawable.rounded_wifi_24),
                 contentDescription = null,
                 modifier = Modifier
                     .size(64.dp)

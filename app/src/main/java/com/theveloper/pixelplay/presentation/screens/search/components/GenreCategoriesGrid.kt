@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens.search.components
+﻿package com.theveloper.pixelplay.presentation.screens.search.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.background
@@ -22,8 +24,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.rounded.GridView
+
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -142,7 +143,7 @@ fun GenreCategoriesGrid(
                 shape = RoundedCornerShape(shape.value.dp)
             ) {
                 androidx.compose.material3.Icon(
-                    imageVector = if (isGridView) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView,
+                    imageVector = if (isGridView) ImageVector.vectorResource(R.drawable.rounded_format_list_bulleted_24) else ImageVector.vectorResource(R.drawable.rounded_view_carousel_24),
                     contentDescription = "Toggle Grid/List View"
                 )
             }
@@ -290,7 +291,7 @@ private fun GenreCard(
                 )
             }
 
-            // Imagen del género en esquina inferior derecha
+            // Imagen del gÃ©nero en esquina inferior derecha
             Box(
                 modifier = Modifier
                     .size(90.dp) 
@@ -308,7 +309,7 @@ private fun GenreCard(
                 )
             }
 
-            // Nombre del género en esquina superior izquierda
+            // Nombre del gÃ©nero en esquina superior izquierda
             Column(
                 modifier = Modifier
                     .align(Alignment.TopStart)

@@ -1,4 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 
@@ -27,9 +29,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -361,7 +362,7 @@ fun RecentlyPlayedScreen(
                 .clip(CircleShape)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                imageVector = Icons.Rounded.ArrowBack,
                 contentDescription = stringResource(R.string.common_back)
             )
         }
@@ -431,7 +432,7 @@ private fun ExpressiveRecentlyPlayedHeader(
 //                tonalElevation = 0.dp
 //            ) {
 //                Text(
-//                    text = "LIVE HISTORY · ${selectedRange.displayName.uppercase()}",
+//                    text = "LIVE HISTORY Â· ${selectedRange.displayName.uppercase()}",
 //                    style = MaterialTheme.typography.labelMedium,
 //                    fontWeight = FontWeight.SemiBold,
 //                    color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -455,20 +456,7 @@ private fun ExpressiveRecentlyPlayedHeader(
 private fun rememberRecentlyPlayedTitleStyle(): TextStyle {
     return remember {
         TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.gflex_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(560),
-                        FontVariation.width(122f),
-                        FontVariation.grade(40),
-                        FontVariation.Setting("ROND", 100f),
-                        FontVariation.Setting("XTRA", 520f),
-                        FontVariation.Setting("YOPQ", 90f),
-                        FontVariation.Setting("YTLC", 505f)
-                    )
-                )
-            ),
+            fontFamily = com.theveloper.pixelplay.ui.theme.GoogleSansRounded,
             fontWeight = FontWeight(560),
             fontSize = 34.sp,
             lineHeight = 38.sp,
@@ -532,7 +520,7 @@ private fun RecentlyPlayedActions(
             contentPadding = PaddingValues(horizontal = 10.dp),
         ) {
             Icon(
-                imageVector = Icons.Rounded.Shuffle,
+                imageVector = ImageVector.vectorResource(R.drawable.rounded_shuffle_24),
                 contentDescription = null,
                 modifier = Modifier.size(ButtonDefaults.IconSize)
             )

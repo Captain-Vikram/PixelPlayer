@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -10,8 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
@@ -68,7 +69,7 @@ fun MashupScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.AutoAwesome, null, modifier = Modifier.size(24.dp))
+                        Icon(ImageVector.vectorResource(R.drawable.generate_playlist_ai), null, modifier = Modifier.size(24.dp))
                         Spacer(Modifier.width(12.dp))
                         Text(
                             stringResource(R.string.mashup_title),
@@ -79,7 +80,7 @@ fun MashupScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, null)
+                        Icon(Icons.Rounded.ArrowBack, null)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -518,7 +519,7 @@ private fun SongPickerItem(song: Song, onClick: () -> Unit) {
         trailingContent = if (song.extensionId != null) {
             {
                 Icon(
-                    Icons.Rounded.AutoAwesome, 
+                    ImageVector.vectorResource(R.drawable.generate_playlist_ai), 
                     contentDescription = null, 
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.primary

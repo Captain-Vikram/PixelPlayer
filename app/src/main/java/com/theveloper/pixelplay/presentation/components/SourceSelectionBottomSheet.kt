@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
 
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
@@ -13,9 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Extension
-import androidx.compose.material.icons.rounded.Login
-import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.theveloper.pixelplay.R
-import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Settings
 import com.theveloper.pixelplay.data.model.ExtensionCapabilities
 import com.theveloper.pixelplay.presentation.netease.auth.NeteaseLoginActivity
 import com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity
@@ -111,7 +110,7 @@ fun SourceSelectionBottomSheet(
                     SourceRow(
                         title = "Internal Library",
                         subtitle = "Music stored on this device",
-                        iconVector = Icons.Rounded.Storage,
+                        iconVector = Icons.Rounded.Settings,
                         iconTint = MaterialTheme.colorScheme.secondary,
                         isSelected = isLocalSelected,
                         onClick = { onMusicExtensionSelected(null) },
@@ -143,8 +142,8 @@ fun SourceSelectionBottomSheet(
                         }
                         val isExtensionLoggedIn = loggedInExtensions.contains(extension.metadata.id)
                         val subtitleText = when {
-                            caps.isLoginNeeded && isExtensionLoggedIn -> "Logged In • v${extension.metadata.version}"
-                            caps.isLoginNeeded -> "Login Required • v${extension.metadata.version}"
+                            caps.isLoginNeeded && isExtensionLoggedIn -> "Logged In â€¢ v${extension.metadata.version}"
+                            caps.isLoginNeeded -> "Lock Required â€¢ v${extension.metadata.version}"
                             else -> "v${extension.metadata.version} (Music)"
                         }
                         SourceRow(
@@ -161,7 +160,7 @@ fun SourceSelectionBottomSheet(
                                     onOpenExtensionSettings(extension.metadata.id)
                                 }
                             },
-                            trailingIcon = if (caps.isLoginNeeded) Icons.Rounded.Login else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                            trailingIcon = if (caps.isLoginNeeded) Icons.Rounded.Lock else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                             shape = itemShape
                         )
                     }
@@ -171,7 +170,7 @@ fun SourceSelectionBottomSheet(
                     SourceRow(
                         title = "Manage Extensions",
                         subtitle = "Install more from the store",
-                        iconVector = Icons.Rounded.Extension,
+                        iconVector = Icons.Rounded.Settings,
                         iconTint = MaterialTheme.colorScheme.secondary,
                         onClick = onNavigateToStore,
                         shape = itemShape
@@ -200,8 +199,8 @@ fun SourceSelectionBottomSheet(
                         }
                         val isExtensionLoggedIn = loggedInExtensions.contains(extension.metadata.id)
                         val subtitleText = when {
-                            caps.isLoginNeeded && isExtensionLoggedIn -> "Logged In • v${extension.metadata.version}"
-                            caps.isLoginNeeded -> "Login Required • v${extension.metadata.version}"
+                            caps.isLoginNeeded && isExtensionLoggedIn -> "Logged In â€¢ v${extension.metadata.version}"
+                            caps.isLoginNeeded -> "Lock Required â€¢ v${extension.metadata.version}"
                             else -> "v${extension.metadata.version}"
                         }
                         SourceRow(
@@ -217,7 +216,7 @@ fun SourceSelectionBottomSheet(
                                     onOpenExtensionSettings(extension.metadata.id)
                                 }
                             },
-                            trailingIcon = if (caps.isLoginNeeded) Icons.Rounded.Login else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                            trailingIcon = if (caps.isLoginNeeded) Icons.Rounded.Lock else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                             shape = itemShape
                         )
                     }
@@ -236,7 +235,7 @@ fun SourceSelectionBottomSheet(
                 item {
                     SourceRow(
                         title = "Telegram",
-                        subtitle = "Cloud Storage & Chats",
+                        subtitle = "Cloud Settings & Chats",
                         iconPainter = painterResource(R.drawable.telegram),
                         iconTint = Color(0xFF2AABEE),
                         onClick = { 

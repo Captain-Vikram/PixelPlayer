@@ -27,7 +27,7 @@ object AudioMetaUtils {
             cached.bitrate != null &&
             cached.sampleRate != null
         )
-            return cached
+            return AudioMeta(cached.mimeType, cached.bitrate, cached.sampleRate)
 
         val file = File(filePath)
         if (!file.exists() || !file.canRead()) return AudioMeta(null, null, null)

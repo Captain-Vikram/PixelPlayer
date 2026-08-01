@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -18,8 +18,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Dataset
-import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -80,7 +80,7 @@ fun SourceSelectionSheet(
                     SourceItem(
                         label = "Local Library",
                         subtitle = "Only songs stored on this device",
-                        icon = { Icon(Icons.Rounded.PhoneAndroid, null, tint = NocturneSecondary) },
+                        icon = { Icon(Icons.Rounded.Phone, null, tint = NocturneSecondary) },
                         selected = currentScope == SourceScope.Local,
                         onClick = {
                             onScopeSelected(SourceScope.Local)

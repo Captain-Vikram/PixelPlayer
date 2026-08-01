@@ -234,6 +234,13 @@ fun AppNavigation(
                 }
             }
             composable(
+                Screen.FeatureModules.route,
+            ) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
+            }
+            composable(
                 Screen.Accounts.route,
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {

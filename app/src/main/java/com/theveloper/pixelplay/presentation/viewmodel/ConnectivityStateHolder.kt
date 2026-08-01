@@ -50,7 +50,7 @@ data class BluetoothAudioDeviceState(
 @Singleton
 class ConnectivityStateHolder @Inject constructor(
     @ApplicationContext private val context: Context
-) {
+) : com.theveloper.pixelplay.data.repository.ConnectivityStateContract {
     // WiFi State
     private val _isWifiEnabled = MutableStateFlow(false)
     val isWifiEnabled: StateFlow<Boolean> = _isWifiEnabled.asStateFlow()
@@ -62,7 +62,7 @@ class ConnectivityStateHolder @Inject constructor(
     val wifiName: StateFlow<String?> = _wifiName.asStateFlow()
 
     private val _isOnline = MutableStateFlow(false)
-    val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
+    override val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
     // Bluetooth State
     private val _isBluetoothEnabled = MutableStateFlow(false)
@@ -90,7 +90,7 @@ class ConnectivityStateHolder @Inject constructor(
     /**
      * Manually refresh local connection info (e.g. WiFi SSID).
      */
-    fun refreshLocalConnectionInfo(refreshBluetoothDevices: Boolean = false) {
+    override fun refreshLocalConnectionInfo(refreshBluetoothDevices: Boolean) {
         updateWifiInfo()
         if (refreshBluetoothDevices) {
             refreshBluetoothAudioDevices()

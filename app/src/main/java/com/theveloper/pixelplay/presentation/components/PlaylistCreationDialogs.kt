@@ -1,10 +1,12 @@
-@file:OptIn(
+﻿@file:OptIn(
     ExperimentalLayoutApi::class,
     ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class
 )
 
 package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -40,10 +42,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.Lock
+
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -169,7 +170,7 @@ fun PlaylistCreationTypeDialog(
                     subtitle = stringResource(R.string.playlist_creation_mode_manual_subtitle),
                     icon = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_playlist_add_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -189,7 +190,7 @@ fun PlaylistCreationTypeDialog(
                     },
                     icon = {
                         Icon(
-                            imageVector = if (isAiEnabled) Icons.Rounded.AutoAwesome else Icons.Rounded.Key,
+                            imageVector = if (isAiEnabled) ImageVector.vectorResource(R.drawable.generate_playlist_ai) else Icons.Rounded.Lock,
                             contentDescription = null,
                             tint = if (isAiEnabled) {
                                 MaterialTheme.colorScheme.onTertiaryContainer
@@ -221,7 +222,7 @@ fun PlaylistCreationTypeDialog(
                         modifier = Modifier.fillMaxWidth(),
                         contentPadding = PaddingValues(vertical = 12.dp)
                     ) {
-                        Icon(Icons.Rounded.Key, contentDescription = null)
+                        Icon(Icons.Rounded.Lock, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(R.string.playlist_creation_setup_api_key))
                     }
@@ -504,7 +505,7 @@ private fun CreateAiPlaylistContent(
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(stringResource(R.string.playlist_creation_ai_generating))
                         } else {
-                            Icon(Icons.Rounded.AutoAwesome, contentDescription = null)
+                            Icon(ImageVector.vectorResource(R.drawable.generate_playlist_ai), contentDescription = null)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(stringResource(R.string.playlist_creation_ai_generate))
                         }
@@ -762,7 +763,7 @@ private fun HeroAiCard() {
                 ) {
                     Row(modifier = Modifier.padding(12.dp)) {
                         Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
+                            imageVector = ImageVector.vectorResource(R.drawable.generate_playlist_ai),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )

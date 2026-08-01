@@ -164,22 +164,22 @@
 # contracts that DexClassLoader-loaded modules depend on at runtime. Without these,
 # dynamic modules will crash with ClassNotFoundException or NoSuchMethodError.
 
-# 1. Disable renaming of class/member signatures to prevent ClassNotFound/NoSuchMethod
-#    exceptions when dynamic plugins try to call into host app interfaces.
--dontobfuscate
+# 1. Enable obfuscation and allow full optimization while keeping necessary interfaces
+# -dontobfuscate (Obfuscation is now ENABLED to shrink APK size)
 
-# 2. Keep the StreamProxy interface so all proxy implementations (current and future
+# 2. Keep the StreamProxy and Registry interfaces so all proxy implementations (current and future
 #    dynamically-loaded ones) can be cast to it from the host app.
 -keep,allowoptimization interface com.theveloper.pixelplay.data.stream.StreamProxy { *; }
 -keep,allowoptimization class com.theveloper.pixelplay.data.stream.CloudStreamProxy { *; }
+-keep,allowoptimization class com.theveloper.pixelplay.data.stream.StreamProxyRegistry { *; }
 
-# 3. Keep all concrete proxy implementations (referenced by DualPlayerEngine via injection)
--keep,allowoptimization class com.theveloper.pixelplay.data.telegram.TelegramStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.netease.NeteaseStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy { *; }
+# Keep the Ktor HTTP Server Controller and Proxy Initializer for reflective dynamic classloading at runtime
+-keep class com.theveloper.pixelplay.data.service.http.KtorHttpServerController {
+    public <init>();
+}
+-keep class com.theveloper.pixelplay.data.service.http.KtorProxyInitializer {
+    public <init>();
+}
 
 # 4. Keep shared data model classes so dynamic modules can serialize/deserialize them
 -keep,allowoptimization class com.theveloper.pixelplay.data.model.** { *; }
@@ -191,7 +191,7 @@
 # ──────────────────────────────────────────────────────────────────────────────────────────────
 
 # Ktor & Netty Rules (Crucial for StreamProxy)
--keep class org.slf4j.** { *; }
+# -keep class org.slf4j.** { *; }
 
 # Ktor Specific
 -dontwarn io.ktor.**
@@ -199,7 +199,7 @@
 -dontwarn io.netty.**
 
 # Keep Kotlin reflection if needed by Ktor/Serialization in Release
--keep class kotlin.reflect.** { *; }
+# -keep class kotlin.reflect.** { *; }
 
 # Kuromoji
 -dontwarn com.atilika.kuromoji.**
@@ -223,24 +223,12 @@
 -keep interface kotlinx.serialization.** { *; }
 -dontwarn kotlinx.serialization.**
 
--keep class kotlinx.coroutines.** { *; }
--keep interface kotlinx.coroutines.** { *; }
--dontwarn kotlinx.coroutines.**
-
 -keep class okio.** { *; }
 -keep interface okio.** { *; }
 -dontwarn okio.**
 
 # HTML Parsing (Required by YouTube/NewPipeExtractor)
 -dontwarn org.jsoup.**
-
-# Echo Extension Loader & Common
--keep class dev.brahmkshatriya.echo.** { *; }
--dontwarn dev.brahmkshatriya.echo.**
-
-# Kotlin standard library (Required for interfaces, lambdas, coroutines in dynamically loaded extensions)
--keep class kotlin.** { *; }
--dontwarn kotlin.**
 
 # =============================================================================
 # TIMBER LOGGING OPTIMIZATION FOR RELEASE BUILDS
@@ -281,3 +269,12 @@
 -dontwarn java.util.concurrent.ForkJoinWorkerThread**
 -dontwarn jdk.internal.misc.**
 -dontwarn sun.nio.fs.**
+
+# Keep login activities from obfuscation
+-keep class com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity { *; }
+-keep class com.theveloper.pixelplay.presentation.navidrome.auth.NavidromeLoginActivity { *; }
+-keep class com.theveloper.pixelplay.presentation.netease.auth.NeteaseLoginActivity { *; }
+-keep class com.theveloper.pixelplay.presentation.gdrive.auth.GDriveLoginActivity { *; }
+-keep class com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity { *; }
+-keep class com.theveloper.pixelplay.presentation.jellyfin.auth.JellyfinLoginActivity { *; }
+

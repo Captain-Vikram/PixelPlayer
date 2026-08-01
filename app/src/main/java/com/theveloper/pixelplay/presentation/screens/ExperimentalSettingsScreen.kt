@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
@@ -39,16 +41,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LinearScale
-import androidx.compose.material.icons.outlined.PlayCircle
-import androidx.compose.material.icons.outlined.Style
-import androidx.compose.material.icons.rounded.LinearScale
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Rectangle
-import androidx.compose.material.icons.rounded.Title
-import androidx.compose.material.icons.rounded.ViewCarousel
-import androidx.compose.material.icons.rounded.BlurOn
-import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -190,7 +188,7 @@ fun ExperimentalSettingsScreen(
                     title = stringResource(R.string.settings_exp_player_ui_tweaks_section),
                     icon = {
                         Icon(
-                            imageVector = Icons.Outlined.Style,
+                            imageVector = Icons.Outlined.Settings,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -224,7 +222,7 @@ fun ExperimentalSettingsScreen(
                                 onCheckedChange = settingsViewModel::setUseAnimatedLyrics,
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Rounded.MusicNote,
+                                        imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.secondary
                                     )
@@ -244,7 +242,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setAnimatedLyricsBlurEnabled,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.BlurOn,
+                                                imageVector = Icons.Rounded.Settings,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -273,7 +271,7 @@ fun ExperimentalSettingsScreen(
                                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Outlined.LinearScale,
+                                                        imageVector = Icons.Outlined.Settings,
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.secondary
                                                     )
@@ -344,7 +342,7 @@ fun ExperimentalSettingsScreen(
                                 onCheckedChange = settingsViewModel::setDelayAllFullPlayerContent,
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Rounded.Visibility,
+                                        imageVector = ImageVector.vectorResource(R.drawable.rounded_visibility_24),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.secondary
                                     )
@@ -364,7 +362,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setDelayAlbumCarousel,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.ViewCarousel,
+                                                imageVector = ImageVector.vectorResource(R.drawable.rounded_view_carousel_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -378,7 +376,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setDelaySongMetadata,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.LinearScale,
+                                                imageVector = Icons.Rounded.Settings,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -392,7 +390,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setDelayProgressBar,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Outlined.LinearScale,
+                                                imageVector = Icons.Outlined.Settings,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -406,7 +404,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setDelayControls,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Outlined.PlayCircle,
+                                                imageVector = ImageVector.vectorResource(R.drawable.rounded_play_circle_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -456,7 +454,7 @@ fun ExperimentalSettingsScreen(
                                 onCheckedChange = settingsViewModel::setFullPlayerPlaceholders,
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Rounded.Rectangle,
+                                        imageVector = Icons.Rounded.Warning,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.secondary
                                     )
@@ -543,7 +541,7 @@ fun ExperimentalSettingsScreen(
                                                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                                                     ) {
                                                         Icon(
-                                                            imageVector = Icons.Rounded.LinearScale,
+                                                            imageVector = Icons.Rounded.Settings,
                                                             contentDescription = null,
                                                             tint = MaterialTheme.colorScheme.secondary
                                                         )
@@ -589,7 +587,7 @@ fun ExperimentalSettingsScreen(
                                                 enabled = isAnyDelayEnabled,
                                                 leadingIcon = {
                                                     Icon(
-                                                        imageVector = Icons.Rounded.Rectangle,
+                                                        imageVector = Icons.Rounded.Warning,
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.secondary
                                                     )
@@ -618,7 +616,7 @@ fun ExperimentalSettingsScreen(
                                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                                         ) {
                                                             Icon(
-                                                                imageVector = Icons.Outlined.LinearScale,
+                                                                imageVector = Icons.Outlined.Settings,
                                                                 contentDescription = null,
                                                                 tint = MaterialTheme.colorScheme.secondary
                                                             )
@@ -686,7 +684,7 @@ fun ExperimentalSettingsScreen(
                                         onCheckedChange = settingsViewModel::setTransparentPlaceholders,
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.Visibility,
+                                                imageVector = ImageVector.vectorResource(R.drawable.rounded_visibility_24),
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.secondary
                                             )
@@ -729,7 +727,7 @@ fun ExperimentalSettingsScreen(
                     title = stringResource(R.string.settings_exp_album_art_resolution),
                     icon = {
                         Icon(
-                            imageVector = Icons.Rounded.MusicNote, // Or Image/Photo icon
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24), // Or Image/Photo icon
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -784,7 +782,7 @@ fun ExperimentalSettingsScreen(
                                        
                                        if (isSelected) {
                                             Icon(
-                                                imageVector = Icons.Rounded.LinearScale, // Check icon
+                                                imageVector = Icons.Rounded.Settings, // Check icon
                                                 contentDescription = stringResource(R.string.common_selected),
                                                 tint = MaterialTheme.colorScheme.primary
                                             )

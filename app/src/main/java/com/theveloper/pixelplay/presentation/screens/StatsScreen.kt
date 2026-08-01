@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -41,11 +42,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoGraph
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Hearing
-import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -131,10 +131,7 @@ import androidx.compose.ui.unit.sp
 import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.presentation.stats.displayNameRes
-import androidx.compose.material.icons.outlined.Album
 import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
-import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material.icons.outlined.PlayCircleOutline
 import com.theveloper.pixelplay.ui.theme.ExpTitleTypography
 
 private const val PULL_TO_REFRESH_MIN_DURATION_MS = 3500L
@@ -727,7 +724,7 @@ private fun ListeningHabitsCard(
             )
             if (summary == null) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.History,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_schedule_24),
                     title = stringResource(R.string.stats_empty_no_habits_title),
                     subtitle = stringResource(R.string.stats_empty_no_habits_subtitle)
                 )
@@ -738,17 +735,17 @@ private fun ListeningHabitsCard(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     HabitMetric(
-                        icon = Icons.Outlined.History,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_schedule_24),
                         label = stringResource(R.string.stats_habit_total_sessions),
                         value = summary.totalSessions.toString()
                     )
                     HabitMetric(
-                        icon = Icons.Outlined.Hearing,
+                        icon = Icons.Outlined.Star,
                         label = stringResource(R.string.stats_habit_avg_session),
                         value = formatListeningDurationCompact(summary.averageSessionDurationMs)
                     )
                     HabitMetric(
-                        icon = Icons.Outlined.Bolt,
+                        icon = Icons.Outlined.Star,
                         label = stringResource(R.string.stats_habit_longest_session),
                         value = if (summary.longestSessionDurationMs > 0L) {
                             formatListeningDurationCompact(summary.longestSessionDurationMs)
@@ -757,7 +754,7 @@ private fun ListeningHabitsCard(
                         }
                     )
                     HabitMetric(
-                        icon = Icons.Outlined.AutoGraph,
+                        icon = Icons.Outlined.Star,
                         label = stringResource(R.string.stats_habit_sessions_per_day),
                         value = String.format(Locale.US, "%.1f", summary.averageSessionsPerDay)
                     )
@@ -771,7 +768,7 @@ private fun ListeningHabitsCard(
                     } else {
                         stringResource(R.string.stats_habit_no_playback_yet)
                     },
-                    icon = Icons.Outlined.CalendarMonth
+                    icon = Icons.Outlined.Warning
                 )
                 summary.peakTimeline?.let { peak ->
                     val use24Hour = AndroidDateFormat.is24HourFormat(LocalContext.current)
@@ -780,7 +777,7 @@ private fun ListeningHabitsCard(
                         title = stringResource(R.string.stats_habit_peak_timeline_slot),
                         value = formattedLabel,
                         supporting = formatListeningDurationCompact(peak.totalDurationMs),
-                        icon = Icons.Outlined.AutoGraph
+                        icon = Icons.Outlined.Star
                     )
                 }
             }
@@ -827,7 +824,7 @@ private fun HabitMetric(
 private fun formatMinutesWindowLabel(startMinute: Int, endMinute: Int): String {
     val safeStart = startMinute.coerceIn(0, 24 * 60)
     val safeEnd = endMinute.coerceIn(0, 24 * 60)
-    return "${formatHourLabel(safeStart)} – ${formatHourLabel(safeEnd)}"
+    return "${formatHourLabel(safeStart)} â€“ ${formatHourLabel(safeEnd)}"
 }
 
 private fun formatHourLabel(minute: Int): String {
@@ -978,14 +975,7 @@ private data class TrackShareSlice(
 private fun rememberStatsSectionTitleStyle(): TextStyle {
     return remember {
         androidx.compose.ui.text.TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.gflex_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(570)
-                    )
-                )
-            ),
+            fontFamily = com.theveloper.pixelplay.ui.theme.GoogleSansRounded,
             fontWeight = FontWeight(570),
             fontSize = 24.sp,
             lineHeight = 28.sp,
@@ -1004,14 +994,7 @@ private fun rememberStatsAxisLabelStyle(range: StatsTimeRange): TextStyle {
     }
     return remember(range, fontSize) {
         TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.gflex_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(520)
-                    )
-                )
-            ),
+            fontFamily = com.theveloper.pixelplay.ui.theme.GoogleSansRounded,
             fontWeight = FontWeight(520),
             fontSize = fontSize,
             lineHeight = if (range == StatsTimeRange.YEAR) 12.sp else 11.sp,
@@ -1025,16 +1008,7 @@ private fun rememberStatsAxisLabelStyle(range: StatsTimeRange): TextStyle {
 private fun rememberStatsMetricValueStyle(compact: Boolean): TextStyle {
     return remember(compact) {
         TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.genre_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(650),
-                        FontVariation.width(95f),
-                        FontVariation.grade(30)
-                    )
-                )
-            ),
+            fontFamily = com.theveloper.pixelplay.ui.theme.GoogleSansRounded,
             fontWeight = FontWeight(650),
             fontSize = if (compact) 10.sp else 12.sp,
             lineHeight = if (compact) 12.sp else 14.sp,
@@ -1112,7 +1086,7 @@ private fun ListeningTimelineSection(
 
         if (!hasTimeline) {
             StatsEmptyState(
-                icon = Icons.Outlined.PlayCircleOutline,
+                icon = ImageVector.vectorResource(R.drawable.rounded_play_circle_24),
                 title = stringResource(R.string.stats_empty_no_timeline_title),
                 subtitle = stringResource(R.string.stats_empty_no_timeline_subtitle)
             )
@@ -1191,7 +1165,7 @@ private fun ListeningTimelineSection(
                             formatListeningDurationCompact(average)
                         }
                     },
-                    icon = Icons.Outlined.AutoGraph
+                    icon = Icons.Outlined.Star
                 )
             }
         }
@@ -1309,14 +1283,14 @@ private fun CategoryMetricsSection(
                 CategoryMetricEntry(
                     label = it.title,
                     durationMs = it.totalDurationMs,
-                    supporting = supportingParts.joinToString(separator = " • ")
+                    supporting = supportingParts.joinToString(separator = " â€¢ ")
                 )
             }
         }.filter { it.durationMs > 0L }
 
         if (entries.isEmpty()) {
             StatsEmptyState(
-                icon = Icons.Outlined.MusicNote,
+                icon = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                 title = stringResource(R.string.stats_empty_no_category_title),
                 subtitle = stringResource(R.string.stats_empty_no_category_subtitle)
             )
@@ -1745,7 +1719,7 @@ private fun formatTimelineLabelForRange(
  *   "7 AM", "7AM", "7 am", "7am"
  *   "7 PM", "7PM", "7 pm", "7pm"
  *   "7:00 AM", "7:00AM", "7:00 am", "7:00am"  (and PM variants)
- *   "07:00", "19:00"  (already 24h — returned as-is when use24Hour=true,
+ *   "07:00", "19:00"  (already 24h â€” returned as-is when use24Hour=true,
  *                      converted to 12h when use24Hour=false)
  *
  * If nothing matches the original trimmed label is returned unchanged.
@@ -1922,7 +1896,7 @@ private fun TopArtistsCard(
             val artists = summary?.topArtists.orEmpty()
             if (artists.isEmpty()) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.MusicNote,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                     title = stringResource(R.string.stats_empty_no_artists_title),
                     subtitle = stringResource(R.string.stats_empty_no_artists_subtitle)
                 )
@@ -2039,7 +2013,7 @@ private fun TopAlbumsCard(
             val albums = summary?.topAlbums.orEmpty()
             if (albums.isEmpty()) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.Album,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_album_24),
                     title = stringResource(R.string.stats_empty_no_albums_title),
                     subtitle = stringResource(R.string.stats_empty_no_albums_subtitle)
                 )
@@ -2147,7 +2121,7 @@ private fun SongStatsCard(
 
             if (songs.isEmpty()) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.MusicNote,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                     title = stringResource(R.string.stats_empty_no_tracks_title),
                     subtitle = stringResource(R.string.stats_empty_no_tracks_subtitle)
                 )
@@ -2307,7 +2281,7 @@ private fun TrackConcentrationCard(
 
             if (songs.isEmpty()) {
                 StatsEmptyState(
-                    icon = Icons.Outlined.AutoGraph,
+                    icon = Icons.Outlined.Star,
                     title = stringResource(R.string.stats_empty_no_concentration_title),
                     subtitle = stringResource(R.string.stats_empty_no_concentration_subtitle)
                 )

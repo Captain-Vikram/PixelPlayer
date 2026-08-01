@@ -20,7 +20,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.service.cast.CastRemotePlaybackState
 import com.theveloper.pixelplay.data.service.http.CastSessionSecurity
-import com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService
+import com.theveloper.pixelplay.data.stream.HttpServerRegistry
 import com.theveloper.pixelplay.data.service.player.CastPlayer
 import com.theveloper.pixelplay.data.service.player.DualPlayerEngine
 
@@ -541,7 +541,7 @@ class CastTransferStateHolder @Inject constructor(
             // Ensure no local transition is messing with the player references
             dualPlayerEngine.cancelNext()
 
-            val serverAddress = MediaFileHttpServerService.serverAddress
+            val serverAddress = HttpServerRegistry.getOrNull()?.serverAddress
             val localPlayer = dualPlayerEngine.masterPlayer // Safe now as we are on Main and cancelled transitions
 
             val currentQueue = getCurrentQueue?.invoke() ?: emptyList()
@@ -590,8 +590,8 @@ class CastTransferStateHolder @Inject constructor(
                 return@launch
             }
 
-            val accessPolicy = MediaFileHttpServerService.configureCastSessionAccess(
-                allowedSongIds = currentQueue.map(Song::id),
+            val accessPolicy = HttpServerRegistry.get().configureCastSessionAccess(
+                songIds = currentQueue.map(Song::id),
                 castDeviceIpHint = castDeviceIpHint
             )
             val preflightSong = currentQueue.getOrNull(safeStartIndex)
@@ -870,7 +870,7 @@ class CastTransferStateHolder @Inject constructor(
             return
         }
 
-        val serverAddress = MediaFileHttpServerService.serverAddress
+        val serverAddress = HttpServerRegistry.getOrNull()?.serverAddress
         if (serverAddress == null) {
             scheduleCastSessionTransferBack(
                 session = session,
@@ -886,8 +886,8 @@ class CastTransferStateHolder @Inject constructor(
             .takeIf { it > 0L }
             ?: lastRemoteStreamPosition.takeIf { it > 0L }
             ?: castStateHolder.remotePosition.value.coerceAtLeast(0L)
-        val accessPolicy = MediaFileHttpServerService.configureCastSessionAccess(
-            allowedSongIds = queue.map(Song::id),
+        val accessPolicy = HttpServerRegistry.get().configureCastSessionAccess(
+            songIds = queue.map(Song::id),
             castDeviceIpHint = castDeviceIpHint
         )
 
@@ -965,7 +965,7 @@ class CastTransferStateHolder @Inject constructor(
         val castAddress = parseIpv4Address(castDeviceIpHint) ?: return true
         val serverHost = Uri.parse(serverAddress).host
         val serverHostAddress = parseIpv4Address(serverHost) ?: return true
-        val prefixLength = MediaFileHttpServerService.serverPrefixLength
+        val prefixLength = (HttpServerRegistry.getOrNull()?.serverPrefixLength ?: 24)
             .takeIf { it in 0..32 }
             ?: 24
         return isSameSubnet(serverHostAddress, castAddress, prefixLength)
@@ -1107,7 +1107,7 @@ class CastTransferStateHolder @Inject constructor(
         castStateHolder.setRemotePlaybackActive(false)
         
         if (castStateHolder.pendingCastRouteId == null) {
-            context.stopService(Intent(context, MediaFileHttpServerService::class.java))
+            HttpServerRegistry.controller?.stopServer(context)
             // Signal disconnect to PlayerViewModel if needed, or rely on state holder
             onDisconnect?.invoke() 
         } else {
@@ -1201,25 +1201,15 @@ class CastTransferStateHolder @Inject constructor(
     }
 
     fun primeHttpServerStart() {
-        if (MediaFileHttpServerService.isServerRunning || MediaFileHttpServerService.isServerStarting) return
-
-        MediaFileHttpServerService.lastFailureReason = null
-        MediaFileHttpServerService.lastFailureMessage = null
+        val controller = HttpServerRegistry.getOrNull() ?: return
+        if (controller.isServerRunning || controller.isServerStarting) return
 
         val castDeviceIpHint = resolveCastDeviceIp(
             session = castStateHolder.castSession.value ?: sessionManager?.currentCastSession
         )
 
-        val intent = Intent(context, MediaFileHttpServerService::class.java).apply {
-            action = MediaFileHttpServerService.ACTION_START_SERVER
-            castDeviceIpHint?.let { putExtra(MediaFileHttpServerService.EXTRA_CAST_DEVICE_IP, it) }
-        }
         runCatching {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            controller.startServer(context, castDeviceIpHint)
         }.onFailure { throwable ->
             Timber.tag(CAST_LOG_TAG).e(throwable, "Failed to pre-start media server service")
             emitCastError(
@@ -1229,8 +1219,13 @@ class CastTransferStateHolder @Inject constructor(
     }
 
     suspend fun ensureHttpServerRunning(castDeviceIpHint: String? = null): Boolean = httpServerStartMutex.withLock {
-        val runningServerAddress = MediaFileHttpServerService.serverAddress
-        if (MediaFileHttpServerService.isServerRunning && runningServerAddress != null) {
+        val controller = HttpServerRegistry.getOrNull()
+        if (controller == null) {
+            emitCastError("HTTP server controller not registered. Please install the server extension.")
+            return@withLock false
+        }
+        val runningServerAddress = controller.serverAddress
+        if (controller.isServerRunning && runningServerAddress != null) {
             if (isServerAddressCompatibleWithCastDevice(runningServerAddress, castDeviceIpHint)) {
                 return@withLock true
             }
@@ -1238,31 +1233,19 @@ class CastTransferStateHolder @Inject constructor(
                 "HTTP server host (%s) is not in Cast subnet (castDeviceIp=%s, prefix=%d). Restarting service.",
                 runningServerAddress,
                 castDeviceIpHint,
-                MediaFileHttpServerService.serverPrefixLength
+                controller.serverPrefixLength
             )
-            context.stopService(Intent(context, MediaFileHttpServerService::class.java))
+            controller.stopServer(context)
             for (attempt in 0 until 30) {
-                if (!MediaFileHttpServerService.isServerRunning && !MediaFileHttpServerService.isServerStarting) {
+                if (!controller.isServerRunning && !controller.isServerStarting) {
                     break
                 }
                 delay(100)
             }
         }
 
-        // Clear stale failure state from a previous attempt before starting a new one.
-        MediaFileHttpServerService.lastFailureReason = null
-        MediaFileHttpServerService.lastFailureMessage = null
-
-        val intent = Intent(context, MediaFileHttpServerService::class.java).apply {
-            action = MediaFileHttpServerService.ACTION_START_SERVER
-            castDeviceIpHint?.let { putExtra(MediaFileHttpServerService.EXTRA_CAST_DEVICE_IP, it) }
-        }
         try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            controller.startServer(context, castDeviceIpHint)
         } catch (e: Exception) {
             Timber.tag(CAST_LOG_TAG).e(e, "Failed to start media server service")
             emitCastError("Couldn't start Cast service: ${e.javaClass.simpleName}: ${e.message ?: "Unknown"}")
@@ -1271,25 +1254,25 @@ class CastTransferStateHolder @Inject constructor(
 
         // Release builds can take noticeably longer on cold start to bring up the HTTP service.
         for (i in 0..200) {
-            if (MediaFileHttpServerService.isServerRunning && MediaFileHttpServerService.serverAddress != null) {
+            if (controller.isServerRunning && controller.serverAddress != null) {
                 return@withLock true
             }
-            val failureReason = MediaFileHttpServerService.lastFailureReason
+            val failureReason = controller.lastFailureReason
             if (failureReason != null) {
-                val detail = MediaFileHttpServerService.lastFailureMessage
+                val detail = controller.lastFailureMessage
                 Timber.tag(CAST_LOG_TAG).w(
                     "Media server failed to start: %s (%s)",
                     failureReason,
                     detail
                 )
                 when (failureReason) {
-                    MediaFileHttpServerService.FailureReason.NO_NETWORK_ADDRESS -> {
+                    "NO_NETWORK_ADDRESS" -> {
                         emitCastError("Couldn't find a local Wi-Fi address for Cast.")
                     }
-                    MediaFileHttpServerService.FailureReason.FOREGROUND_START_EXCEPTION -> {
+                    "FOREGROUND_START_EXCEPTION" -> {
                         emitCastError("Couldn't start Cast service in foreground. ${detail ?: ""}".trim())
                     }
-                    MediaFileHttpServerService.FailureReason.START_EXCEPTION -> {
+                    "START_EXCEPTION" -> {
                         emitCastError("Cast HTTP server failed: ${detail ?: "unknown error"}")
                     }
                 }
@@ -1299,13 +1282,13 @@ class CastTransferStateHolder @Inject constructor(
         }
         Timber.tag(CAST_LOG_TAG).w(
             "Timed out waiting for media server startup (reason=%s detail=%s)",
-            MediaFileHttpServerService.lastFailureReason,
-            MediaFileHttpServerService.lastFailureMessage
+            controller.lastFailureReason,
+            controller.lastFailureMessage
         )
-        val timeoutDetail = MediaFileHttpServerService.lastFailureMessage?.takeIf { it.isNotBlank() }
-        val timeoutState = "running=${MediaFileHttpServerService.isServerRunning}, " +
-            "starting=${MediaFileHttpServerService.isServerStarting}, " +
-            "addressSet=${MediaFileHttpServerService.serverAddress != null}"
+        val timeoutDetail = controller.lastFailureMessage?.takeIf { it.isNotBlank() }
+        val timeoutState = "running=${controller.isServerRunning}, " +
+            "starting=${controller.isServerStarting}, " +
+            "addressSet=${controller.serverAddress != null}"
         emitCastError(
             if (timeoutDetail != null) "Cast HTTP server timeout: $timeoutDetail"
             else "Cast HTTP server startup timed out. ($timeoutState)"
@@ -1321,7 +1304,7 @@ class CastTransferStateHolder @Inject constructor(
         val castDeviceIpHint = resolveCastDeviceIp(castStateHolder.castSession.value)
         if (!ensureHttpServerRunning(castDeviceIpHint)) return false
 
-        val serverAddress = MediaFileHttpServerService.serverAddress ?: return false
+        val serverAddress = HttpServerRegistry.getOrNull()?.serverAddress ?: return false
         val startIndex = songsToPlay.indexOfFirst { it.id == startSong.id }.coerceAtLeast(0)
 
         val repeatMode = playbackStateHolder.stablePlayerState.value.repeatMode
@@ -1340,8 +1323,8 @@ class CastTransferStateHolder @Inject constructor(
 
         val castPlayer = castStateHolder.castPlayer
         if (castPlayer != null) {
-            val accessPolicy = MediaFileHttpServerService.configureCastSessionAccess(
-                allowedSongIds = songsToPlay.map(Song::id),
+            val accessPolicy = HttpServerRegistry.get().configureCastSessionAccess(
+                songIds = songsToPlay.map(Song::id),
                 castDeviceIpHint = castDeviceIpHint
             )
             val completionDeferred = CompletableDeferred<Boolean>()

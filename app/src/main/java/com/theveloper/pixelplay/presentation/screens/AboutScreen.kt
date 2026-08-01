@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -44,11 +46,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Gavel
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -533,7 +533,7 @@ private fun OpenSourceLicensesCard(
                 color = MaterialTheme.colorScheme.secondaryContainer,
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Gavel,
+                    imageVector = Icons.Rounded.Info,
                     contentDescription = null,
                     modifier = Modifier.padding(10.dp).size(22.dp),
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -553,7 +553,7 @@ private fun OpenSourceLicensesCard(
                 )
             }
             Icon(
-                imageVector = Icons.Rounded.ChevronRight,
+                imageVector = ImageVector.vectorResource(R.drawable.rounded_chevron_right_24),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -736,9 +736,9 @@ private fun SocialChip(
 @Composable
 private fun CommunitySignalsRow() {
     val labels = listOf(
-        stringResource(R.string.about_signal_open_source) to Icons.Rounded.Public,
-        stringResource(R.string.about_signal_community_first) to Icons.Rounded.AutoAwesome,
-        stringResource(R.string.about_signal_material3) to Icons.Rounded.Palette,
+        stringResource(R.string.about_signal_open_source) to Icons.Rounded.Settings,
+        stringResource(R.string.about_signal_community_first) to ImageVector.vectorResource(R.drawable.generate_playlist_ai),
+        stringResource(R.string.about_signal_material3) to Icons.Rounded.Settings,
     )
 
     FlowRow(

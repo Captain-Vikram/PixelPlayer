@@ -1,6 +1,8 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+﻿@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -160,7 +162,7 @@ fun SongPickerContent(
                                         )
                                     } else {
                                         Icon(
-                                            imageVector = Icons.Rounded.Cloud,
+                                            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_cast_24),
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
                                         )

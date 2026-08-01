@@ -1,4 +1,4 @@
-
+﻿
 package com.theveloper.pixelplay.presentation.screens
 
 import android.Manifest
@@ -67,17 +67,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.RoundedCorner
-import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -985,20 +984,20 @@ fun ThemeSelectionPage(
             mode = AppThemeMode.DARK,
             title = stringResource(R.string.setup_theme_dark_title),
             description = stringResource(R.string.setup_theme_dark_description),
-            icon = Icons.Rounded.DarkMode,
+            icon = Icons.Rounded.Settings,
             recommended = true
         ),
         ThemeOptionItem(
             mode = AppThemeMode.LIGHT,
             title = stringResource(R.string.setup_theme_light_title),
             description = stringResource(R.string.setup_theme_light_description),
-            icon = Icons.Outlined.LightMode
+            icon = Icons.Outlined.Settings
         ),
         ThemeOptionItem(
             mode = AppThemeMode.FOLLOW_SYSTEM,
             title = stringResource(R.string.setup_theme_follow_title),
             description = stringResource(R.string.setup_theme_follow_description),
-            icon = Icons.Rounded.PhoneAndroid
+            icon = Icons.Rounded.Phone
         )
     )
 
@@ -1691,7 +1690,7 @@ private fun SetupRestoreDialog(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(stringResource(R.string.setup_restoring))
                                 } else {
-                                    Icon(Icons.Rounded.Restore, contentDescription = null)
+                                    Icon(Icons.Rounded.Refresh, contentDescription = null)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(stringResource(R.string.setup_restore_selected))
                                 }
@@ -1905,13 +1904,13 @@ fun LibraryNavigationPillSetupShow(
 
     val pillRadius = 26.dp
     val innerRadius = 4.dp
-    // Radio para cuando está expandido/seleccionado (totalmente redondo)
+    // Radio para cuando estÃ¡ expandido/seleccionado (totalmente redondo)
     val expandedRadius = 60.dp
 
-    // Animación Esquina Flecha (Interna):
+    // AnimaciÃ³n Esquina Flecha (Interna):
     // Depende de 'isExpanded':
-    // - true: Se vuelve redonda (expandedRadius/pillRadius) separándose visualmente.
-    // - false: Se mantiene recta (innerRadius) pareciendo unida al título.
+    // - true: Se vuelve redonda (expandedRadius/pillRadius) separÃ¡ndose visualmente.
+    // - false: Se mantiene recta (innerRadius) pareciendo unida al tÃ­tulo.
     val animatedArrowCorner by animateFloatAsState(
         targetValue = if (isExpanded) pillRadius.value else innerRadius.value,
         label = "ArrowCornerAnimation"
@@ -1986,7 +1985,7 @@ fun LibraryNavigationPillSetupShow(
             }
         }
 
-        // --- PARTE 2: FLECHA (Cambia de forma según estado) ---
+        // --- PARTE 2: FLECHA (Cambia de forma segÃºn estado) ---
         Surface(
             shape = RoundedCornerShape(
                 topStart = animatedArrowCorner.dp, // Anima entre 4.dp y 26.dp
@@ -2030,13 +2029,13 @@ fun LibraryNavigationPillSetupShow(
 }
 
 /**
- * Una Bottom Bar flotante con un diseño expresivo inspirado en Material 3,
+ * Una Bottom Bar flotante con un diseÃ±o expresivo inspirado en Material 3,
  * que incluye una onda sinusoidal animada en la parte superior.
  *
  * @param modifier Modificador para el Composable.
- * @param pagerState El estado del Pager para mostrar el indicador de página.
- * @param onNextClicked Lambda que se invoca al pulsar el botón "Siguiente".
- * @param onFinishClicked Lambda que se invoca al pulsar el botón "Finalizar".
+ * @param pagerState El estado del Pager para mostrar el indicador de pÃ¡gina.
+ * @param onNextClicked Lambda que se invoca al pulsar el botÃ³n "Siguiente".
+ * @param onFinishClicked Lambda que se invoca al pulsar el botÃ³n "Finalizar".
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalAnimationApi::class,
     ExperimentalMaterial3ExpressiveApi::class
@@ -2051,14 +2050,14 @@ fun SetupBottomBar(
     isNextButtonEnabled: Boolean,
     isFinishButtonEnabled: Boolean
 ) {
-    // --- Animaciones para el Morphing y Rotación ---
+    // --- Animaciones para el Morphing y RotaciÃ³n ---
     val morphAnimationSpec = tween<Float>(durationMillis = 600, easing = FastOutSlowInEasing)
-    // Animación más lenta y sutil para la rotación
+    // AnimaciÃ³n mÃ¡s lenta y sutil para la rotaciÃ³n
     val rotationAnimationSpec = tween<Float>(durationMillis = 900, easing = FastOutSlowInEasing)
 
     // 1. Determina los porcentajes de las esquinas para la forma objetivo
     val targetShapeValues = when (pagerState.currentPage % 3) {
-        0 -> listOf(50f, 50f, 50f, 50f) // Círculo (50% en todas las esquinas)
+        0 -> listOf(50f, 50f, 50f, 50f) // CÃ­rculo (50% en todas las esquinas)
         1 -> listOf(26f, 26f, 26f, 26f) // Cuadrado Redondeado
         else -> listOf(18f, 50f, 18f, 50f) // Forma de "Hoja"
     }
@@ -2069,7 +2068,7 @@ fun SetupBottomBar(
     val animatedBottomStart by animateFloatAsState(targetShapeValues[2], morphAnimationSpec, label = "BottomStart")
     val animatedBottomEnd by animateFloatAsState(targetShapeValues[3], morphAnimationSpec, label = "BottomEnd")
 
-    // 3. Anima la rotación del botón para que gire 360 grados en cada cambio de página.
+    // 3. Anima la rotaciÃ³n del botÃ³n para que gire 360 grados en cada cambio de pÃ¡gina.
     val animatedRotation by animateFloatAsState(
         targetValue = pagerState.currentPage * 360f,
         animationSpec = rotationAnimationSpec,
@@ -2158,7 +2157,7 @@ fun SetupBottomBar(
                     MaterialTheme.colorScheme.onPrimaryContainer
                 }
 
-                // 4. Aplica la forma y rotación animadas al botón
+                // 4. Aplica la forma y rotaciÃ³n animadas al botÃ³n
                 MediumExtendedFloatingActionButton(
                     onClick = if (isLastPage) onFinishClicked else onNextClicked,
                     shape = AbsoluteSmoothCornerShape(
@@ -2178,7 +2177,7 @@ fun SetupBottomBar(
                         .rotate(animatedRotation)
                         .padding(end = 0.dp)
                 ) {
-                    // 5. Aplica una contra-rotación al contenido del botón (el icono)
+                    // 5. Aplica una contra-rotaciÃ³n al contenido del botÃ³n (el icono)
                     AnimatedContent(
                         modifier = Modifier.rotate(-animatedRotation),
                         targetState = pagerState.currentPage < pagerState.pageCount - 1,
@@ -2191,7 +2190,7 @@ fun SetupBottomBar(
                         label = "AnimatedFabIcon"
                     ) { isNextPage ->
                         if (isNextPage) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = stringResource(R.string.common_next))
+                            Icon(Icons.Rounded.ArrowForward, contentDescription = stringResource(R.string.common_next))
                         } else {
                             if (isFinishButtonEnabled) {
                                 Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.common_finish))
@@ -2311,7 +2310,7 @@ fun NavBarLayoutPage(
                                      contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                  )
                              ) {
-                                 Icon(Icons.Rounded.RoundedCorner, contentDescription = null, modifier = Modifier.size(18.dp))
+                                 Icon(Icons.Rounded.Warning, contentDescription = null, modifier = Modifier.size(18.dp))
                                  Spacer(modifier = Modifier.width(8.dp))
                                  Text(stringResource(R.string.setup_customize_corner_radius))
                              }

@@ -516,11 +516,10 @@ class ExtensionRepository @Inject constructor(
                             msg.contains("credentials", ignoreCase = true)
 
                     if (isAuthError) {
-                        _homeFeed.value = null
-                        _shelves.value = emptyList()
-                        _yourMixSongsFromExtension.value = emptyList()
-                        _dailyMixSongsFromExtension.value = emptyList()
-                        homeFeedContinuationToken = null
+                        // Keep any existing public feed/shelves so the user sees the extension is active on home page
+                        if (_shelves.value.isEmpty()) {
+                            homeFeedContinuationToken = null
+                        }
                     }
                     
                     if (!isAuthError) {

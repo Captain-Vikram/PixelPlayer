@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
 
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
+
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -180,7 +180,7 @@ fun StreamingProviderSheet(
                         iconPainter = painterResource(R.drawable.ic_navidrome_md3),
                         iconTint = Color(0xFFE8A54B),
                         title = "Subsonic",
-                        subtitle = if (isNavidromeLoggedIn) "Connected · Navidrome/Airsonic" else "Connect Navidrome & others",
+                        subtitle = if (isNavidromeLoggedIn) "Connected Â· Navidrome/Airsonic" else "Connect Navidrome & others",
                         shape = providerSegmentItemShape,
                         isConnected = isNavidromeLoggedIn,
                         onClick = {

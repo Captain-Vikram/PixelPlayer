@@ -84,7 +84,7 @@ import com.theveloper.pixelplay.presentation.viewmodel.ColorSchemePair
 import com.theveloper.pixelplay.shared.WearIntents
 import com.theveloper.pixelplay.utils.ArtworkTransportSanitizer
 import com.theveloper.pixelplay.utils.MediaItemBuilder
-import com.theveloper.pixelplay.data.navidrome.NavidromeRepository
+
 import com.theveloper.pixelplay.di.AppScope
 import com.theveloper.pixelplay.presentation.viewmodel.ListeningStatsTracker
 import java.io.ByteArrayOutputStream
@@ -167,7 +167,7 @@ class MusicService : MediaLibraryService() {
     @Inject
     lateinit var replayGainManager: com.theveloper.pixelplay.data.media.ReplayGainManager
     @Inject
-    lateinit var navidromeRepository: NavidromeRepository
+    lateinit var navidromeRepository: com.theveloper.pixelplay.data.repository.NavidromeRepositoryContract
     @Inject
     lateinit var listeningStatsTracker: ListeningStatsTracker
     @Inject
@@ -2937,3 +2937,4 @@ class MusicService : MediaLibraryService() {
         return future
     }
 }
+

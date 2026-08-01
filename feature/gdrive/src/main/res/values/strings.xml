@@ -1,0 +1,34 @@
+<resources>
+    <!-- Common -->
+    <string name="common_back">Back</string>
+    <string name="common_remove">Remove</string>
+
+    <!-- GDrive Auth -->
+    <string name="auth_gdrive_title">Google Drive</string>
+    <string name="auth_gdrive_connect_title">Connect Google Drive</string>
+    <string name="auth_gdrive_connect_subtitle">Stream music files directly from your Google Drive</string>
+    <string name="auth_gdrive_signin_action">Sign in with Google</string>
+    <string name="auth_gdrive_setup_msg">Setting up Google Drive.</string>
+    <string name="auth_gdrive_connected_toast">Google Drive connected!</string>
+    <string name="auth_gdrive_select_title">Select a music folder</string>
+    <string name="auth_gdrive_select_subtitle">Choose or create a folder to use as your music source</string>
+    <string name="auth_gdrive_use_action">Use</string>
+    <string name="auth_gdrive_create_action">Create \"PixelPlayer Music\"</string>
+    <string name="auth_gdrive_create_subtitle">Create a new folder here for your music</string>
+    <string name="auth_gdrive_empty_msg">No folders here</string>
+    <string name="auth_gdrive_open_cd">Open folder</string>
+
+    <!-- GDrive Dashboard -->
+    <string name="gdrive_dashboard_music_folders">Music folders</string>
+    <string name="gdrive_dashboard_add_folder_hint">Tap + to add a Drive folder</string>
+    <string name="gdrive_dashboard_no_folders_yet">No folders added yet</string>
+    <string name="gdrive_dashboard_folders_synced_count">%1$d folders synced</string>
+    <string name="gdrive_cd_add_folder">Add folder</string>
+
+    <!-- Cloud common -->
+    <string name="cloud_dashboard_action_sync">Sync</string>
+    <string name="cloud_dashboard_song_count">%1$d songs</string>
+    <string name="cloud_cd_sync">Sync</string>
+    <string name="cloud_cd_sync_all">Sync all</string>
+    <string name="cloud_cd_logout">Log out</string>
+</resources>

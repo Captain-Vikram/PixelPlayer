@@ -1,4 +1,5 @@
-package com.theveloper.pixelplay.data.repository
+﻿package com.theveloper.pixelplay.data.repository
+import com.theveloper.pixelplay.R
 
 import android.content.Context
 import android.net.Uri
@@ -10,7 +11,7 @@ import android.util.LruCache
 import androidx.core.net.toUri
 import com.google.gson.Gson
 import com.kyant.taglib.TagLib
-import com.theveloper.pixelplay.R
+
 import com.theveloper.pixelplay.data.database.MusicDao
 import com.theveloper.pixelplay.data.model.Lyrics
 import com.theveloper.pixelplay.data.model.SyncedLine
@@ -1064,7 +1065,7 @@ class LyricsRepositoryImpl @Inject constructor(
                 }
             }
 
-            if (ttml.isBlank() || ttml.contains("歌词不存在")) return@withContext null
+            if (ttml.isBlank() || ttml.contains("æ­Œè¯ä¸å­˜åœ¨")) return@withContext null
             val lrc = convertAmlTtmlToLrc(ttml) ?: return@withContext null
             val parsed = LyricsUtils.parseLyrics(lrc)
             if (!parsed.isValid()) return@withContext null
@@ -1091,7 +1092,7 @@ class LyricsRepositoryImpl @Inject constructor(
         lineRegex.findAll(ttml).forEach { lineMatch ->
             val lineStartMs = parseTtmlTimeToMs(lineMatch.groupValues[1]) ?: return@forEach
             var inner = lineMatch.groupValues[2]
-            val markerRegex = Regex("§§TS\\(([^)]+)\\)§§")
+            val markerRegex = Regex("Â§Â§TS\\(([^)]+)\\)Â§Â§")
 
             inner = spanRegex.replace(inner) { spanMatch ->
                 val attributes = spanMatch.groupValues[1]
@@ -1111,7 +1112,7 @@ class LyricsRepositoryImpl @Inject constructor(
                     return@replace text
                 }
 
-                "§§TS(${formatTimestamp(wordStartMs)})§§$text"
+                "Â§Â§TS(${formatTimestamp(wordStartMs)})Â§Â§$text"
             }
 
             val withoutXmlTags = decodeXmlEntities(inner.replace(Regex("<[^>]+>"), ""))

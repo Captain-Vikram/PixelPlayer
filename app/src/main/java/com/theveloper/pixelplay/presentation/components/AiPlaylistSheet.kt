@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 
 import androidx.compose.animation.AnimatedVisibility
@@ -32,9 +34,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -227,7 +228,7 @@ fun AiPlaylistSheet(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
+                            imageVector = ImageVector.vectorResource(R.drawable.generate_playlist_ai),
                             contentDescription = null,
                             modifier = Modifier.size(32.dp),
                             tint = if (isGenerating) colors.onPrimaryContainer else colors.onTertiaryContainer
@@ -361,7 +362,7 @@ fun AiPlaylistSheet(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Rounded.Restore, null, tint = colors.error, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Rounded.Refresh, null, tint = colors.error, modifier = Modifier.size(18.dp))
                             Text(
                                 text = stringResource(R.string.ai_playlist_tap_to_retry),
                                 color = colors.error,
@@ -391,7 +392,7 @@ fun AiPlaylistSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.AutoAwesome, 
+                            imageVector = ImageVector.vectorResource(R.drawable.generate_playlist_ai), 
                             contentDescription = null, 
                             tint = colors.onTertiaryContainer,
                             modifier = Modifier.size(24.dp)
@@ -475,7 +476,7 @@ fun AiPlaylistSheet(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
+                            imageVector = ImageVector.vectorResource(R.drawable.generate_playlist_ai),
                             contentDescription = null,
                             modifier = Modifier.size(22.dp),
                             tint = if (prompt.isBlank()) 

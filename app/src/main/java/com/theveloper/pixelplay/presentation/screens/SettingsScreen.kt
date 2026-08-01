@@ -1,6 +1,8 @@
 package com.theveloper.pixelplay.presentation.screens
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -34,8 +36,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -204,7 +206,7 @@ fun SettingsScreen(
                         it != SettingsCategory.MASHUP
                     }
 
-                    val totalItems = mainCategories.size + 5 // Device + Accounts + About + Downloads + Mashup
+                    val totalItems = mainCategories.size + 6 // Device + Accounts + About + Downloads + Mashup + Modules
                     fun shapeFor(index: Int) =
                         when {
                             totalItems == 1 -> RoundedCornerShape(24.dp)
@@ -274,9 +276,22 @@ fun SettingsScreen(
                     ExpressiveNavigationItem(
                         title = "Downloads",
                         subtitle = "Track download progress and status",
-                        icon = Icons.Rounded.Download,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_upload_file_24),
                         colors = getDownloadsColors(isDark),
                         onClick = { navController.navigateSafely(Screen.Downloads.route) },
+                        shape = shapeFor(itemIndex)
+                    )
+                    if (itemIndex < totalItems - 1) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+                    itemIndex++
+
+                    ExpressiveNavigationItem(
+                        title = "Feature Modules",
+                        subtitle = "Manage dynamic and downloadable modules",
+                        icon = Icons.Rounded.Settings,
+                        colors = getModulesColors(isDark),
+                        onClick = { navController.navigateSafely(Screen.FeatureModules.route) },
                         shape = shapeFor(itemIndex)
                     )
                     if (itemIndex < totalItems - 1) {
@@ -506,5 +521,13 @@ private fun getDownloadsColors(isDark: Boolean): Pair<Color, Color> {
         Color(0xFF2E3B2F) to Color(0xFFCBEFD0)
     } else {
         Color(0xFFE8F5E9) to Color(0xFF1B5E20)
+    }
+}
+
+private fun getModulesColors(isDark: Boolean): Pair<Color, Color> {
+    return if (isDark) {
+        Color(0xFF332C3A) to Color(0xFFEADDFF)
+    } else {
+        Color(0xFFF3E5F5) to Color(0xFF4A148C)
     }
 }

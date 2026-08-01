@@ -56,7 +56,7 @@ val localProperties = Properties().apply {
 }
 
 val enableAbiSplits = providers.gradleProperty("pixelplay.enableAbiSplits")
-    .getOrElse("true")
+    .getOrElse("false")  // Use -Ppixelplay.enableAbiSplits=true for Play Store distribution builds
     .toBoolean()
 
 val enableComposeCompilerReports = providers.gradleProperty("pixelplay.enableComposeCompilerReports")
@@ -80,9 +80,9 @@ android {
         }
     }
 
-    androidResources {
-        noCompress.add("tflite")
-    }
+    // androidResources {
+    //     noCompress.add("tflite")
+    // }
 
     packaging {
         resources {
@@ -125,7 +125,7 @@ android {
         versionName = (project.findProperty("APP_VERSION_NAME") as? String) ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        resourceConfigurations += setOf("en", "de", "es", "fr", "in", "it", "ko", "nb", "ru", "zh-rCN")
+        resourceConfigurations += setOf("en", "de", "es", "fr", "in", "it", "ko", "nb", "ru", "zh-rCN", "ar", "tr")
 
         val telegramApiId = localProperties.getProperty("TELEGRAM_API_ID")?.ifEmpty { null }
             ?: "2040"
@@ -207,11 +207,8 @@ android {
         }
     }
 
-    bundle {
-        abi.enableSplit = true
-        density.enableSplit = true
-        language.enableSplit = true
-    }
+    // bundle splits are configured via Play Console delivery settings for AAB uploads
+    // Keeping them here causes a false "dynamic features" error in AGP 8.13 for local APK builds
 }
 
 androidComponents {
@@ -235,11 +232,7 @@ baselineProfile {
     dexLayoutOptimization = true
 }
 
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-    arg("room.incremental", "true")
-    arg("room.generateKotlin", "true")
-}
+// Room ksp args moved to :core:database — ksp block removed from :app
 
 kotlin {
     compilerOptions {
@@ -318,11 +311,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.navigation.runtime.ktx)
 
-    // Storage & Paging
-    implementation(libs.androidx.room.runtime)
-    ksp(libs.androidx.room.compiler)
-    implementation(libs.androidx.room.ktx)
-    implementation(libs.androidx.room.paging)
+    // Storage & Paging — Room moved to :core:database
+    // Room runtime/ktx/paging/compiler are api-exposed by :core:database
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
     implementation(libs.androidx.paging.common)
@@ -334,13 +324,12 @@ dependencies {
     implementation(libs.androidx.media3.datasource.okhttp)
     implementation(libs.androidx.media3.exoplayer.ffmpeg)
     implementation(libs.androidx.media3.exoplayer.midi)
-    implementation(libs.androidx.media3.transformer)
     implementation(libs.androidx.mediarouter)
     implementation(libs.androidx.media)
     implementation(libs.coil.compose)
     implementation(libs.taglib)
-    implementation(libs.jaudiotagger)
-    implementation(libs.vorbisjava.core)
+    // implementation(libs.jaudiotagger)
+    // implementation(libs.vorbisjava.core)
     implementation(libs.wavy.slider)
     implementation(libs.androidx.graphics.shapes)
 
@@ -355,22 +344,22 @@ dependencies {
 
     // Identity & Background
     implementation(libs.androidx.work.runtime.ktx)
-    implementation(libs.play.services.wearable)
+    // Wearable SDK moved to :feature:wear-sync
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services.auth)
     implementation(libs.googleid)
     implementation(libs.androidx.security.crypto)
-    implementation(libs.google.play.services.cast.framework)
-    implementation(libs.tdlib)
+    // Telegram SDK moved to :feature:telegram
+    // implementation(libs.tdlib)
 
     // UI Utilities & Extra
     implementation(libs.timber)
     implementation(libs.smooth.corner.rect.android.compose)
     implementation(libs.reorderables)
-    implementation(libs.androidx.glance)
-    implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.glance.material3)
+    // implementation(libs.androidx.glance)
+    // implementation(libs.androidx.glance.appwidget)
+    // implementation(libs.androidx.glance.material3)
     implementation(libs.pinyin4j.core)
     implementation(libs.accompanist.drawablepainter)
     implementation(libs.accompanist.permissions)
@@ -385,7 +374,16 @@ dependencies {
     // Projects
     implementation(project(":core:shared"))
     implementation(project(":core:common"))
+    implementation(project(":core:database"))
     implementation(project(":feature:ktor-server"))
+    implementation(project(":feature:cast"))
+    implementation(project(":feature:wear-sync"))
+    implementation(project(":feature:glance"))
+    implementation(project(":feature:telegram"))
+    implementation(project(":feature:gdrive"))
+    implementation(project(":feature:netease"))
+    implementation(project(":feature:qqmusic"))
+    implementation(project(":feature:navidrome"))
 
     // Testing (Unit)
     testImplementation(libs.junit.jupiter.api)

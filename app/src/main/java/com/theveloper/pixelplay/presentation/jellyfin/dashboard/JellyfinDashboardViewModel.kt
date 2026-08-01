@@ -35,6 +35,7 @@ class JellyfinDashboardViewModel @Inject constructor(
     val username: String? get() = repository.username
     val serverUrl: String? get() = repository.serverUrl
     val isLoggedIn: StateFlow<Boolean> = repository.isLoggedInFlow
+        .stateIn(viewModelScope, SharingStarted.Lazily, false)
 
     init {
         syncAllPlaylistsAndSongs()

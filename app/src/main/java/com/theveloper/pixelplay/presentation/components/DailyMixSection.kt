@@ -414,20 +414,7 @@ private fun ViewAllDailyMixButton(
 private fun rememberDailyMixTitleStyle(): TextStyle {
     return remember {
         TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.gflex_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(630),
-                        FontVariation.width(136f),
-                        FontVariation.grade(40),
-                        FontVariation.Setting("ROND", 100f),
-                        FontVariation.Setting("XTRA", 520f),
-                        FontVariation.Setting("YOPQ", 90f),
-                        FontVariation.Setting("YTLC", 505f)
-                    )
-                )
-            ),
+            fontFamily = com.theveloper.pixelplay.ui.theme.GoogleSansRounded,
             fontWeight = FontWeight(630),
             fontSize = 20.sp,
             lineHeight = 22.sp,

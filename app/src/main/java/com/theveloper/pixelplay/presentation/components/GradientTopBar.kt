@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -13,7 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
@@ -68,7 +70,7 @@ fun GenreGradientTopBar(
                 )
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    imageVector = Icons.Rounded.ArrowBack,
                     contentDescription = stringResource(R.string.common_back),
                     tint = startColor
                 )
@@ -161,7 +163,7 @@ fun HomeGradientTopBar(
                         onClick = { showCloudMenu = true }
                     ) {
                         Icon(
-                             imageVector = Icons.Rounded.Cloud,
+                             imageVector = ImageVector.vectorResource(R.drawable.rounded_music_cast_24),
                              contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
                         )
                     }
@@ -187,7 +189,7 @@ fun HomeGradientTopBar(
                                 showCloudMenu = false
                                 onStoreClick()
                             },
-                            leadingIcon = { Icon(Icons.Rounded.Extension, null) }
+                            leadingIcon = { Icon(Icons.Rounded.Settings, null) }
                         )
                     }
                 }
@@ -222,7 +224,7 @@ fun HomeGradientTopBar(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Rounded.Storage,
+                            imageVector = Icons.Rounded.Settings,
                             contentDescription = "Source Selection",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)

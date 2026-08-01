@@ -22,21 +22,15 @@ keystore.properties
 /.idea/assetWizardSettings.xml
 /.idea/planningMode.xml
 
-/build
+**/build/
 /captures
 .externalNativeBuild
 .cxx
 benchmark-results/
 
-app/build/
 app/release/
-wear/build/
 wear/release/
-shared/build/
-baselineprofile/build/
-core/common/build/
-core/shared/build/
-feature/ktor-server/build/
+
 
 misc.xml
 CLAUDE.md

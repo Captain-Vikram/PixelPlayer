@@ -155,9 +155,10 @@ fun DownloadItem(
                     )
                 }
                 
-                if (download.status == DownloadStatus.FAILED && download.errorMessage != null) {
+                val errorMsg = download.errorMessage
+                if (download.status == DownloadStatus.FAILED && errorMsg != null) {
                     Text(
-                        text = download.errorMessage,
+                        text = errorMsg,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp)

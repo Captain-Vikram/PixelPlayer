@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,7 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -158,7 +158,7 @@ private fun CustomPresetItem(
         Row {
              IconButton(onClick = onPinClick) {
                 Icon(
-                    imageVector = if (isPinned) Icons.Default.Star else Icons.Default.StarBorder,
+                    imageVector = if (isPinned) Icons.Default.Star else Icons.Default.Star,
                     contentDescription = if (isPinned) stringResource(R.string.equalizer_presets_cd_unpin) else stringResource(R.string.equalizer_presets_cd_pin),
                     tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )

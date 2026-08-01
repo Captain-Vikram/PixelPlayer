@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity"
+            android:exported="false"
+            android:label="Telegram Login"
+            android:theme="@style/Theme.PixelPlay"
+            android:windowSoftInputMode="adjustResize" />
+    </application>
+</manifest>

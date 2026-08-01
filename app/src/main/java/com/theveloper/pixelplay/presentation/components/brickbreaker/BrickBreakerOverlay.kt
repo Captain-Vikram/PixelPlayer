@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components.brickbreaker
+﻿package com.theveloper.pixelplay.presentation.components.brickbreaker
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import android.content.Context
 import androidx.compose.foundation.Canvas
@@ -27,7 +29,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -807,7 +808,7 @@ fun BrickBreakerOverlay(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Shuffle,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_shuffle_24),
                             contentDescription = null,
                             tint = colorScheme.onPrimaryContainer
                         )

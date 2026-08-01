@@ -53,12 +53,13 @@ internal fun buildAlbumGroupingKeys(album: AlbumEntity): List<AlbumGroupingKey> 
         identity = "media:${album.id}"
     )
 
-    if (!album.albumArtUriString.isNullOrBlank()) {
+    val artUri = album.albumArtUriString
+    if (!artUri.isNullOrBlank()) {
         albumKeys += AlbumGroupingKey(
             normalizedTitle = album.title.normalizeMetadataTextOrEmpty()
                 .ifBlank { "Unknown Album" }
                 .lowercase(),
-            identity = "art:${album.albumArtUriString.trim()}"
+            identity = "art:${artUri.trim()}"
         )
     }
 

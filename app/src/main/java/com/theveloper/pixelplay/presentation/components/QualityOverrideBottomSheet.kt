@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -16,8 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.SettingsBackupRestore
-import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -149,7 +149,7 @@ fun QualityOverrideBottomSheet(
                         QualityItem(
                             label = label,
                             subtitle = "Format: $mimeType",
-                            icon = { Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.primary) },
+                            icon = { Icon(Icons.Rounded.Settings, null, tint = MaterialTheme.colorScheme.primary) },
                             selected = isSelected,
                             onClick = {
                                 onSourceSelected(source)
@@ -169,7 +169,7 @@ fun QualityOverrideBottomSheet(
                         QualityItem(
                             label = "No Override (Follow Settings)",
                             subtitle = "Uses configured Wi-Fi / Mobile Data preferences",
-                            icon = { Icon(Icons.Rounded.SettingsBackupRestore, null, tint = MaterialTheme.colorScheme.secondary) },
+                            icon = { Icon(Icons.Rounded.Settings, null, tint = MaterialTheme.colorScheme.secondary) },
                             selected = currentOverride == null && selectedSource == null,
                             onClick = {
                                 onOverrideSelected(null)
@@ -194,7 +194,7 @@ fun QualityOverrideBottomSheet(
                         QualityItem(
                             label = "No Override (Follow Settings)",
                             subtitle = "Uses configured Wi-Fi / Mobile Data preferences",
-                            icon = { Icon(Icons.Rounded.SettingsBackupRestore, null, tint = MaterialTheme.colorScheme.secondary) },
+                            icon = { Icon(Icons.Rounded.Settings, null, tint = MaterialTheme.colorScheme.secondary) },
                             selected = currentOverride == null && selectedSource == null,
                             onClick = {
                                 onOverrideSelected(null)

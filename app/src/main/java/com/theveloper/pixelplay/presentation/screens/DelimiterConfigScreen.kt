@@ -1,4 +1,4 @@
-import android.widget.Toast
+﻿import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -27,10 +27,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -346,7 +346,7 @@ fun DelimiterConfigScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = UserPreferencesRepository.DEFAULT_ARTIST_DELIMITERS.joinToString("  •  ") { "\"$it\"" },
+                            text = UserPreferencesRepository.DEFAULT_ARTIST_DELIMITERS.joinToString("  â€¢  ") { "\"$it\"" },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -379,7 +379,7 @@ fun DelimiterConfigScreen(
                         shape = androidx.compose.foundation.shape.CircleShape
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.RestartAlt,
+                            imageVector = Icons.Rounded.Refresh,
                             contentDescription = stringResource(R.string.common_reset_defaults),
                             modifier = Modifier.size(20.dp)
                         )
@@ -407,7 +407,7 @@ fun DelimiterConfigScreen(
                 },
                 icon = {
                     Icon(
-                        imageVector = Icons.Rounded.RestartAlt,
+                        imageVector = Icons.Rounded.Refresh,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error
                     )

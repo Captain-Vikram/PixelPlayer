@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common -->
+    <string name="common_back">Back</string>
+    <string name="common_remove">Remove</string>
+
+    <!-- Web Auth Common -->
+    <string name="auth_web_back_cd">Web back</string>
+    <string name="auth_web_forward_cd">Web forward</string>
+    <string name="auth_web_home_cd">Open home</string>
+    <string name="auth_web_refresh_cd">Refresh</string>
+    <string name="auth_done_action">Done</string>
+    <string name="auth_saving_msg">Saving.</string>
+    <string name="auth_timeout_toast">Page load timed out. You can retry without losing your progress.</string>
+    <string name="auth_web_exit_msg">You can come back later. Current page state will be discarded when closing.</string>
+    <string name="auth_exit_action">Exit</string>
+    <string name="auth_stay_action">Stay</string>
+    <string name="auth_web_retry_action">Retry</string>
+    <string name="auth_webview_failed_error">WebView load failed.</string>
+    <string name="auth_welcome_toast">Welcome, %1$s!</string>
+    <string name="auth_no_cookies_error">No cookies found. Log in first.</string>
+    <string name="auth_cookies_unreadable_error">Could not read session cookies.</string>
+    <string name="auth_page_slow_msg">Page is taking too long to load. Use refresh or try another network.</string>
+
+    <!-- NetEase Auth -->
+    <string name="auth_netease_title">NetEase Music</string>
+    <string name="auth_netease_login_title">Login to NetEase Music</string>
+    <string name="auth_netease_security_msg">Security note: your password is entered only in NetEase web pages. PixelPlayer stores session cookies (MUSIC_U) to sync your library.</string>
+    <string name="auth_netease_cookie_error">Failed to read NetEase cookies: %1$s</string>
+    <string name="auth_netease_incomplete_error">Login not detected yet. Complete NetEase login before pressing Done.</string>
+    <string name="auth_netease_http_error">HTTP %1$d while loading NetEase.</string>
+    <string name="auth_netease_exit_title">Exit NetEase login?</string>
+
+    <!-- Cloud Dashboard & Actions -->
+    <string name="cloud_cd_logout">Log out</string>
+    <string name="cloud_cd_sync">Sync</string>
+    <string name="cloud_cd_sync_all">Sync all</string>
+    <string name="cloud_cd_sync_all_playlists">Sync all playlists</string>
+    <string name="cloud_dashboard_action_sync">Sync</string>
+    <string name="cloud_dashboard_action_sync_library">Sync library</string>
+    <string name="cloud_dashboard_playlists_empty_hint">Tap sync to fetch your playlists</string>
+    <string name="cloud_dashboard_playlists_empty_title">No playlists synced yet</string>
+    <string name="cloud_dashboard_playlists_synced_count">%1$d playlists synced</string>
+    <string name="cloud_dashboard_song_count">%1$d songs</string>
+    <string name="cloud_dashboard_title_playlists">Playlists</string>
+</resources>

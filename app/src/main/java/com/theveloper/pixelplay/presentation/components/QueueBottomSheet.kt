@@ -1,4 +1,5 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -48,18 +49,13 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DoneAll
-import androidx.compose.material.icons.rounded.RemoveDone
+import androidx.compose.material.icons.rounded.Done
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -87,11 +83,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.ClearAll
-import androidx.compose.material.icons.filled.LibraryAdd
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -174,8 +166,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -920,7 +911,7 @@ fun QueueBottomSheet(
                                                     .size(40.dp)
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Rounded.DragIndicator,
+                                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_drag_handle_24),
                                                     contentDescription = stringResource(R.string.queue_cd_reorder_song),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -1000,7 +991,7 @@ fun QueueBottomSheet(
                         elevation = FloatingActionButtonDefaults.elevation(0.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.MoreHoriz,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_more_vert_24),
                             contentDescription = stringResource(R.string.queue_cd_more_action),
                         )
                     }
@@ -1066,7 +1057,7 @@ fun QueueBottomSheet(
                             if (currentSongDisplayIndex >= 0 && currentSongDisplayIndex < displaySongCount) {
                                 QueueToolbarMenuButton(
                                     text = stringResource(R.string.queue_action_locate_current_song),
-                                    icon = Icons.Rounded.MyLocation,
+                                    icon = Icons.Rounded.Menu,
                                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                                     onClick = {
@@ -1084,7 +1075,7 @@ fun QueueBottomSheet(
                             }
                             QueueToolbarMenuButton(
                                 text = stringResource(R.string.queue_action_clear_queue),
-                                icon = Icons.Filled.ClearAll,
+                                icon = ImageVector.vectorResource(R.drawable.rounded_clear_all_24),
                                 containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
                                 onClick = {
@@ -1094,7 +1085,7 @@ fun QueueBottomSheet(
                             )
                             QueueToolbarMenuButton(
                                 text = stringResource(R.string.queue_action_save_as_playlist),
-                                icon = Icons.Filled.LibraryAdd,
+                                icon = ImageVector.vectorResource(R.drawable.rounded_playlist_add_24),
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
@@ -1395,7 +1386,7 @@ private fun QueueSourceBadge(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                imageVector = ImageVector.vectorResource(R.drawable.rounded_queue_music_24),
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
                 tint = colors.onSurfaceVariant
@@ -1456,7 +1447,7 @@ private fun QueueControlsToolbar(
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Shuffle,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_shuffle_24),
                     contentDescription = stringResource(R.string.queue_cd_toggle_shuffle_action),
                 )
             }
@@ -1467,8 +1458,8 @@ private fun QueueControlsToolbar(
                 modifier = Modifier.size(48.dp)
             ) {
                 val repeatIcon = when (repeatMode) {
-                    Player.REPEAT_MODE_ONE -> Icons.Rounded.RepeatOne
-                    else -> Icons.Rounded.Repeat
+                    Player.REPEAT_MODE_ONE -> ImageVector.vectorResource(R.drawable.rounded_repeat_one_24)
+                    else -> ImageVector.vectorResource(R.drawable.rounded_repeat_24)
                 }
                 Icon(
                     imageVector = repeatIcon,
@@ -1482,7 +1473,7 @@ private fun QueueControlsToolbar(
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Timer,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_alarm_24),
                     contentDescription = stringResource(R.string.queue_cd_sleep_timer_action),
                 )
             }
@@ -1621,7 +1612,7 @@ fun SaveQueueAsPlaylistSheet(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Icon(
-                                            imageVector = if (allSelected) Icons.Rounded.RemoveDone else Icons.Rounded.DoneAll,
+                                            imageVector = if (allSelected) Icons.Rounded.Close else Icons.Rounded.Done,
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
                                         )

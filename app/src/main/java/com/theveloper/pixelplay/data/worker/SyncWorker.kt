@@ -29,7 +29,7 @@ import com.theveloper.pixelplay.data.database.serializeArtistRefs
 import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 import com.theveloper.pixelplay.data.diagnostics.PerformanceMetrics
 import com.theveloper.pixelplay.data.model.ArtistRef
-import com.theveloper.pixelplay.data.navidrome.NavidromeRepository
+
 import com.theveloper.pixelplay.data.media.AudioMetadataReader
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
@@ -77,7 +77,7 @@ constructor(
         private val lyricsRepository: LyricsRepository,
         private val telegramDao: TelegramDao,
         private val neteaseDao: NeteaseDao,
-        private val navidromeRepository: NavidromeRepository
+        private val navidromeRepository: com.theveloper.pixelplay.data.repository.NavidromeRepositoryContract
 ) : CoroutineWorker(appContext, workerParams) {
 
     private val contentResolver: ContentResolver = appContext.contentResolver
@@ -430,7 +430,7 @@ constructor(
                     val neteaseCount = neteaseDao.getNeteaseCount()
                     // For Navidrome, we only do network sync if SYNC_THRESHOLD_MS (24h) threshold has passed.
                     val navidromeNeedsNetworkSync = navidromeRepository.isLoggedIn && 
-                        (System.currentTimeMillis() - navidromeRepository.lastFullSyncTime >= NavidromeRepository.SYNC_THRESHOLD_MS)
+                        (System.currentTimeMillis() - navidromeRepository.lastFullSyncTime >= com.theveloper.pixelplay.data.repository.NavidromeRepositoryContract.SYNC_THRESHOLD_MS)
                     
                     val needsActiveCloudSync = hasTelegramChannels ||
                         neteaseCount > 0 ||
@@ -1708,7 +1708,7 @@ constructor(
         val currentTime = System.currentTimeMillis()
 
         // Only auto-sync Navidrome during main library sync if it's been more than SYNC_THRESHOLD_MS (24h)
-        if (currentTime - lastSync < NavidromeRepository.SYNC_THRESHOLD_MS) {
+        if (currentTime - lastSync < com.theveloper.pixelplay.data.repository.NavidromeRepositoryContract.SYNC_THRESHOLD_MS) {
             Log.d(TAG, "Skipping Navidrome sync during main library sync - last sync was recent.")
             // Still sync unified library from local cache to be safe
             navidromeRepository.syncUnifiedLibrarySongsFromNavidrome()

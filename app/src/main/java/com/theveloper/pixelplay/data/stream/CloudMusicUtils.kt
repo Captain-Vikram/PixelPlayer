@@ -4,14 +4,7 @@ import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.utils.splitArtistsByDelimiters
 import org.json.JSONObject
 
-/**
- * Shared data class for bulk sync operations across cloud music repositories.
- */
-data class BulkSyncResult(
-    val playlistCount: Int,
-    val syncedSongCount: Int,
-    val failedPlaylistCount: Int
-)
+
 
 /**
  * Shared utility functions for cloud music repositories.

@@ -25,9 +25,16 @@ kotlin {
 
 dependencies {
     api(project(":core:common"))
+    
     api(libs.ktor.server.core)
     api(libs.ktor.server.cio)
     implementation(libs.timber)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.exoplayer.ffmpeg)
+    implementation(libs.androidx.media)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.tdlib)
+    implementation("javax.inject:javax.inject:1")
 }

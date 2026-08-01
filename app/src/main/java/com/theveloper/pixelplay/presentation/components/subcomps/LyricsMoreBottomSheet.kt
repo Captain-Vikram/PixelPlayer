@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components.subcomps
+﻿package com.theveloper.pixelplay.presentation.components.subcomps
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,16 +21,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.FormatAlignLeft
-import androidx.compose.material.icons.automirrored.rounded.FormatAlignRight
-import androidx.compose.material.icons.rounded.Abc
-import androidx.compose.material.icons.rounded.FormatAlignCenter
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material.icons.rounded.BrightnessHigh
+
+
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -165,13 +165,13 @@ fun LyricsMoreBottomSheet(
                     )
                 }
 
-                // Translate via AI
+                // Settings via AI
                 if (lyrics != null) {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.lyrics_translate_via_ai)) },
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Rounded.Translate,
+                                imageVector = Icons.Rounded.Settings,
                                 contentDescription = null
                             )
                         },
@@ -292,7 +292,7 @@ fun LyricsMoreBottomSheet(
                             inactiveContentColor = contentColor.copy(alpha = 0.78f),
                             activeCornerRadius = 50.dp,
                             onClick = { onLyricsAlignmentChange("left") },
-                            imageVector = Icons.AutoMirrored.Rounded.FormatAlignLeft,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_align_justify_space_even_24),
                             contentDesc = stringResource(R.string.lyrics_appearance_align_left)
                         )
 
@@ -307,7 +307,7 @@ fun LyricsMoreBottomSheet(
                             inactiveContentColor = contentColor.copy(alpha = 0.78f),
                             activeCornerRadius = 50.dp,
                             onClick = { onLyricsAlignmentChange("center") },
-                            imageVector = Icons.Rounded.FormatAlignCenter,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_align_justify_space_even_24),
                             contentDesc = stringResource(R.string.lyrics_appearance_align_center)
                         )
 
@@ -322,7 +322,7 @@ fun LyricsMoreBottomSheet(
                             inactiveContentColor = contentColor.copy(alpha = 0.78f),
                             activeCornerRadius = 50.dp,
                             onClick = { onLyricsAlignmentChange("right") },
-                            imageVector = Icons.AutoMirrored.Rounded.FormatAlignRight,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_align_justify_space_even_24),
                             contentDesc = stringResource(R.string.lyrics_appearance_align_right)
                         )
                     }
@@ -371,7 +371,7 @@ fun LyricsMoreBottomSheet(
                             },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Tune,
+                                    imageVector = Icons.Rounded.Settings,
                                     contentDescription = null
                                 )
                             },
@@ -403,7 +403,7 @@ fun LyricsMoreBottomSheet(
                             headlineContent = { Text(stringResource(R.string.lyrics_controls_show_romanization)) },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Abc,
+                                    imageVector = Icons.Rounded.Menu,
                                     contentDescription = null
                                 )
                             },
@@ -444,7 +444,7 @@ fun LyricsMoreBottomSheet(
                             headlineContent = { Text(stringResource(R.string.lyrics_controls_show_translations)) },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Translate,
+                                    imageVector = Icons.Rounded.Settings,
                                     contentDescription = null
                                 )
                             },
@@ -486,7 +486,7 @@ fun LyricsMoreBottomSheet(
                             headlineContent = { Text(stringResource(R.string.lyrics_controls_disable_immersive_once)) },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.VisibilityOff,
+                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_visibility_off_24),
                                     contentDescription = null
                                 )
                             },
@@ -530,7 +530,7 @@ fun LyricsMoreBottomSheet(
                             headlineContent = { Text(stringResource(R.string.lyrics_controls_keep_screen_on)) },
                             leadingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.BrightnessHigh,
+                                    imageVector = Icons.Rounded.Warning,
                                     contentDescription = null
                                 )
                             },

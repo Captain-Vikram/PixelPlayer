@@ -2,13 +2,8 @@ package com.theveloper.pixelplay.presentation.model
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.DeveloperBoard
-import androidx.compose.material.icons.rounded.DeveloperMode
-import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.theveloper.pixelplay.R
 
@@ -23,19 +18,19 @@ enum class SettingsCategory(
         id = "library",
         titleRes = R.string.settings_category_music_management_title,
         subtitleRes = R.string.settings_category_music_management_subtitle,
-        icon = Icons.Rounded.LibraryMusic
+        iconRes = R.drawable.rounded_library_music_24
     ),
     APPEARANCE(
         id = "appearance",
         titleRes = R.string.settings_category_appearance_title,
         subtitleRes = R.string.settings_category_appearance_subtitle,
-        icon = Icons.Rounded.Palette
+        icon = Icons.Rounded.Settings
     ),
     PLAYBACK(
         id = "playback",
         titleRes = R.string.settings_category_playback_title,
         subtitleRes = R.string.settings_category_playback_subtitle,
-        icon = Icons.Rounded.MusicNote // Using MusicNote again or maybe PlayCircle if available
+        iconRes = R.drawable.rounded_music_note_24
     ),
     BEHAVIOR(
         id = "behavior",
@@ -59,19 +54,19 @@ enum class SettingsCategory(
         id = "developer",
         titleRes = R.string.settings_category_developer_title,
         subtitleRes = R.string.settings_category_developer_subtitle,
-        icon = Icons.Rounded.DeveloperMode
+        icon = Icons.Rounded.Settings
     ),
     EQUALIZER(
         id = "equalizer",
         titleRes = R.string.settings_category_equalizer_title,
         subtitleRes = R.string.settings_category_equalizer_subtitle,
-        icon = Icons.Rounded.Equalizer
+        icon = Icons.Rounded.Settings
     ),
     DEVICE_CAPABILITIES(
         id = "device_capabilities",
         titleRes = R.string.settings_category_device_capabilities_title,
         subtitleRes = R.string.settings_category_device_capabilities_subtitle,
-        icon = Icons.Rounded.DeveloperBoard // Placeholder, maybe Memory or SettingsInputComponent
+        icon = Icons.Rounded.Settings
     ),
     MASHUP(
         id = "mashup",

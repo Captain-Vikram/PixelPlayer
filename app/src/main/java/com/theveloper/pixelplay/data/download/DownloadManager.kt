@@ -58,8 +58,9 @@ class DownloadManager @Inject constructor(
             if (existing.status == DownloadStatus.DOWNLOADING || existing.status == DownloadStatus.PENDING) {
                 return
             }
-            if (existing.status == DownloadStatus.COMPLETED && existing.downloadPath != null &&
-                (existing.downloadPath.startsWith("content://") || java.io.File(existing.downloadPath).exists())) {
+            val path = existing.downloadPath
+            if (existing.status == DownloadStatus.COMPLETED && path != null &&
+                (path.startsWith("content://") || java.io.File(path).exists())) {
                 return
             }
         }

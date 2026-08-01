@@ -407,10 +407,34 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideWearMusicRepositoryContract(
+        musicRepository: MusicRepository
+    ): com.theveloper.pixelplay.data.repository.WearMusicRepositoryContract {
+        return musicRepository
+    }
+
+    @Provides
+    @Singleton
+    fun providePlaylistRepositoryContract(
+        playlistPreferencesRepository: PlaylistPreferencesRepository
+    ): com.theveloper.pixelplay.data.repository.PlaylistRepositoryContract {
+        return playlistPreferencesRepository
+    }
+
+    @Provides
+    @Singleton
     fun provideTransitionRepository(
         transitionRepositoryImpl: TransitionRepositoryImpl
     ): TransitionRepository {
         return transitionRepositoryImpl
+    }
+
+    @Provides
+    @Singleton
+    fun provideTelegramMusicRepositoryBridge(
+        musicRepository: MusicRepository
+    ): com.theveloper.pixelplay.data.repository.TelegramMusicRepositoryBridge {
+        return musicRepository
     }
 
     @Singleton
@@ -551,5 +575,13 @@ object AppModule {
         musicDao: MusicDao
     ): ArtistImageRepository {
         return ArtistImageRepository(deezerApiService, musicDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideConnectivityStateContract(
+        impl: com.theveloper.pixelplay.presentation.viewmodel.ConnectivityStateHolder
+    ): com.theveloper.pixelplay.data.repository.ConnectivityStateContract {
+        return impl
     }
 }

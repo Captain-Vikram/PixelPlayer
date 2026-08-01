@@ -1083,22 +1083,7 @@ private fun formatDuration(durationMs: Long): String {
     }
 }
 
-@OptIn(ExperimentalTextApi::class)
 @Composable
 private fun rememberWatchLibraryTitleFont(): FontFamily {
-    return remember {
-        FontFamily(
-            Font(
-                resId = R.font.gflex_variable,
-                variationSettings = FontVariation.Settings(
-                    FontVariation.weight(710),
-                    FontVariation.width(132f),
-                    FontVariation.Setting("ROND", 82f),
-                    FontVariation.Setting("XTRA", 540f),
-                    FontVariation.Setting("YOPQ", 92f),
-                    FontVariation.Setting("YTLC", 512f),
-                ),
-            ),
-        )
-    }
+    return remember { FontFamily.SansSerif }
 }

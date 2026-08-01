@@ -437,8 +437,9 @@ class LyricsStateHolder @Inject constructor(
     fun translateLyricsViaAi(currentSong: Song, lyricsObj: Lyrics?, cb: LyricsTranslationCallbacks) {
         val songId = currentSong.id.toLongOrNull() ?: return
 
-        if (lyricsObj?.synced != null) {
-            val hasValidTranslation = lyricsObj.synced.any { !it.translation.isNullOrBlank() }
+        val synced = lyricsObj?.synced
+        if (synced != null) {
+            val hasValidTranslation = synced.any { !it.translation.isNullOrBlank() }
             if (hasValidTranslation) {
                 _messageEvents.tryEmit(cb.getString(R.string.lyrics_translate_already_translated))
                 return

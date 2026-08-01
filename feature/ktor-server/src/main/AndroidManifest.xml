@@ -1,3 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <service
+            android:name="com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
+    </application>
 </manifest>

@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
+    id("kotlin-parcelize")
 }
 
 android {
@@ -29,4 +30,14 @@ dependencies {
     api(libs.kotlinx.serialization.json)
     api(libs.okhttp)
     api(libs.protobuf.java)
+    api(libs.androidx.core.ktx)
+    api(libs.androidx.datastore.preferences)
+    api(libs.kotlinx.collections.immutable)
+    api(libs.gson)
+    api(libs.androidx.room.runtime)
+    api(platform(libs.androidx.compose.bom))
+    api(libs.androidx.ui)
+    api(libs.androidx.compose.material3)
+    api(libs.androidx.ui.text.google.fonts)
+    api(project(":core:shared"))
 }

@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 
@@ -35,19 +37,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -220,7 +219,7 @@ fun ArtistSettingsScreen(
                             },
                             trailingIcon = {
                                 Icon(
-                                    imageVector = Icons.Rounded.ChevronRight,
+                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_chevron_right_24),
                                     contentDescription = stringResource(R.string.multi_artist_cd_configure),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -252,7 +251,7 @@ fun ArtistSettingsScreen(
                             },
                             trailingIcon = {
                                 Icon(
-                                    imageVector = Icons.Rounded.ChevronRight,
+                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_chevron_right_24),
                                     contentDescription = stringResource(R.string.multi_artist_cd_configure),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -270,7 +269,7 @@ fun ArtistSettingsScreen(
                             onCheckedChange = { viewModel.setExtractArtistsFromTitle(it) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Rounded.LibraryMusic,
+                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_library_music_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.secondary
                                 )
@@ -286,7 +285,7 @@ fun ArtistSettingsScreen(
                     title = stringResource(R.string.lib_org_section),
                     icon = {
                         Icon(
-                            imageVector = Icons.Rounded.LibraryMusic,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_library_music_24),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -300,7 +299,7 @@ fun ArtistSettingsScreen(
                             onCheckedChange = { viewModel.setGroupByAlbumArtist(it) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Rounded.Album,
+                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_album_24),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.secondary
                                 )
@@ -480,7 +479,7 @@ private fun ExamplesCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Lightbulb,
+                    imageVector = Icons.Outlined.Info,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.size(24.dp)

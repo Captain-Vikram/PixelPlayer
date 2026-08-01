@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -322,7 +324,7 @@ private fun EditMultipleSongsContent(
                             stringResource(R.string.batch_edit_mixed_values)
                         else
                             albumField.value ?: "",
-                        icon = Icons.Rounded.Album,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_album_24),
                         tint = MaterialTheme.colorScheme.tertiary,
                         textFieldColors = textFieldColors,
                         textFieldShape = textFieldShape
@@ -356,7 +358,7 @@ private fun EditMultipleSongsContent(
                             stringResource(R.string.batch_edit_mixed_values)
                         else
                             genreField.value ?: "",
-                        icon = Icons.Rounded.Category,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_album_24),
                         tint = MaterialTheme.colorScheme.secondary,
                         textFieldColors = textFieldColors,
                         textFieldShape = textFieldShape
@@ -370,7 +372,7 @@ private fun EditMultipleSongsContent(
                         onValueChange = { composer = it.ifBlank { null } },
                         label = stringResource(R.string.edit_song_field_composer),
                         placeholder = stringResource(R.string.batch_edit_optional),
-                        icon = Icons.Rounded.MusicNote,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                         tint = MaterialTheme.colorScheme.tertiary,
                         textFieldColors = textFieldColors,
                         textFieldShape = textFieldShape
@@ -384,7 +386,7 @@ private fun EditMultipleSongsContent(
                         onValueChange = { replayGainTrackGainDb = it.ifBlank { null } },
                         label = stringResource(R.string.edit_song_field_replaygain_track),
                         placeholder = stringResource(R.string.edit_song_replaygain_track_placeholder),
-                        icon = Icons.Rounded.RepeatOne,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_repeat_one_24),
                         tint = MaterialTheme.colorScheme.primary,
                         textFieldColors = textFieldColors,
                         textFieldShape = textFieldShape,
@@ -399,7 +401,7 @@ private fun EditMultipleSongsContent(
                         onValueChange = { replayGainAlbumGainDb = it.ifBlank { null } },
                         label = stringResource(R.string.edit_song_field_replaygain_album),
                         placeholder = stringResource(R.string.edit_song_replaygain_album_placeholder),
-                        icon = Icons.Rounded.Repeat,
+                        icon = ImageVector.vectorResource(R.drawable.rounded_repeat_24),
                         tint = MaterialTheme.colorScheme.tertiary,
                         textFieldColors = textFieldColors,
                         textFieldShape = textFieldShape,
@@ -570,7 +572,7 @@ private fun BatchCoverArtEditorCard(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.PhotoLibrary,
+                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_album_24),
                                     contentDescription = null,
                                     modifier = Modifier.size(72.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -612,7 +614,7 @@ private fun BatchCoverArtEditorCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
             ) {
                 FilledTonalButton(onClick = onPickNewArt) {
-                    Icon(Icons.Rounded.Image, contentDescription = null)
+                    Icon(ImageVector.vectorResource(R.drawable.rounded_album_24), contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         stringResource(R.string.batch_edit_set_cover_art),
@@ -627,7 +629,7 @@ private fun BatchCoverArtEditorCard(
                 ) {
                     if (preview != null || isDeleted) {
                         TextButton(onClick = onReset) {
-                            Icon(Icons.Rounded.Restore, contentDescription = null)
+                            Icon(Icons.Rounded.Refresh, contentDescription = null)
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 stringResource(R.string.common_reset),

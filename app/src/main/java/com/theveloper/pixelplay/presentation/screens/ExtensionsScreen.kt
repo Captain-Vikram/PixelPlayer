@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
@@ -17,7 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
-import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -251,7 +253,7 @@ fun ExtensionsScreen(
                         item {
                             Box(modifier = Modifier.fillMaxWidth().padding(top = 100.dp), contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Rounded.ExtensionOff, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f))
+                                    Icon(Icons.Rounded.Settings, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f))
                                     Spacer(Modifier.height(16.dp))
                                     Text("No extensions installed", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     TextButton(onClick = { selectedTabIndex = 1 }) {
@@ -400,7 +402,7 @@ fun ExpressiveExtensionItem(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Rounded.Extension,
+                        imageVector = Icons.Rounded.Settings,
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
                         tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
@@ -445,9 +447,9 @@ fun ExpressiveExtensionItem(
                     )
                 ) {
                     if (isLoggedIn) {
-                        Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = "Logout")
+                        Icon(Icons.Rounded.ExitToApp, contentDescription = "Logout")
                     } else {
-                        Icon(Icons.Rounded.Login, contentDescription = "Login")
+                        Icon(Icons.Rounded.Lock, contentDescription = "Login")
                     }
                 }
             }
@@ -520,7 +522,7 @@ fun ExpressiveStoreItem(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Rounded.CloudDownload,
+                        imageVector = ImageVector.vectorResource(R.drawable.rounded_music_cast_24),
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.onSecondaryContainer

@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import android.app.Activity
 import androidx.compose.animation.animateColorAsState
@@ -26,15 +28,11 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.FolderZip
-import androidx.compose.material.icons.rounded.HeartBroken
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ButtonDefaults
@@ -302,7 +300,7 @@ fun MultiSelectionBottomSheet(
                                 Icon(
                                     modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
                                     imageVector = if (allAreLiked) 
-                                        Icons.Rounded.HeartBroken 
+                                        Icons.Rounded.Warning 
                                     else
                                         Icons.Rounded.FavoriteBorder,
                                     contentDescription = stringResource(
@@ -359,7 +357,7 @@ fun MultiSelectionBottomSheet(
                                 }
                             ) {
                                 Icon(
-                                    Icons.AutoMirrored.Rounded.QueueMusic,
+                                    ImageVector.vectorResource(R.drawable.rounded_queue_music_24),
                                     contentDescription = stringResource(R.string.song_info_cd_add_to_queue)
                                 )
                                 Spacer(Modifier.width(6.dp))
@@ -388,7 +386,7 @@ fun MultiSelectionBottomSheet(
                                 }
                             ) {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.QueueMusic,
+                                    ImageVector.vectorResource(R.drawable.rounded_queue_music_24),
                                     contentDescription = stringResource(R.string.song_info_cd_queue_next)
                                 )
                                 Spacer(Modifier.width(6.dp))
@@ -428,7 +426,7 @@ fun MultiSelectionBottomSheet(
                                 }
                             ) {
                                 Icon(
-                                    Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                    ImageVector.vectorResource(R.drawable.rounded_playlist_add_24),
                                     contentDescription = stringResource(R.string.song_info_cd_add_to_playlist)
                                 )
                                 Spacer(Modifier.width(6.dp))

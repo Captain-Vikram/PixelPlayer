@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -33,9 +35,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DragIndicator
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -333,7 +332,7 @@ fun ReorderPresetsSheet(
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Rounded.DragIndicator,
+                                                        imageVector = ImageVector.vectorResource(R.drawable.rounded_drag_handle_24),
                                                         contentDescription = stringResource(R.string.equalizer_cd_reorder),
                                                         modifier = if (item.isPinned) Modifier.draggableHandle() else Modifier,
                                                         tint = if (item.isPinned)
@@ -353,15 +352,15 @@ fun ReorderPresetsSheet(
                                                     color = contentColor
                                                 )
 
-                                                // Visibility Toggle
+                                                // ImageVector.vectorResource(R.drawable.rounded_visibility_24) Toggle
                                                 IconButton(
                                                     onClick = { togglePin(item) },
                                                 ) {
                                                     Icon(
                                                         imageVector = if (item.isPinned)
-                                                            Icons.Rounded.Visibility
+                                                            ImageVector.vectorResource(R.drawable.rounded_visibility_24)
                                                         else
-                                                            Icons.Rounded.VisibilityOff,
+                                                            ImageVector.vectorResource(R.drawable.rounded_visibility_off_24),
                                                         contentDescription = if (item.isPinned) {
                                                             stringResource(R.string.equalizer_cd_visible)
                                                         } else {

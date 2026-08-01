@@ -1,10 +1,11 @@
-@file:OptIn(
+﻿@file:OptIn(
     ExperimentalMaterial3ExpressiveApi::class,
     ExperimentalLayoutApi::class,
     ExperimentalMaterial3Api::class
 )
 
 package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.res.vectorResource
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -23,8 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -250,7 +251,7 @@ private fun CreatePlaylistContent(
                     ) {
                         Icon(
                             if (showCropUi || (currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL)) {
-                                Icons.AutoMirrored.Rounded.ArrowBack
+                                Icons.Rounded.ArrowBack
                             } else {
                                 Icons.Rounded.Close
                             },
@@ -275,7 +276,7 @@ private fun CreatePlaylistContent(
                     icon = { 
                         Icon(
                             if (currentStep == 0 && creationMode == PlaylistCreationMode.MANUAL) {
-                                Icons.AutoMirrored.Rounded.ArrowForward
+                                Icons.Rounded.ArrowForward
                             } else {
                                 Icons.Rounded.Check
                             }, 
@@ -375,7 +376,7 @@ private fun CreatePlaylistContent(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Cloud,
+                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_music_cast_24),
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -612,7 +613,7 @@ fun EditPlaylistContent(
                         }
                     ) {
                         Icon(
-                            if (showCropUi) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Close,
+                            if (showCropUi) Icons.Rounded.ArrowBack else Icons.Rounded.Close,
                             contentDescription = stringResource(if (showCropUi) R.string.playlist_creation_cd_back_or_cancel else R.string.common_close)
                         )
                     }
@@ -856,7 +857,7 @@ private fun PlaylistFormContent(
                                 contentAlignment = Alignment.Center
                             ) {
                                  Icon(
-                                    Icons.Rounded.GridView,
+                                    ImageVector.vectorResource(R.drawable.rounded_view_carousel_24),
                                     contentDescription = null,
                                     modifier = Modifier.size(80.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -899,7 +900,7 @@ private fun PlaylistFormContent(
                                          contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                                          modifier = Modifier.height(40.dp).weight(1f)
                                      ) {
-                                         Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                                         Icon(ImageVector.vectorResource(R.drawable.rounded_album_24), contentDescription = null, modifier = Modifier.size(18.dp))
                                          Spacer(Modifier.width(8.dp))
                                          Text(stringResource(R.string.playlist_creation_change), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                      }
@@ -929,7 +930,7 @@ private fun PlaylistFormContent(
                              ) {
                                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                      Icon(
-                                         Icons.Rounded.AddPhotoAlternate,
+                                         ImageVector.vectorResource(R.drawable.rounded_album_24),
                                          contentDescription = stringResource(R.string.playlist_creation_cd_add_photo),
                                          modifier = Modifier.size(56.dp),
                                          tint = MaterialTheme.colorScheme.primary
@@ -992,7 +993,7 @@ private fun PlaylistFormContent(
                                  contentAlignment = Alignment.Center
                              ) {
                                  if (selectedIconName != null) {
-                                     val icon = getIconByName(selectedIconName) ?: Icons.Rounded.MusicNote
+                                     val icon = getIconByName(selectedIconName) ?: ImageVector.vectorResource(R.drawable.rounded_music_note_24)
                                      Icon(
                                          imageVector = icon,
                                          contentDescription = null,
@@ -1100,9 +1101,9 @@ private fun PlaylistFormContent(
             }
 
             val tabs = listOf(
-                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_default), Icons.Rounded.AutoAwesome),
-                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_image), Icons.Rounded.Image),
-                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_icon), Icons.Rounded.Category)
+                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_default), ImageVector.vectorResource(R.drawable.generate_playlist_ai)),
+                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_image), ImageVector.vectorResource(R.drawable.rounded_album_24)),
+                ButtonGroupItem(stringResource(R.string.playlist_creation_tab_icon), ImageVector.vectorResource(R.drawable.rounded_album_24))
             )
             ExpressiveButtonGroup(
                 items = tabs,
@@ -1207,7 +1208,7 @@ private fun PlaylistFormContent(
                                  contentAlignment = Alignment.Center
                              ) {
                                  Icon(
-                                     imageVector = getIconByName(iconName) ?: Icons.Rounded.MusicNote,
+                                     imageVector = getIconByName(iconName) ?: ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                                      contentDescription = null,
                                      tint = if(isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                                  )
@@ -1294,7 +1295,7 @@ private fun PlaylistFormContent(
                              Text(stringResource(R.string.playlist_creation_shape_params), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                              ShapeParameterCard(stringResource(R.string.playlist_creation_sides), starSides.toFloat(), 3f..20f, { onStarSidesChange(it.toInt()) }, { it.toInt().toString() }, steps = 17)
                              ShapeParameterCard(stringResource(R.string.playlist_creation_curve), starCurve.toFloat(), 0f..0.5f, { onStarCurveChange(it.toDouble()) }, { String.format("%.2f", it) })
-                             ShapeParameterCard(stringResource(R.string.playlist_creation_rotation), starRotation, 0f..360f, onStarRotationChange, { "${it.toInt()}°" })
+                             ShapeParameterCard(stringResource(R.string.playlist_creation_rotation), starRotation, 0f..360f, onStarRotationChange, { "${it.toInt()}Â°" })
                              ShapeParameterCard(stringResource(R.string.playlist_creation_scale), starScale, 0.5f..1.5f, onStarScaleChange, { String.format("%.1fx", it) })
                          }
                      }
@@ -1305,10 +1306,11 @@ private fun PlaylistFormContent(
     }
 }
 
+@Composable
 fun getIconByName(name: String?): ImageVector? = when (name) {
-    "MusicNote" -> Icons.Rounded.MusicNote
-    "Headphones" -> Icons.Rounded.Headphones
-    else -> Icons.Rounded.MusicNote
+    "MusicNote" -> ImageVector.vectorResource(R.drawable.rounded_music_note_24)
+    "Headphones" -> ImageVector.vectorResource(R.drawable.rounded_headphones_24)
+    else -> ImageVector.vectorResource(R.drawable.rounded_music_note_24)
 }
 
 fun getThemeContentColor(colorArgb: Int, scheme: ColorScheme): Color = resolvePlaylistCoverContentColor(colorArgb, scheme)

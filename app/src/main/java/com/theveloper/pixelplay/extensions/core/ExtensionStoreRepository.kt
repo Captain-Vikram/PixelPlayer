@@ -73,10 +73,43 @@ class ExtensionStoreRepository @Inject constructor(
                         }
                     }
                     _storeItems.value = current
+                    autoUpdateInstalledExtensions()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    suspend fun autoUpdateInstalledExtensions() = withContext(Dispatchers.IO) {
+        val currentItems = _storeItems.value
+        currentItems.forEach { item ->
+            val localVer = item.localVersion
+            val remoteVer = item.remote.version
+            if (localVer != null && remoteVer.isNotBlank() && isNewerVersion(remoteVer, localVer)) {
+                android.util.Log.d("ExtensionStore", "Auto-updating extension ${item.remote.name} from $localVer to $remoteVer")
+                try {
+                    downloadAndInstall(item)
+                } catch (e: Exception) {
+                    android.util.Log.e("ExtensionStore", "Failed to auto-update ${item.remote.name}", e)
+                }
+            }
+        }
+    }
+
+    private fun isNewerVersion(remote: String, local: String): Boolean {
+        return try {
+            val rParts = remote.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
+            val lParts = local.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
+            for (i in 0 until maxOf(rParts.size, lParts.size)) {
+                val r = rParts.getOrElse(i) { 0 }
+                val l = lParts.getOrElse(i) { 0 }
+                if (r > l) return true
+                if (r < l) return false
+            }
+            false
+        } catch (_: Exception) {
+            remote != local
         }
     }
 

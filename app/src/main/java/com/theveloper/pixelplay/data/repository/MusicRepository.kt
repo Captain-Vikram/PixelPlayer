@@ -14,7 +14,9 @@ import com.theveloper.pixelplay.data.model.Song
 import kotlinx.coroutines.flow.Flow
 import com.theveloper.pixelplay.data.database.TelegramChannelEntity
 
-interface MusicRepository {
+import com.theveloper.pixelplay.data.repository.TelegramMusicRepositoryBridge
+
+interface MusicRepository : SharedMusicDataSource, com.theveloper.pixelplay.data.repository.WearMusicRepositoryContract, TelegramMusicRepositoryBridge {
     /**
      * Obtiene la lista de archivos de audio (canciones) filtrada por directorios permitidos.
      * @return Flow que emite una lista completa de objetos Song.
@@ -204,21 +206,21 @@ interface MusicRepository {
      * @param albumId El ID del álbum.
      * @return Flow que emite una lista de objetos Song pertenecientes al álbum.
      */
-    fun getSongsForAlbum(albumId: Long): Flow<List<Song>>
+    override fun getSongsForAlbum(albumId: Long): Flow<List<Song>>
 
     /**
      * Obtiene la lista de canciones para un artista específico (NO paginada para la cola de reproducción).
      * @param artistId El ID del artista.
      * @return Flow que emite una lista de objetos Song pertenecientes al artista.
      */
-    fun getSongsForArtist(artistId: Long): Flow<List<Song>>
+    override fun getSongsForArtist(artistId: Long): Flow<List<Song>>
 
     /**
      * Obtiene una lista de canciones por sus IDs.
      * @param songIds Lista de IDs de canciones.
      * @return Flow que emite una lista de objetos Song correspondientes a los IDs, en el mismo orden.
      */
-    fun getSongsByIds(songIds: List<String>): Flow<List<Song>>
+    override fun getSongsByIds(songIds: List<String>): Flow<List<Song>>
 
     /**
      * Obtiene una canción por su ruta de archivo.
@@ -287,7 +289,7 @@ interface MusicRepository {
      * @param songId El ID de la canción.
      * @return Flow que emite el objeto Song o null si no se encuentra.
      */
-    fun getSong(songId: String): Flow<Song?>
+    override fun getSong(songId: String): Flow<Song?>
     fun getArtistById(artistId: Long): Flow<Artist?>
     suspend fun getArtistIdByName(name: String): Long?
     fun getArtistsForSong(songId: Long): Flow<List<Artist>>
@@ -333,21 +335,21 @@ interface MusicRepository {
     ): Flow<List<com.theveloper.pixelplay.data.model.MusicFolder>>
 
     suspend fun deleteById(id: Long)
-    suspend fun saveTelegramSongs(songs: List<Song>)
+    override suspend fun saveTelegramSongs(songs: List<Song>)
 
-    suspend fun replaceTelegramSongsForChannel(chatId: Long, songs: List<Song>)
+    override suspend fun replaceTelegramSongsForChannel(chatId: Long, songs: List<Song>)
 
-    suspend fun clearTelegramData()
+    override suspend fun clearTelegramData()
 
-    suspend fun saveTelegramChannel(channel: TelegramChannelEntity)
-    fun getAllTelegramChannels(): Flow<List<TelegramChannelEntity>>
-    suspend fun deleteTelegramChannel(chatId: Long)
-    suspend fun saveTelegramTopics(chatId: Long, topics: List<com.theveloper.pixelplay.data.database.TelegramTopicEntity>)
+    override suspend fun saveTelegramChannel(channel: TelegramChannelEntity)
+    override fun getAllTelegramChannels(): Flow<List<TelegramChannelEntity>>
+    override suspend fun deleteTelegramChannel(chatId: Long)
+    override suspend fun saveTelegramTopics(chatId: Long, topics: List<com.theveloper.pixelplay.data.database.TelegramTopicEntity>)
     /** Replaces the full topic list for a channel, deleting any topics that no longer exist. */
-    suspend fun replaceTopicsForChannel(chatId: Long, freshTopics: List<com.theveloper.pixelplay.data.database.TelegramTopicEntity>)
+    override suspend fun replaceTopicsForChannel(chatId: Long, freshTopics: List<com.theveloper.pixelplay.data.database.TelegramTopicEntity>)
     suspend fun getTopicsForChannel(chatId: Long): List<com.theveloper.pixelplay.data.database.TelegramTopicEntity>
-    fun getAllTelegramTopics(): Flow<List<com.theveloper.pixelplay.data.database.TelegramTopicEntity>>
-    suspend fun replaceTelegramSongsForTopic(chatId: Long, threadId: Long, topicName: String, songs: List<Song>)
+    override fun getAllTelegramTopics(): Flow<List<com.theveloper.pixelplay.data.database.TelegramTopicEntity>>
+    override suspend fun replaceTelegramSongsForTopic(chatId: Long, threadId: Long, topicName: String, songs: List<Song>)
 
     val telegramRepository: com.theveloper.pixelplay.data.telegram.TelegramRepository
 
@@ -375,7 +377,7 @@ interface MusicRepository {
      * [saveTelegramChannel] call. KEEP avoids cancelling a full/rebuild that may be
      * in progress under the same unique work name.
      */
-    fun requestTelegramUnifiedSync()
+    override fun requestTelegramUnifiedSync()
 
     suspend fun getExtensionShareUrl(extensionId: String, songId: String): String?
 }

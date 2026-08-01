@@ -1,4 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.core.Animatable
@@ -40,7 +42,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PowerSettingsNew
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -110,10 +112,7 @@ import kotlin.math.roundToInt
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material.icons.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.SurroundSound
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material.icons.rounded.Check // Added import for Switch check icon
@@ -122,10 +121,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
-import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ShowChart
+
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -134,8 +132,8 @@ import com.theveloper.pixelplay.presentation.components.WavyArcSlider
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.Edit // Added
-import androidx.compose.material.icons.rounded.ExpandMore // Added
-import androidx.compose.material.icons.rounded.Save // Added
+import androidx.compose.material.icons.rounded.KeyboardArrowDown // Added
+import androidx.compose.material.icons.rounded.Done // Added
 import androidx.compose.material.icons.filled.Star // Added
 import androidx.compose.material3.Surface
 import com.theveloper.pixelplay.presentation.components.CustomPresetsSheet
@@ -143,12 +141,12 @@ import com.theveloper.pixelplay.presentation.components.ReorderPresetsSheet
 import com.theveloper.pixelplay.presentation.components.SavePresetDialog
 import com.theveloper.pixelplay.presentation.components.RenamePresetDialog
 import com.theveloper.pixelplay.data.preferences.EqualizerViewMode
-import androidx.compose.material.icons.rounded.ViewQuilt
+
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.material.icons.automirrored.rounded.ShowChart
-import androidx.compose.material.icons.automirrored.rounded.ViewQuilt
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Menu
+
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -393,9 +391,9 @@ fun EqualizerScreen(
                 ) {
                     Icon(
                         imageVector = when(uiState.viewMode) {
-                            EqualizerViewMode.SLIDERS -> Icons.Rounded.GraphicEq
-                            EqualizerViewMode.GRAPH -> Icons.AutoMirrored.Rounded.ShowChart
-                            EqualizerViewMode.HYBRID -> Icons.AutoMirrored.Rounded.ViewQuilt
+                            EqualizerViewMode.SLIDERS -> ImageVector.vectorResource(R.drawable.rounded_music_note_24)
+                            EqualizerViewMode.GRAPH -> Icons.Rounded.Warning
+                            EqualizerViewMode.HYBRID -> Icons.Rounded.Menu
                         },
                         contentDescription = stringResource(R.string.equalizer_change_view_mode_cd)
                     )
@@ -422,7 +420,7 @@ fun EqualizerScreen(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.PowerSettingsNew,
+                        imageVector = Icons.Rounded.Warning,
                         contentDescription = if (isEnabled) {
                             stringResource(R.string.equalizer_disable_cd)
                         } else {
@@ -589,7 +587,7 @@ private fun BandSlidersSection(
                         if (isCustomOrSaved) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
-                                imageVector = Icons.Rounded.ExpandMore,
+                                imageVector = Icons.Rounded.KeyboardArrowDown,
                                 contentDescription = stringResource(R.string.equalizer_presets_cd),
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -608,7 +606,7 @@ private fun BandSlidersSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                              Icon(
-                                 imageVector = Icons.Rounded.Save,
+                                 imageVector = Icons.Rounded.Done,
                                  contentDescription = null,
                                  modifier = Modifier.size(20.dp),
                                  tint = MaterialTheme.colorScheme.onTertiaryContainer
@@ -635,7 +633,7 @@ private fun BandSlidersSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Save,
+                                imageVector = Icons.Rounded.Done,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer
@@ -649,7 +647,7 @@ private fun BandSlidersSection(
                         }
                     }
 
-                    // Save New Option
+                    // Done New Option
                     Surface(
                         color = MaterialTheme.colorScheme.tertiaryContainer,
                         shape = CircleShape,
@@ -660,7 +658,7 @@ private fun BandSlidersSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Save,
+                                imageVector = Icons.Rounded.Done,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.onTertiaryContainer
@@ -1353,7 +1351,7 @@ private fun UnsupportedEffectCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Block,
+                    imageVector = Icons.Rounded.Warning,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(32.dp)
@@ -1399,7 +1397,7 @@ private fun UnsupportedEffectRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Rounded.Block,
+                imageVector = Icons.Rounded.Warning,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(24.dp)
@@ -1526,7 +1524,7 @@ private fun VolumeControlCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_volume_up_24),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )

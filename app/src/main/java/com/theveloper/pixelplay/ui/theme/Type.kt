@@ -62,52 +62,7 @@ val ExpTitleTypography = Typography(
     )
 )
 
-// Google Sans Flex variable font with rounded axis for Google Sans Rounded-like appearance.
-private const val GoogleSansFlexRond = 100f
-
-@OptIn(ExperimentalTextApi::class)
-val GoogleSansRounded = FontFamily(
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.Light,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.Light.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.Normal,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.Normal.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.Medium,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.Medium.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.SemiBold,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.SemiBold.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.Bold,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.Bold.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-)
+// GoogleSansRounded is now inherited from :core:common
 
 // Tipografía - Usar fuentes amigables y modernas.
 // Considerar añadir fuentes personalizadas en res/font para un look más único.

@@ -19,7 +19,7 @@ import javax.inject.Singleton
 class PlaylistPreferencesRepository @Inject constructor(
     private val localPlaylistDao: LocalPlaylistDao,
     private val userPreferencesRepository: UserPreferencesRepository
-) {
+) : com.theveloper.pixelplay.data.repository.PlaylistRepositoryContract {
     private val migrationMutex = Mutex()
     // Serializes read-modify-write edits to playlists. Without this, concurrent edits
     // (e.g. removing several songs in quick succession) each read the same snapshot via
@@ -29,7 +29,7 @@ class PlaylistPreferencesRepository @Inject constructor(
     @Volatile
     private var migrationChecked = false
 
-    val userPlaylistsFlow: Flow<List<Playlist>> = localPlaylistDao.observePlaylistsWithSongs()
+    override val userPlaylistsFlow: Flow<List<Playlist>> = localPlaylistDao.observePlaylistsWithSongs()
         .onStart { ensureMigratedIfNeeded() }
         .map { rows ->
             rows.map { row ->
@@ -55,22 +55,22 @@ class PlaylistPreferencesRepository @Inject constructor(
     suspend fun setTelegramTopicDisplayMode(mode: TelegramTopicDisplayMode) =
         userPreferencesRepository.setTelegramTopicDisplayMode(mode)
 
-    suspend fun createPlaylist(
+    override suspend fun createPlaylist(
         name: String,
-        songIds: List<String> = emptyList(),
-        isAiGenerated: Boolean = false,
-        isQueueGenerated: Boolean = false,
-        coverImageUri: String? = null,
-        coverColorArgb: Int? = null,
-        coverIconName: String? = null,
-        coverShapeType: String? = null,
-        coverShapeDetail1: Float? = null,
-        coverShapeDetail2: Float? = null,
-        coverShapeDetail3: Float? = null,
-        coverShapeDetail4: Float? = null,
-        customId: String? = null,
-        source: String = "LOCAL",
-        extensionId: String? = null
+        songIds: List<String>,
+        isAiGenerated: Boolean,
+        isQueueGenerated: Boolean,
+        coverImageUri: String?,
+        coverColorArgb: Int?,
+        coverIconName: String?,
+        coverShapeType: String?,
+        coverShapeDetail1: Float?,
+        coverShapeDetail2: Float?,
+        coverShapeDetail3: Float?,
+        coverShapeDetail4: Float?,
+        customId: String?,
+        source: String,
+        extensionId: String?
     ): Playlist {
         ensureMigratedIfNeeded()
         val now = System.currentTimeMillis()
@@ -98,7 +98,7 @@ class PlaylistPreferencesRepository @Inject constructor(
         return newPlaylist
     }
 
-    suspend fun deletePlaylist(playlistId: String) {
+    override suspend fun deletePlaylist(playlistId: String) {
         ensureMigratedIfNeeded()
         localPlaylistDao.deletePlaylist(playlistId)
         clearPlaylistSongOrderMode(playlistId)
@@ -116,7 +116,7 @@ class PlaylistPreferencesRepository @Inject constructor(
         }
     }
 
-    suspend fun updatePlaylist(playlist: Playlist) {
+    override suspend fun updatePlaylist(playlist: Playlist) {
         editMutex.withLock {
             updatePlaylistLocked(playlist)
         }

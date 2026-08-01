@@ -181,20 +181,7 @@ private fun rememberGoogleSansFlexFontFamily(
     widthAxis: Float
 ): FontFamily {
     val sanitizedWidthAxis = widthAxis.coerceIn(1f, DefaultTopBarTitleWidthAxis).roundToInt().toFloat()
-    return remember(fontWeight, sanitizedWidthAxis) {
-        FontFamily(
-            Font(
-                resId = R.font.gflex_variable,
-                weight = fontWeight,
-                variationSettings = FontVariation.Settings(
-                    FontVariation.weight(fontWeight.weight),
-                    FontVariation.width(sanitizedWidthAxis),
-                    FontVariation.Setting("ROND", TopBarTitleRoundedAxis),
-                    FontVariation.Setting("XTRA", TopBarTitleXtraAxis),
-                    FontVariation.Setting("YOPQ", TopBarTitleYopqAxis),
-                    FontVariation.Setting("YTLC", TopBarTitleYtlcAxis)
-                )
-            )
-        )
+    return remember(fontWeight) {
+        com.theveloper.pixelplay.ui.theme.GoogleSansRounded
     }
 }

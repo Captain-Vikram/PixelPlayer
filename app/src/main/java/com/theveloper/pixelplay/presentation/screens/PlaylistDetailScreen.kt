@@ -1,4 +1,5 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
+import androidx.compose.ui.res.vectorResource
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
@@ -38,19 +39,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.rounded.ArrowBack
+
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.MusicOff
-import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -213,7 +210,7 @@ fun PlaylistDetailScreen(
     }
 
     val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
-    val favoriteIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle() // Reintroducir favoriteIds aquí
+    val favoriteIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle() // Reintroducir favoriteIds aquÃ­
     val stableOnMoreOptionsClick: (Song) -> Unit = remember {
         { song ->
             playerViewModel.selectSongForInfo(song)
@@ -300,7 +297,7 @@ fun PlaylistDetailScreen(
                         ),
                         onClick = onBackClick
                     ) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
+                        Icon(Icons.Rounded.ArrowBack, stringResource(R.string.common_back))
                     }
                 },
                 actions = {
@@ -310,7 +307,7 @@ fun PlaylistDetailScreen(
                         }
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Sort,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_filter_list_24),
                             contentDescription = sortSongsLabel
                         )
                     }
@@ -432,7 +429,7 @@ fun PlaylistDetailScreen(
                         contentPadding = PaddingValues(horizontal = 10.dp),
                     ) {
                         Icon(
-                            Icons.Rounded.Shuffle,
+                            ImageVector.vectorResource(R.drawable.rounded_shuffle_24),
                             contentDescription = shuffleLabel,
                             modifier = Modifier.size(ButtonDefaults.IconSize)
                         )
@@ -560,7 +557,7 @@ fun PlaylistDetailScreen(
                                             .clip(RoundedCornerShape(removeCornerRadius))
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.RemoveCircleOutline,
+                                            imageVector = Icons.Default.Close,
                                             contentDescription = removeSongsCd,
                                             modifier = Modifier.size(16.dp),
                                             tint = removeIconColor
@@ -664,7 +661,7 @@ fun PlaylistDetailScreen(
                         .fillMaxSize()
                         .weight(1f), Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Filled.MusicOff, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(ImageVector.vectorResource(R.drawable.rounded_music_off_24), null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(8.dp))
                             Text(playlistEmptyTitle, style = MaterialTheme.typography.titleMedium)
                             val emptyMessage = if (isFolderPlaylist) {
@@ -778,7 +775,7 @@ fun PlaylistDetailScreen(
                                                     .size(40.dp)
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Rounded.DragIndicator,
+                                                    imageVector = ImageVector.vectorResource(R.drawable.rounded_drag_handle_24),
                                                     contentDescription = reorderSongCd,
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )

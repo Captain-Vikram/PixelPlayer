@@ -83,7 +83,7 @@ import com.theveloper.pixelplay.data.service.MusicNotificationProvider
 import com.theveloper.pixelplay.data.service.MusicService
 import com.theveloper.pixelplay.data.service.cast.CastRemotePlaybackState
 import com.theveloper.pixelplay.data.service.player.CastPlayer
-import com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService
+import com.theveloper.pixelplay.data.stream.HttpServerRegistry
 import com.theveloper.pixelplay.data.service.player.DualPlayerEngine
 import com.theveloper.pixelplay.data.worker.SyncManager
 import com.theveloper.pixelplay.utils.ValidatedLyricsImport
@@ -376,9 +376,10 @@ class PlayerViewModel @Inject constructor(
                         val extension = extensionRepository.allExtensions.value.find { it.metadata.id == extensionId } ?: return@launch
                         
                         var radioResult = extension.getAs<RadioClient, dev.brahmkshatriya.echo.common.models.Radio> {
+                            val mediaId = artist.mediaId
                             val rawItemId = when {
-                                artist.mediaId?.startsWith("extension:") == true -> {
-                                    val parts = artist.mediaId.split(":")
+                                mediaId?.startsWith("extension:") == true -> {
+                                    val parts = mediaId.split(":")
                                     if (parts.size >= 4) {
                                         var itemId = parts.drop(3).joinToString(":")
                                         if (extensionId == "spotify") {
@@ -388,10 +389,10 @@ class PlayerViewModel @Inject constructor(
                                         }
                                         itemId
                                     } else {
-                                        artist.mediaId.substringAfter("artist:")
+                                        mediaId.substringAfter("artist:")
                                     }
                                 }
-                                else -> artist.mediaId ?: ""
+                                else -> mediaId ?: ""
                             }
                             val echoArtist = dev.brahmkshatriya.echo.common.models.Artist(
                                 id = rawItemId,
@@ -1104,6 +1105,14 @@ class PlayerViewModel @Inject constructor(
     )
     val toastEvents = _toastEvents.asSharedFlow()
 
+    // Playback Error Dialog Events — backed by PlaybackErrorBus (written by MusicService)
+    private val _playbackErrorEvents = MutableSharedFlow<com.theveloper.pixelplay.data.service.PlaybackErrorBus.PlaybackErrorEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val playbackErrorEvents: SharedFlow<com.theveloper.pixelplay.data.service.PlaybackErrorBus.PlaybackErrorEvent> = _playbackErrorEvents.asSharedFlow()
+
+
     // MediaStore write-permission request (needed for metadata editing without MANAGE_EXTERNAL_STORAGE).
     // Owned by MetadataEditStateHolder (the only producer/consumer); re-exposed here for the UI.
     val writePermissionRequest: SharedFlow<android.content.IntentSender> = metadataEditStateHolder.writePermissionRequest
@@ -1372,6 +1381,14 @@ class PlayerViewModel @Inject constructor(
 
         lyricsStateHolder.messageEvents
             .onEach { msg: String -> _toastEvents.emit(msg) }
+            .launchIn(viewModelScope)
+
+        extensionRepository.errors
+            .onEach { msg: String -> _toastEvents.emit(msg) }
+            .launchIn(viewModelScope)
+
+        com.theveloper.pixelplay.data.service.PlaybackErrorBus.events
+            .onEach { event -> _playbackErrorEvents.emit(event) }
             .launchIn(viewModelScope)
 
         viewModelScope.launch {
@@ -2341,7 +2358,7 @@ class PlayerViewModel @Inject constructor(
                     if (hasActiveRemoteSession) {
                         return@collect
                     }
-                    context.stopService(Intent(context, MediaFileHttpServerService::class.java))
+                    HttpServerRegistry.controller?.stopServer(context)
                 }
             }
         }
@@ -2604,6 +2621,16 @@ class PlayerViewModel @Inject constructor(
         _playlistPickerSourceScope.value = scope
     }
 
+    fun isExtensionLoggedIn(extensionId: String): Boolean {
+        return extensionRepository.loggedInExtensionIds.value.contains(extensionId)
+    }
+
+    fun showToast(message: String) {
+        viewModelScope.launch {
+            _toastEvents.emit(message)
+        }
+    }
+
     fun showAndPlaySong(
         song: Song,
         contextSongs: List<Song>,
@@ -2612,11 +2639,25 @@ class PlayerViewModel @Inject constructor(
         cancelPendingQueueBuild: Boolean = true,
         playlistId: String? = null,
         indexInQueue: Int? = null
-    ) = playbackDispatchStateHolder.showAndPlaySong(
-        song, contextSongs, queueName, isVoluntaryPlay, cancelPendingQueueBuild, playlistId, indexInQueue
-    )
+    ) {
+        if (song.id.startsWith("extension:")) {
+            val parts = song.id.split(":")
+            val extId = parts.getOrNull(1)
+            if (extId != null && !isExtensionLoggedIn(extId)) {
+                val caps = extensionRepository.extensionCapabilities.value[extId]
+                if (caps?.isLoginNeeded == true || extId.contains("spotify", ignoreCase = true)) {
+                    val extName = extId.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+                    showToast("Please log in to $extName in extension settings to play tracks")
+                    return
+                }
+            }
+        }
+        playbackDispatchStateHolder.showAndPlaySong(
+            song, contextSongs, queueName, isVoluntaryPlay, cancelPendingQueueBuild, playlistId, indexInQueue
+        )
+    }
 
-    fun showAndPlaySong(song: Song) = playbackDispatchStateHolder.showAndPlaySong(song)
+    fun showAndPlaySong(song: Song) = showAndPlaySong(song, listOf(song))
 
     fun playAlbum(album: Album) =
         queueStateHolder.playAlbum(album, playbackSourceCallbacks())

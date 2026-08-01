@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components.subcomps
+﻿package com.theveloper.pixelplay.presentation.components.subcomps
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -30,17 +32,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.Sort
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.MyLocation
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.FilterList
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.Dataset
+import androidx.compose.material.icons.rounded.ArrowBack
+
+
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -160,7 +158,7 @@ fun LibraryActionRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                                 modifier = Modifier.height(genHeight)
                             ) {
-                                val icon = if (isPlaylistTab) Icons.AutoMirrored.Rounded.PlaylistAdd else Icons.Rounded.Shuffle
+                                val icon = if (isPlaylistTab) ImageVector.vectorResource(R.drawable.rounded_playlist_add_24) else ImageVector.vectorResource(R.drawable.rounded_shuffle_24)
                                 val text = if (isPlaylistTab) {
                                     stringResource(R.string.library_action_new)
                                 } else {
@@ -312,7 +310,7 @@ fun LibraryActionRow(
                         modifier = Modifier.size(genHeight)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.MyLocation,
+                            imageVector = Icons.Rounded.Menu,
                             contentDescription = stringResource(R.string.library_cd_locate_current_song)
                         )
                     }
@@ -361,8 +359,8 @@ fun LibraryActionRow(
                                  )
                              } else {
                                  val icon = when(currentSourceScope) {
-                                     SourceScope.Local -> Icons.Rounded.PhoneAndroid
-                                     else -> Icons.Rounded.Cloud
+                                     SourceScope.Local -> Icons.Rounded.Phone
+                                     else -> ImageVector.vectorResource(R.drawable.rounded_music_cast_24)
                                  }
                                  Icon(
                                      imageVector = icon,
@@ -393,7 +391,7 @@ fun LibraryActionRow(
                         modifier = Modifier.size(genHeight)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Sort,
+                            imageVector = ImageVector.vectorResource(R.drawable.rounded_filter_list_24),
                             contentDescription = stringResource(R.string.library_cd_sort_options),
                         )
                     }
@@ -452,7 +450,7 @@ fun Breadcrumbs(
             modifier = Modifier.size(36.dp),
             enabled = currentFolder != null
         ) {
-            val icon = if (currentFolder == null) Icons.Rounded.Home else Icons.AutoMirrored.Rounded.ArrowBack
+            val icon = if (currentFolder == null) Icons.Rounded.Home else Icons.Rounded.ArrowBack
             Icon(
                 imageVector = icon,
                 contentDescription = stringResource(if (currentFolder == null) R.string.nav_bar_home else R.string.common_back)
@@ -471,10 +469,10 @@ fun Breadcrumbs(
                     // 2. Dibujamos el contenido original (el LazyRow).
                     drawContent()
 
-                    // 3. Dibujamos los gradientes que actúan como "máscaras de borrado".
+                    // 3. Dibujamos los gradientes que actÃºan como "mÃ¡scaras de borrado".
                     val gradientWidth = 24.dp.toPx()
 
-                    // Máscara para el borde IZQUIERDO
+                    // MÃ¡scara para el borde IZQUIERDO
                     if (showStartFade) {
                         drawRect(
                             brush = Brush.horizontalGradient(
@@ -487,7 +485,7 @@ fun Breadcrumbs(
                         )
                     }
 
-                    // Máscara para el borde DERECHO
+                    // MÃ¡scara para el borde DERECHO
                     if (showEndFade) {
                         drawRect(
                             brush = Brush.horizontalGradient(
@@ -518,7 +516,7 @@ fun Breadcrumbs(
                 )
                 if (!isLast) {
                     Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
+                        imageVector = ImageVector.vectorResource(R.drawable.rounded_chevron_right_24),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.size(20.dp)

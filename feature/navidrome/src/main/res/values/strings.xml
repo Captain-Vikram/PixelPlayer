@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common -->
+    <string name="common_back">Back</string>
+    <string name="common_remove">Remove</string>
+
+    <!-- Subsonic / Navidrome Auth -->
+    <string name="auth_subsonic_navidrome_title">Subsonic / Navidrome</string>
+    <string name="auth_navidrome_title">Navidrome</string>
+    <string name="auth_subsonic_title">Subsonic</string>
+    <string name="auth_navidrome_subtitle">Connect to your self-hosted music server</string>
+    <string name="auth_navidrome_info_msg">Supports Navidrome, Airsonic, Gonic, Ampache and other servers compatible with the Subsonic API.</string>
+    <string name="auth_details_title">Connection details</string>
+    <string name="auth_details_subtitle">Enter your server URL and account credentials.</string>
+    <string name="auth_server_url_label">Server URL</string>
+    <string name="auth_navidrome_url_placeholder">https://music.example.com</string>
+    <string name="auth_navidrome_url_hint">Use the full https:// base address of your server.</string>
+    <string name="auth_username_label">Username</string>
+    <string name="auth_username_placeholder">admin</string>
+    <string name="auth_navidrome_username_hint">This is your Subsonic or Navidrome account name.</string>
+    <string name="auth_password_label">Password</string>
+    <string name="auth_password_placeholder">Enter password</string>
+    <string name="auth_navidrome_password_hint">App password also works if your server supports it.</string>
+    <string name="auth_navidrome_prefill_https_action">Prefill https://</string>
+    <string name="auth_show_pwd_action">Show password</string>
+    <string name="auth_hide_pwd_action">Hide password</string>
+    <string name="auth_connect_action">Connect</string>
+    <string name="auth_connecting_msg">Connecting.</string>
+    <string name="auth_welcome_toast">Welcome, %1$s!</string>
+    <string name="auth_navidrome_footer_msg">Compatible with Navidrome, Gonic, Airsonic, and other Subsonic-compatible servers</string>
+
+    <!-- Dashboard -->
+    <string name="subsonic_dashboard_title">Subsonic</string>
+    <string name="subsonic_dashboard_quick_actions_subtitle">Manage Navidrome, Airsonic and other Subsonic-compatible servers.</string>
+    <string name="cloud_dashboard_quick_actions">Quick actions</string>
+    <string name="cloud_dashboard_action_sync_library">Sync library</string>
+    <string name="cloud_dashboard_action_disconnect">Disconnect</string>
+    <string name="cloud_dashboard_title_playlists">Playlists</string>
+    <string name="cloud_dashboard_playlists_synced_count">%1$d playlists synced</string>
+    <string name="cloud_dashboard_action_sync">Sync</string>
+    <string name="cloud_dashboard_playlists_empty_title">No playlists synced yet</string>
+    <string name="cloud_dashboard_playlists_empty_hint">Tap sync to fetch your playlists</string>
+    <string name="cloud_dashboard_song_count">%1$d songs</string>
+    <string name="cloud_cd_sync">Sync</string>
+    <string name="cloud_sync_status_syncing">Syncing</string>
+    <string name="cloud_sync_status_syncing_library">Syncing library.</string>
+    <string name="cloud_sync_status_fetching_playlists">Fetching playlists.</string>
+    <string name="cloud_sync_status_syncing_playlist_format">Syncing playlist: %1$s</string>
+    <string name="cloud_sync_status_updating_local">Updating local library.</string>
+    <string name="cloud_sync_status_sync_complete">Sync complete</string>
+    <string name="cloud_sync_status_fetching_albums">Fetching album list.</string>
+    <string name="cloud_sync_status_fetching_songs_from_format">Fetching songs from %1$s.</string>
+    <string name="cloud_sync_status_library_sync_complete">Library sync complete</string>
+    <string name="cloud_sync_status_no_songs_found">No library songs found</string>
+    <string name="cloud_sync_status_saving_songs_format">Saving %1$d songs to database.</string>
+</resources>

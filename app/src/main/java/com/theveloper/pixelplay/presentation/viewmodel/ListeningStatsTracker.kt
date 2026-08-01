@@ -36,13 +36,15 @@ import com.theveloper.pixelplay.data.stats.ExtensionMetadataCache
  * - Handle voluntary vs automatic plays
  * - Broadcast playback state to Extension Trackers
  */
+import com.theveloper.pixelplay.data.service.cast.ListeningStatsTrackerContract
+
 @Singleton
 class ListeningStatsTracker @Inject constructor(
     private val dailyMixManager: DailyMixManager,
     private val playbackStatsRepository: PlaybackStatsRepository,
     private val extensionLoader: ExtensionLoader,
     private val extensionMetadataCache: ExtensionMetadataCache
-) {
+) : ListeningStatsTrackerContract {
     private var currentSession: ActiveSession? = null
     private var pendingVoluntarySongId: String? = null
     private var scope: CoroutineScope? = null
@@ -107,17 +109,17 @@ class ListeningStatsTracker @Inject constructor(
     }
 
     @Synchronized
-    fun onTrackChanged(
+    override fun onTrackChanged(
         songId: String?,
         positionMs: Long,
         durationMs: Long,
         fallbackDurationMs: Long,
         isPlaying: Boolean,
-        title: String? = null,
-        artist: String? = null,
-        album: String? = null,
-        genre: String? = null,
-        albumArtUri: String? = null
+        title: String?,
+        artist: String?,
+        album: String?,
+        genre: String?,
+        albumArtUri: String?
     ) {
         finalizeCurrentSession()
         
@@ -359,17 +361,17 @@ class ListeningStatsTracker @Inject constructor(
     }
 
     @Synchronized
-    fun ensureSession(
+    override fun ensureSession(
         songId: String?,
         positionMs: Long,
         durationMs: Long,
         fallbackDurationMs: Long,
         isPlaying: Boolean,
-        title: String? = null,
-        artist: String? = null,
-        album: String? = null,
-        genre: String? = null,
-        albumArtUri: String? = null
+        title: String?,
+        artist: String?,
+        album: String?,
+        genre: String?,
+        albumArtUri: String?
     ) {
         val safeSongId = songId?.takeIf { it.isNotBlank() }
         if (safeSongId == null) {
@@ -447,7 +449,7 @@ class ListeningStatsTracker @Inject constructor(
     }
 
     @Synchronized
-    fun onPlaybackStopped() {
+    override fun onPlaybackStopped() {
         finalizeCurrentSession()
     }
 

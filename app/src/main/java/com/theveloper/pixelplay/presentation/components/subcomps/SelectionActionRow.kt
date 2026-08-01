@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.components.subcomps
+﻿package com.theveloper.pixelplay.presentation.components.subcomps
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -24,9 +24,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Deselect
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.SelectAll
+import androidx.compose.material.icons.rounded.Done
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -54,7 +54,7 @@ private val optionsGap = 4.dp
 
 /**
  * Action row displayed during multi-selection mode.
- * Shows segmented Select All/Deselect buttons and Options button.
+ * Shows segmented Select All/Close buttons and Options button.
  * The selection count is shown as a floating pill separately.
  */
 @Composable
@@ -105,7 +105,7 @@ fun SelectionActionRow(
         horizontalArrangement = Arrangement.Absolute.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Segmented buttons: Select All + Deselect
+        // Segmented buttons: Select All + Close
         Row(
             horizontalArrangement = Arrangement.spacedBy(segmentGap),
             verticalAlignment = Alignment.CenterVertically
@@ -122,7 +122,7 @@ fun SelectionActionRow(
                 modifier = Modifier.height(buttonHeight)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.SelectAll,
+                    imageVector = Icons.Rounded.Done,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
@@ -135,7 +135,7 @@ fun SelectionActionRow(
                 )
             }
             
-            // Deselect button (right segment) - using secondary colors
+            // Close button (right segment) - using secondary colors
             FilledTonalButton(
                 onClick = onDeselect,
                 shape = rightSegmentShape,
@@ -147,7 +147,7 @@ fun SelectionActionRow(
                 modifier = Modifier.height(buttonHeight)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Deselect,
+                    imageVector = Icons.Rounded.Close,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )

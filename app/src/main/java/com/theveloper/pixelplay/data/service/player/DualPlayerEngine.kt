@@ -40,7 +40,7 @@ import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.extractor.flac.FlacExtractor
 import com.theveloper.pixelplay.data.diagnostics.PerformanceMetrics
 import com.theveloper.pixelplay.data.model.TransitionSettings
-import com.theveloper.pixelplay.data.telegram.TelegramRepository
+import com.theveloper.pixelplay.data.repository.TelegramRepositoryContract
 import com.theveloper.pixelplay.utils.envelope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -62,9 +62,7 @@ import kotlin.coroutines.resume
 
 import com.theveloper.pixelplay.extensions.core.loadAll
 
-import com.theveloper.pixelplay.data.netease.NeteaseStreamProxy
-import com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy
-import com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy
+import com.theveloper.pixelplay.data.stream.StreamProxyRegistry
 import androidx.core.net.toUri
 import android.net.ConnectivityManager
 import com.theveloper.pixelplay.data.model.StreamingQuality
@@ -233,13 +231,7 @@ internal fun loadControlBufferProfileFor(isLowRamDevice: Boolean): LoadControlBu
 @Singleton
 class DualPlayerEngine @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val telegramRepository: TelegramRepository,
-    private val telegramStreamProxy: com.theveloper.pixelplay.data.telegram.TelegramStreamProxy,
-    private val neteaseStreamProxy: NeteaseStreamProxy,
-    private val qqMusicStreamProxy: QqMusicStreamProxy,
-    private val navidromeStreamProxy: NavidromeStreamProxy,
-    private val jellyfinStreamProxy: com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy,
-    private val gdriveStreamProxy: com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy,
+    private val telegramRepository: com.theveloper.pixelplay.data.repository.TelegramRepositoryContract,
     private val telegramCacheManager: com.theveloper.pixelplay.data.telegram.TelegramCacheManager,
     private val connectivityStateHolder: com.theveloper.pixelplay.presentation.viewmodel.ConnectivityStateHolder,
     private val extensionHost: com.theveloper.pixelplay.extensions.PixelPlayExtensionHost,
@@ -1539,15 +1531,22 @@ class DualPlayerEngine @Inject constructor(
 
         val deferred = activeResolutions.computeIfAbsent(uriString) {
             scope.async(Dispatchers.IO) {
-                val resolved: ResolvedMedia? = when (uri.scheme) {
-                    "telegram" -> resolveTelegramUriAsync(uri, uriString)?.let { ResolvedMedia(it) }
-                    "netease" -> resolveNeteaseUriAsync(uriString)?.let { ResolvedMedia(it) }
-                    "qqmusic" -> resolveQqMusicUriAsync(uriString)?.let { ResolvedMedia(it) }
-                    "navidrome" -> resolveNavidromeUriAsync(uriString)?.let { ResolvedMedia(it) }
-                    "jellyfin" -> resolveJellyfinUriAsync(uriString)?.let { ResolvedMedia(it) }
-                    "gdrive" -> resolveGDriveUriAsync(uriString)?.let { ResolvedMedia(it) }
-                    "extension" -> resolveExtensionUriAsync(uri, uriString)
-                    else -> null
+                val scheme = uri.scheme
+                val resolved: ResolvedMedia? = if (StreamProxyRegistry.hasResolver(scheme)) {
+                    if (scheme == "telegram") {
+                        val localFileUri = checkTelegramLocalDownload(uri, uriString)
+                        if (localFileUri != null) {
+                            ResolvedMedia(localFileUri)
+                        } else {
+                            StreamProxyRegistry.resolve(scheme, uri)?.let { ResolvedMedia(it) }
+                        }
+                    } else {
+                        StreamProxyRegistry.resolve(scheme, uri)?.let { ResolvedMedia(it) }
+                    }
+                } else if (scheme == "extension") {
+                    resolveExtensionUriAsync(uri, uriString)
+                } else {
+                    null
                 }
                 val finalResolved = resolved ?: ResolvedMedia(uri)
                 resolvedUriCache.put(uriString, finalResolved)
@@ -1693,6 +1692,10 @@ class DualPlayerEngine @Inject constructor(
             if (potentialSources.isEmpty()) {
                 Timber.tag("DualPlayerEngine").w("No potential sources found for track %s. Running fallback search...", loadedTrack.title)
                 val fallbackExtension = extensionEngine.all.value.firstOrNull { ext ->
+                    ext.metadata.id != extensionId &&
+                            (ext.metadata.id.contains("youtube", ignoreCase = true) || ext.metadata.id.contains("yt", ignoreCase = true)) &&
+                            ext.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.SearchFeedClient
+                } ?: extensionEngine.all.value.firstOrNull { ext ->
                     ext.metadata.id != extensionId && ext.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.SearchFeedClient
                 }
                 if (fallbackExtension != null) {
@@ -1808,7 +1811,7 @@ class DualPlayerEngine @Inject constructor(
         }
     }
 
-    private suspend fun resolveTelegramUriAsync(uri: Uri, uriString: String): Uri? = withContext(Dispatchers.IO) {
+    private suspend fun checkTelegramLocalDownload(uri: Uri, uriString: String): Uri? = withContext(Dispatchers.IO) {
         val pathSegments = uri.pathSegments
         val fileId = if (pathSegments.isNotEmpty()) {
             telegramRepository.resolveTelegramUri(uriString)?.first
@@ -1816,51 +1819,15 @@ class DualPlayerEngine @Inject constructor(
             uri.host?.toIntOrNull()
         } ?: return@withContext null
 
-        val fileInfo = telegramRepository.getFile(fileId)
-        if (fileInfo?.local?.isDownloadingCompleted == true && fileInfo.local.path.isNotEmpty()) {
-            return@withContext Uri.fromFile(File(fileInfo.local.path))
+        val downloadedPath = telegramRepository.getDownloadedFilePath(fileId)
+        if (downloadedPath != null) {
+            Uri.fromFile(File(downloadedPath))
+        } else {
+            if (!connectivityStateHolder.isOnline.value) {
+                connectivityStateHolder.triggerOfflineBlockedEvent()
+            }
+            null
         }
-
-        if (!connectivityStateHolder.isOnline.value) {
-            connectivityStateHolder.triggerOfflineBlockedEvent()
-            return@withContext null
-        }
-
-        if (!telegramStreamProxy.ensureReady(5_000L)) return@withContext null
-        val proxyUrl = telegramStreamProxy.getProxyUrl(fileId, 0L)
-        if (proxyUrl.isNotEmpty()) Uri.parse(proxyUrl) else null
-    }
-
-    private suspend fun resolveNeteaseUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
-        if (!neteaseStreamProxy.ensureReady(5_000L)) return@withContext null
-        neteaseStreamProxy.resolveNeteaseUri(uriString)?.let { Uri.parse(it) }
-    }
-
-    private suspend fun resolveQqMusicUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
-        if (!qqMusicStreamProxy.ensureReady(5_000L)) return@withContext null
-        qqMusicStreamProxy.warmUpStreamUrl(uriString)
-        qqMusicStreamProxy.resolveQqMusicUri(uriString)?.let { Uri.parse(it) }
-    }
-
-    private suspend fun resolveNavidromeUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
-        if (!navidromeStreamProxy.ensureReady(5_000L)) return@withContext null
-        navidromeStreamProxy.warmUpStreamUrl(uriString)
-        navidromeStreamProxy.resolveNavidromeUri(uriString)?.toUri()
-    }
-
-    private suspend fun resolveJellyfinUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
-        if (!jellyfinStreamProxy.ensureReady(5_000L)) return@withContext null
-        jellyfinStreamProxy.warmUpStreamUrl(uriString)
-        jellyfinStreamProxy.resolveJellyfinUri(uriString)?.toUri()
-    }
-
-    private suspend fun resolveGDriveUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
-        if (!connectivityStateHolder.isOnline.value) {
-            connectivityStateHolder.triggerOfflineBlockedEvent()
-            return@withContext null
-        }
-        if (!gdriveStreamProxy.ensureReady(5_000L)) return@withContext null
-        gdriveStreamProxy.resolveGDriveUri(uriString)?.toUri()
     }
 
     suspend fun resolveMediaItem(mediaItem: MediaItem): MediaItem {

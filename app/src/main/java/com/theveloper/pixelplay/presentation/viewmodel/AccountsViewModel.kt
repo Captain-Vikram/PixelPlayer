@@ -2,15 +2,15 @@ package com.theveloper.pixelplay.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.theveloper.pixelplay.data.gdrive.GDriveRepository
+// import com.theveloper.pixelplay.data.gdrive.GDriveRepository
 import com.theveloper.pixelplay.data.jellyfin.JellyfinRepository
-import com.theveloper.pixelplay.data.navidrome.NavidromeRepository
-import com.theveloper.pixelplay.data.netease.NeteaseRepository
-import com.theveloper.pixelplay.data.qqmusic.QqMusicRepository
+
+// import com.theveloper.pixelplay.data.netease.NeteaseRepository
+// import com.theveloper.pixelplay.data.qqmusic.QqMusicRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.repository.ExtensionRepository
 import dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity.Companion.toCurrentUser
-import com.theveloper.pixelplay.data.telegram.TelegramRepository
+import com.theveloper.pixelplay.data.repository.TelegramRepositoryContract
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.drinkless.tdlib.TdApi
 
 enum class ExternalServiceAccount {
     TELEGRAM,
@@ -50,12 +49,12 @@ data class AccountsUiState(
 
 @HiltViewModel
 class AccountsViewModel @Inject constructor(
-    private val telegramRepository: TelegramRepository,
+    private val telegramRepository: TelegramRepositoryContract,
     private val musicRepository: MusicRepository,
-    private val gDriveRepository: GDriveRepository,
-    private val neteaseRepository: NeteaseRepository,
-    private val qqMusicRepository: QqMusicRepository,
-    private val navidromeRepository: NavidromeRepository,
+    private val gDriveRepository: com.theveloper.pixelplay.data.repository.GDriveRepositoryContract,
+    private val neteaseRepository: com.theveloper.pixelplay.data.repository.NeteaseRepositoryContract,
+    private val qqMusicRepository: com.theveloper.pixelplay.data.repository.QqMusicRepositoryContract,
+    private val navidromeRepository: com.theveloper.pixelplay.data.repository.NavidromeRepositoryContract,
     private val jellyfinRepository: JellyfinRepository,
     private val extensionRepository: ExtensionRepository
 ) : ViewModel() {
@@ -64,8 +63,7 @@ class AccountsViewModel @Inject constructor(
     private val loggingOutExtensions = MutableStateFlow<Set<String>>(emptySet())
 
     private val telegramStateFlow = combine(
-        telegramRepository.authorizationState
-            .map { it is TdApi.AuthorizationStateReady }
+        telegramRepository.isAuthorizedFlow
             .distinctUntilChanged(),
         musicRepository.getAllTelegramChannels().map { it.size }
     ) { connected, channelCount ->
@@ -74,35 +72,35 @@ class AccountsViewModel @Inject constructor(
 
     private val gDriveStateFlow = combine(
         gDriveRepository.isLoggedInFlow,
-        gDriveRepository.getFolders().map { it.size }
+        gDriveRepository.getFolderCount()
     ) { connected, folderCount ->
         connected to folderCount
     }
 
     private val neteaseStateFlow = combine(
         neteaseRepository.isLoggedInFlow,
-        neteaseRepository.getPlaylists().map { it.size }
+        neteaseRepository.getPlaylistCount()
     ) { connected, playlistCount ->
         connected to playlistCount
     }
 
     private val qqMusicStateFlow = combine(
         qqMusicRepository.isLoggedInFlow,
-        qqMusicRepository.getPlaylists().map { it.size }
+        qqMusicRepository.getPlaylistCount()
     ) { connected, playlistCount ->
         connected to playlistCount
     }
 
     private val navidromeStateFlow = combine(
         navidromeRepository.isLoggedInFlow,
-        navidromeRepository.getPlaylists().map { it.size }
+        navidromeRepository.getPlaylistCount()
     ) { connected, playlistCount ->
         connected to playlistCount
     }
 
     private val jellyfinStateFlow = combine(
         jellyfinRepository.isLoggedInFlow,
-        jellyfinRepository.getPlaylists().map { it.size }
+        jellyfinRepository.getPlaylistCount()
     ) { connected, playlistCount ->
         connected to playlistCount
     }
@@ -320,3 +318,4 @@ class AccountsViewModel @Inject constructor(
         }
     }
 }
+

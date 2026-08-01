@@ -80,13 +80,6 @@
         </activity>
 
         <activity
-            android:name=".presentation.telegram.auth.TelegramLoginActivity"
-            android:exported="false"
-            android:label="Telegram Login"
-            android:theme="@style/Theme.PixelPlay"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
             android:name=".presentation.netease.auth.NeteaseLoginActivity"
             android:exported="false"
             android:label="Netease Login"
@@ -246,12 +239,14 @@
         </receiver>
 
         <service
-            android:name=".data.service.http.MediaFileHttpServerService"
-            android:foregroundServiceType="mediaPlayback"
-            android:exported="false" />
-        <service
             android:name=".data.service.wear.WatchTransferForegroundService"
             android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
+        <!-- Dynamic Ktor Media HTTP Server Service (Loaded at runtime) -->
+        <service
+            android:name="com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService"
+            android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
         <meta-data
             android:name="preloaded_fonts"

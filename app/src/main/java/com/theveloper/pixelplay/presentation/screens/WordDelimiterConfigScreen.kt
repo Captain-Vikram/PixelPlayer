@@ -1,4 +1,4 @@
-package com.theveloper.pixelplay.presentation.screens
+﻿package com.theveloper.pixelplay.presentation.screens
 
 import android.widget.Toast
 import androidx.compose.ui.res.stringResource
@@ -33,7 +33,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -374,7 +374,7 @@ fun WordDelimiterConfigScreen(
                         shape = CircleShape
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.RestartAlt,
+                            imageVector = Icons.Rounded.Refresh,
                             contentDescription = stringResource(R.string.common_reset_defaults),
                             modifier = Modifier.size(20.dp)
                         )
@@ -402,7 +402,7 @@ fun WordDelimiterConfigScreen(
                 },
                 icon = {
                     Icon(
-                        imageVector = Icons.Rounded.RestartAlt,
+                        imageVector = Icons.Rounded.Refresh,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error
                     )

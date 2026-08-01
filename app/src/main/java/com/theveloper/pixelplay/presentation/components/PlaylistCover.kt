@@ -83,6 +83,7 @@ fun PlaylistCover(
             .then(shapeMod)
             .clip(shape)
     ) {
+        val coverColorArgb = playlist.coverColorArgb
         if (playlist.coverImageUri != null) {
             AsyncImage(
                 model = playlist.coverImageUri,
@@ -90,18 +91,18 @@ fun PlaylistCover(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-        } else if (playlist.coverColorArgb != null) {
+        } else if (coverColorArgb != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(playlist.coverColorArgb)),
+                    .background(Color(coverColorArgb)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = getIconByName(playlist.coverIconName) ?: Icons.Filled.MusicNote,
                     contentDescription = null,
                     tint = resolvePlaylistCoverContentColor(
-                        playlist.coverColorArgb,
+                        coverColorArgb,
                         MaterialTheme.colorScheme
                     ),
                     modifier = Modifier.size(size / 2).then(iconMod)

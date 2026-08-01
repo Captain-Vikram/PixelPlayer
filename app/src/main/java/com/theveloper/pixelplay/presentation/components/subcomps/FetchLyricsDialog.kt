@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components.subcomps
+﻿package com.theveloper.pixelplay.presentation.components.subcomps
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,11 +20,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -163,7 +163,7 @@ private fun IdleContent(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.MusicNote,
+            imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
             contentDescription = null,
             modifier = Modifier.size(40.dp),
             tint = MaterialTheme.colorScheme.onSecondaryContainer
@@ -172,7 +172,7 @@ private fun IdleContent(
 
     Spacer(modifier = Modifier.height(20.dp))
 
-    // Título y Canción
+    // TÃ­tulo y CanciÃ³n
     if (currentSong != null) {
         Text(
             text = currentSong.title,
@@ -246,7 +246,7 @@ private fun IdleContent(
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    // Botones de Acción
+    // Botones de AcciÃ³n
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth()
@@ -270,7 +270,7 @@ private fun IdleContent(
                 contentColor = MaterialTheme.colorScheme.onSecondary
             )
         ) {
-            Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(ImageVector.vectorResource(R.drawable.rounded_upload_file_24), contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.common_import))
         }
@@ -448,7 +448,7 @@ private fun ResultItemCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.MusicNote,
+                    imageVector = ImageVector.vectorResource(R.drawable.rounded_music_note_24),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = if (hasSyncedLyrics) MaterialTheme.colorScheme.onPrimaryContainer
@@ -529,7 +529,7 @@ fun NotFoundContent(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.SearchOff,
+            imageVector = Icons.Rounded.Warning,
             contentDescription = null,
             modifier = Modifier.size(36.dp),
             tint = MaterialTheme.colorScheme.onSecondaryContainer
@@ -637,7 +637,7 @@ private fun ErrorContent(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.ErrorOutline,
+            imageVector = Icons.Rounded.Warning,
             contentDescription = null,
             modifier = Modifier.size(36.dp),
             tint = MaterialTheme.colorScheme.onErrorContainer

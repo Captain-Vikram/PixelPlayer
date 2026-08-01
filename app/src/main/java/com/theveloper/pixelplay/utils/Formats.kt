@@ -1,7 +1,8 @@
-package com.theveloper.pixelplay.utils
+﻿package com.theveloper.pixelplay.utils
+import com.theveloper.pixelplay.R
 
 import com.theveloper.pixelplay.PixelPlayApplication
-import com.theveloper.pixelplay.R
+
 import com.theveloper.pixelplay.data.model.Song
 import java.util.concurrent.TimeUnit
 

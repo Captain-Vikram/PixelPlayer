@@ -28,26 +28,7 @@ import com.theveloper.pixelplay.utils.MediaStorePermissionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first // Added
 import kotlinx.coroutines.withContext
-import org.gagravarr.opus.OpusFile
-import org.gagravarr.opus.OpusTags
-import org.jaudiotagger.audio.AudioFileIO
-import org.jaudiotagger.tag.FieldKey
-import org.jaudiotagger.tag.Tag
-import org.jaudiotagger.tag.flac.FlacTag
-import org.jaudiotagger.tag.id3.AbstractID3v2Frame
-import org.jaudiotagger.tag.id3.AbstractID3v2Tag
-import org.jaudiotagger.tag.id3.ID3v23Frame
-import org.jaudiotagger.tag.id3.ID3v23Frames
-import org.jaudiotagger.tag.id3.ID3v23Tag
-import org.jaudiotagger.tag.id3.ID3v24Frame
-import org.jaudiotagger.tag.id3.ID3v24Frames
-import org.jaudiotagger.tag.id3.ID3v24Tag
-import org.jaudiotagger.tag.id3.framebody.FrameBodyTXXX
-import org.jaudiotagger.tag.images.AndroidArtwork
-import org.jaudiotagger.tag.mp4.Mp4Tag
-import org.jaudiotagger.tag.mp4.field.Mp4TagReverseDnsField
-import org.jaudiotagger.tag.vorbiscomment.VorbisCommentTag
-import org.jaudiotagger.tag.wav.WavTag
+
 import timber.log.Timber
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -889,87 +870,7 @@ class SongMetadataEditor(
         replayGainAlbumUpdate: ReplayGainUpdate = ReplayGainUpdate.Keep,
         coverArtUpdate: CoverArtUpdate? = null
     ): Boolean {
-        val targetFile = File(filePath)
-        
-        return try {
-            // Suppress JAudioTagger's verbose logging
-            java.util.logging.Logger.getLogger("org.jaudiotagger").level = java.util.logging.Level.OFF
-            
-            val audioFile = AudioFileIO.read(targetFile)
-            val tag = audioFile.tag ?: audioFile.createDefaultTag()
-            
-            // Update text fields
-            tag.setField(FieldKey.TITLE, newTitle)
-            tag.setField(FieldKey.ARTIST, newArtist)
-            tag.setField(FieldKey.ALBUM, newAlbum)
-            if (!newAlbumArtist.isNullOrBlank()) {
-                tag.setField(FieldKey.ALBUM_ARTIST, newAlbumArtist)
-            }
-            if (!newComposer.isNullOrBlank()) {
-                tag.setField(FieldKey.COMPOSER, newComposer)
-            } else {
-                tag.deleteField(FieldKey.COMPOSER)
-            }
-            
-            if (newGenre.isNotBlank()) {
-                tag.setField(FieldKey.GENRE, newGenre)
-            } else {
-                tag.deleteField(FieldKey.GENRE)
-            }
-            
-            if (newLyrics.isNotBlank()) {
-                tag.setField(FieldKey.LYRICS, newLyrics)
-            } else {
-                tag.deleteField(FieldKey.LYRICS)
-            }
-            
-            tag.setField(FieldKey.TRACK, newTrackNumber.toString())
-            if (newDiscNumber != null && newDiscNumber > 0) {
-                tag.setField(FieldKey.DISC_NO, newDiscNumber.toString())
-            } else {
-                tag.deleteField(FieldKey.DISC_NO)
-            }
-            tag.applyReplayGainUpdate(REPLAYGAIN_TRACK_GAIN_KEY, replayGainTrackUpdate)
-            tag.applyReplayGainUpdate(REPLAYGAIN_ALBUM_GAIN_KEY, replayGainAlbumUpdate)
-
-            // Update cover art if provided
-            coverArtUpdate?.let { update ->
-                if (update.isDeletion) {
-                    tag.deleteArtworkField()
-                    Timber.tag(TAG).d("JAUDIOTAGGER: Removed cover art")
-                } else if (update.bytes != null) {
-                    try {
-                        tag.deleteArtworkField()
-                        val artwork = AndroidArtwork()
-                        artwork.binaryData = update.bytes
-                        artwork.mimeType = update.mimeType
-                        artwork.pictureType = 3 // Standard value for "Front Cover"
-                        
-                        // Extract dimensions using Android native BitmapFactory to avoid ImageIO crash
-                        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                        BitmapFactory.decodeByteArray(update.bytes, 0, update.bytes.size, options)
-                        artwork.width = options.outWidth
-                        artwork.height = options.outHeight
-                        
-                        tag.setField(artwork)
-                        Timber.tag(TAG)
-                            .d("JAUDIOTAGGER: Embedded new cover art (${update.mimeType}, ${options.outWidth}x${options.outHeight})")
-                    } catch (e: Exception) {
-                        Timber.tag(TAG).e(e, "JAUDIOTAGGER: Failed to create artwork from bytes")
-                    }
-                } else {
-                    Timber.tag(TAG).w("JAUDIOTAGGER: Ignoring invalid CoverArtUpdate with no bytes and no deletion flag")
-                }
-            }
-
-            audioFile.commit()
-            Timber.tag(TAG).d("JAUDIOTAGGER: SUCCESS - Updated file metadata: $filePath")
-            true
-        } catch (e: Exception) {
-            Timber.tag(TAG).e("JAUDIOTAGGER ERROR: ${e.javaClass.simpleName}: ${e.message}")
-            e.printStackTrace()
-            false
-        }
+        return false
     }
 
     private fun updateFileMetadataWithVorbisJava(
@@ -987,93 +888,7 @@ class SongMetadataEditor(
         replayGainAlbumUpdate: ReplayGainUpdate = ReplayGainUpdate.Keep,
         coverArtUpdate: CoverArtUpdate? = null
     ): Boolean {
-        val audioFile = File(filePath)
-        val originalExtension = audioFile.extension.ifBlank { "opus" }
-        var tempFile: File? = null
-        var opusFile: OpusFile? = null
-        
-        return try {
-            if (!audioFile.exists()) {
-                Timber.tag(TAG).e("VORBISJAVA: Audio file does not exist: $filePath")
-                return false
-            }
-
-            Timber.tag(TAG).e("VORBISJAVA: Reading Opus file: $filePath")
-            
-            // Read existing file
-            val sourceOpusFile = OpusFile(audioFile)
-            opusFile = sourceOpusFile
-            val tags = sourceOpusFile.tags ?: OpusTags()
-
-            Timber.tag(TAG).e("VORBISJAVA: Existing tags: ${tags.allComments}")
-            
-            tags.replaceSingleComment("TITLE", newTitle)
-            tags.replaceSingleComment("ARTIST", newArtist)
-            tags.replaceSingleComment("ALBUMARTIST", newAlbumArtist?.takeIf { it.isNotBlank() })
-            tags.replaceSingleComment("COMPOSER", newComposer)
-            tags.replaceSingleComment("ALBUM", newAlbum)
-            tags.replaceSingleComment("GENRE", newGenre)
-            tags.replaceSingleComment("LYRICS", newLyrics)
-            tags.replaceSingleComment("TRACKNUMBER", newTrackNumber.takeIf { it > 0 }?.toString())
-            tags.replaceSingleComment("DISCNUMBER", newDiscNumber?.takeIf { it > 0 }?.toString())
-            tags.applyReplayGainUpdate(REPLAYGAIN_TRACK_GAIN_KEY, replayGainTrackUpdate)
-            tags.applyReplayGainUpdate(REPLAYGAIN_ALBUM_GAIN_KEY, replayGainAlbumUpdate)
-            coverArtUpdate?.let { update ->
-                tags.applyCoverArtUpdate(update)
-            }
-
-            Timber.tag(TAG).e("VORBISJAVA: Updated tags: ${tags.allComments}")
-            
-            tempFile = File(
-                context.cacheDir,
-                "metadata_edit_opus_${System.nanoTime()}.$originalExtension"
-            )
-            
-            Timber.tag(TAG).e("VORBISJAVA: Writing to temp file: ${tempFile.path}")
-            FileOutputStream(tempFile).use { fos ->
-                OpusFile(fos, sourceOpusFile.info, tags).use { newOpusFile ->
-                    var packet = sourceOpusFile.nextAudioPacket
-                    while (packet != null) {
-                        newOpusFile.writeAudioData(packet)
-                        packet = sourceOpusFile.nextAudioPacket
-                    }
-                }
-            }
-            sourceOpusFile.close()
-            opusFile = null
-            
-            // Verify temp file was created and has content
-            if (!tempFile.exists() || tempFile.length() == 0L) {
-                Timber.tag(TAG).e("VORBISJAVA: Temp file creation failed or is empty")
-                return false
-            }
-            Timber.tag(TAG)
-                .e("VORBISJAVA: Temp file size: ${tempFile.length()} bytes, original: ${audioFile.length()} bytes")
-            
-            tempFile.inputStream().use { input ->
-                FileOutputStream(audioFile, false).use { output ->
-                    input.copyTo(output)
-                    output.fd.sync()
-                }
-            }
-
-            Timber.tag(TAG).e("VORBISJAVA: SUCCESS - Updated file metadata: ${audioFile.path}")
-            true
-
-        } catch (e: Exception) {
-            Timber.tag(TAG).e("VORBISJAVA ERROR: ${e.javaClass.simpleName}: ${e.message}")
-            e.printStackTrace()
-            false
-        } finally {
-            try {
-                opusFile?.close()
-            } catch (e: Exception) {
-                Timber.tag(TAG).w(e, "VORBISJAVA: Could not close source Opus file")
-            }
-            if (tempFile != null && tempFile.exists() && tempFile.delete() == false) {
-                Timber.tag(TAG).w("VORBISJAVA: Could not delete temp file ${tempFile.absolutePath}")
-            }
-        }
+        return false
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -1197,71 +1012,7 @@ class SongMetadataEditor(
     }
 }
 
-private fun OpusTags.replaceSingleComment(key: String, value: String?) {
-    removeComments(key)
-    if (!value.isNullOrBlank()) {
-        addComment(key, value)
-    }
-}
 
-private fun OpusTags.applyReplayGainUpdate(key: String, update: ReplayGainUpdate) {
-    when (update) {
-        ReplayGainUpdate.Keep -> Unit
-        ReplayGainUpdate.Clear -> removeComments(key)
-        is ReplayGainUpdate.Set -> replaceSingleComment(key, update.formattedValue)
-    }
-}
-
-private fun OpusTags.applyCoverArtUpdate(update: CoverArtUpdate) {
-    removeComments("METADATA_BLOCK_PICTURE")
-    removeComments("COVERART")
-    removeComments("COVERARTMIME")
-
-    if (update.isDeletion) {
-        Timber.tag(TAG).d("VORBISJAVA: Removed cover art")
-        return
-    }
-
-    val imageBytes = update.bytes
-    if (imageBytes == null) {
-        Timber.tag(TAG).w("VORBISJAVA: Ignoring invalid CoverArtUpdate with no bytes and no deletion flag")
-        return
-    }
-
-    addComment("METADATA_BLOCK_PICTURE", buildVorbisPictureBlock(imageBytes, update.mimeType))
-    Timber.tag(TAG).d("VORBISJAVA: Embedded cover art (${update.mimeType}, ${imageBytes.size} bytes)")
-}
-
-private fun buildVorbisPictureBlock(imageBytes: ByteArray, mimeType: String): String {
-    val safeMimeType = mimeType.takeIf { it.isNotBlank() } ?: "image/jpeg"
-    val mimeBytes = safeMimeType.toByteArray(Charsets.UTF_8)
-    val descriptionBytes = "Front Cover".toByteArray(Charsets.UTF_8)
-    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, options)
-    val width = options.outWidth.takeIf { it > 0 } ?: 0
-    val height = options.outHeight.takeIf { it > 0 } ?: 0
-
-    val output = ByteArrayOutputStream()
-    output.writeIntBigEndian(3)
-    output.writeIntBigEndian(mimeBytes.size)
-    output.write(mimeBytes)
-    output.writeIntBigEndian(descriptionBytes.size)
-    output.write(descriptionBytes)
-    output.writeIntBigEndian(width)
-    output.writeIntBigEndian(height)
-    output.writeIntBigEndian(0)
-    output.writeIntBigEndian(0)
-    output.writeIntBigEndian(imageBytes.size)
-    output.write(imageBytes)
-    return Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
-}
-
-private fun ByteArrayOutputStream.writeIntBigEndian(value: Int) {
-    write((value ushr 24) and 0xFF)
-    write((value ushr 16) and 0xFF)
-    write((value ushr 8) and 0xFF)
-    write(value and 0xFF)
-}
 
 private fun MutableMap<String, Array<String>>.upsertOrRemove(key: String, value: String?) {
     if (value.isNullOrBlank()) {
@@ -1282,76 +1033,7 @@ private fun MutableMap<String, Array<String>>.applyReplayGainUpdate(
     }
 }
 
-private fun Tag.applyReplayGainUpdate(key: String, update: ReplayGainUpdate) {
-    when (update) {
-        ReplayGainUpdate.Keep -> Unit
-        ReplayGainUpdate.Clear -> removeReplayGainField(key)
-        is ReplayGainUpdate.Set -> upsertReplayGainField(key, update.formattedValue)
-    }
-}
 
-private fun Tag.upsertReplayGainField(key: String, value: String) {
-    when (this) {
-        is AbstractID3v2Tag -> upsertReplayGainId3Field(key, value)
-        is WavTag -> {
-            val id3Tag = getID3Tag() ?: ID3v24Tag().also(::setID3Tag)
-            id3Tag.upsertReplayGainId3Field(key, value)
-        }
-        is FlacTag -> setField(key, value)
-        is VorbisCommentTag -> setField(key, value)
-        is Mp4Tag -> {
-            val fieldId = replayGainMp4FieldId(key)
-            deleteField(fieldId)
-            setField(Mp4TagReverseDnsField(fieldId, MP4_REVERSE_DNS_ISSUER, key, value))
-        }
-        else -> Timber.tag(TAG).w("ReplayGain update is not supported for tag type: ${this::class.java.simpleName}")
-    }
-}
-
-private fun Tag.removeReplayGainField(key: String) {
-    when (this) {
-        is AbstractID3v2Tag -> removeReplayGainId3Field(key)
-        is WavTag -> getID3Tag()?.removeReplayGainId3Field(key)
-        is FlacTag -> deleteField(key)
-        is VorbisCommentTag -> deleteField(key)
-        is Mp4Tag -> deleteField(replayGainMp4FieldId(key))
-        else -> Timber.tag(TAG).w("ReplayGain removal is not supported for tag type: ${this::class.java.simpleName}")
-    }
-}
-
-private fun AbstractID3v2Tag.upsertReplayGainId3Field(key: String, value: String) {
-    val frame = if (this is ID3v23Tag) {
-        ID3v23Frame(ID3v23Frames.FRAME_ID_V3_USER_DEFINED_INFO)
-    } else {
-        ID3v24Frame(ID3v24Frames.FRAME_ID_USER_DEFINED_INFO)
-    }
-    frame.body = FrameBodyTXXX().apply {
-        setDescription(key)
-        setText(value)
-    }
-    setField(frame)
-}
-
-private fun AbstractID3v2Tag.removeReplayGainId3Field(key: String) {
-    val frameId = if (this is ID3v23Tag) {
-        ID3v23Frames.FRAME_ID_V3_USER_DEFINED_INFO
-    } else {
-        ID3v24Frames.FRAME_ID_USER_DEFINED_INFO
-    }
-    val frames = getFields(frameId)
-    val iterator = frames.listIterator()
-    while (iterator.hasNext()) {
-        val frame = iterator.next() as? AbstractID3v2Frame ?: continue
-        val body = frame.body as? FrameBodyTXXX ?: continue
-        if (body.description == key) {
-            if (frames.size == 1) {
-                removeFrame(frameId)
-            } else {
-                iterator.remove()
-            }
-        }
-    }
-}
 
 private fun replayGainMp4FieldId(key: String): String = "----:$MP4_REVERSE_DNS_ISSUER:$key"
 

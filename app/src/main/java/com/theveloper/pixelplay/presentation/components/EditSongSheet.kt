@@ -1,4 +1,6 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -15,13 +17,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Category
-import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
 import androidx.compose.material3.BasicAlertDialog
@@ -50,10 +47,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -71,9 +66,7 @@ import kotlinx.coroutines.withContext
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import dev.shreyaspatil.capturable.capturable
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.text.font.FontWeight
@@ -247,7 +240,7 @@ private fun EditSongContent(
         )
     }
 
-    // Definición de colores para los TextFields
+    // DefiniciÃ³n de colores para los TextFields
     val textFieldColors = TextFieldDefaults.colors(
         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -257,7 +250,7 @@ private fun EditSongContent(
         disabledIndicatorColor = Color.Transparent,
     )
 
-    // Definición de la forma para los TextFields
+    // DefiniciÃ³n de la forma para los TextFields
     val textFieldShape = AbsoluteSmoothCornerShape(
         cornerRadiusTL = 10.dp,
         smoothnessAsPercentBL = 60,
@@ -273,7 +266,7 @@ private fun EditSongContent(
         exitDirection = FloatingToolbarExitDirection.Bottom
     )
 
-    // --- Diálogo de Información ---
+    // --- DiÃ¡logo de InformaciÃ³n ---
     if (showInfoDialog) {
         AlertDialog(
             onDismissRequest = { showInfoDialog = false },
@@ -357,7 +350,7 @@ private fun EditSongContent(
                 )
             }
 
-            // --- Campo de Título ---
+            // --- Campo de TÃ­tulo ---
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
@@ -372,7 +365,7 @@ private fun EditSongContent(
                         colors = textFieldColors,
                         onValueChange = { title = it },
                         placeholder = { Text(stringResource(R.string.edit_song_field_title)) },
-                        leadingIcon = { Icon(Icons.Rounded.MusicNote, tint = MaterialTheme.colorScheme.tertiary, contentDescription = stringResource(R.string.edit_song_field_title)) },
+                        leadingIcon = { Icon(ImageVector.vectorResource(R.drawable.rounded_music_note_24), tint = MaterialTheme.colorScheme.tertiary, contentDescription = stringResource(R.string.edit_song_field_title)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -401,7 +394,7 @@ private fun EditSongContent(
                 }
             }
 
-            // --- Campo de Álbum ---
+            // --- Campo de Ãlbum ---
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
@@ -416,7 +409,7 @@ private fun EditSongContent(
                         shape = textFieldShape,
                         onValueChange = { album = it },
                         placeholder = { Text(stringResource(R.string.edit_song_field_album)) },
-                        leadingIcon = { Icon(Icons.Rounded.Album, tint = MaterialTheme.colorScheme.tertiary, contentDescription = stringResource(R.string.edit_song_field_album)) },
+                        leadingIcon = { Icon(ImageVector.vectorResource(R.drawable.rounded_album_24), tint = MaterialTheme.colorScheme.tertiary, contentDescription = stringResource(R.string.edit_song_field_album)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -445,7 +438,7 @@ private fun EditSongContent(
                 }
             }
 
-            // --- Campo de Género ---
+            // --- Campo de GÃ©nero ---
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
@@ -460,7 +453,7 @@ private fun EditSongContent(
                         shape = textFieldShape,
                         onValueChange = { genre = it },
                         placeholder = { Text(stringResource(R.string.edit_song_field_genre)) },
-                        leadingIcon = { Icon(Icons.Rounded.Category, tint = MaterialTheme.colorScheme.secondary, contentDescription = stringResource(R.string.edit_song_field_genre)) },
+                        leadingIcon = { Icon(ImageVector.vectorResource(R.drawable.rounded_album_24), tint = MaterialTheme.colorScheme.secondary, contentDescription = stringResource(R.string.edit_song_field_genre)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -482,7 +475,7 @@ private fun EditSongContent(
                         shape = textFieldShape,
                         onValueChange = { composer = it },
                         placeholder = { Text(stringResource(R.string.edit_song_field_composer)) },
-                        leadingIcon = { Icon(Icons.Rounded.MusicNote, tint = MaterialTheme.colorScheme.tertiary, contentDescription = stringResource(R.string.edit_song_field_composer)) },
+                        leadingIcon = { Icon(ImageVector.vectorResource(R.drawable.rounded_music_note_24), tint = MaterialTheme.colorScheme.tertiary, contentDescription = stringResource(R.string.edit_song_field_composer)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -504,7 +497,7 @@ private fun EditSongContent(
                         colors = textFieldColors,
                         onValueChange = { trackNumber = it },
                         placeholder = { Text(stringResource(R.string.edit_song_field_track_number)) },
-                        leadingIcon = { Icon(Icons.Rounded.FormatListNumbered, tint = MaterialTheme.colorScheme.secondary, contentDescription = stringResource(R.string.edit_song_field_track_number)) },
+                        leadingIcon = { Icon(ImageVector.vectorResource(R.drawable.rounded_format_list_bulleted_24), tint = MaterialTheme.colorScheme.secondary, contentDescription = stringResource(R.string.edit_song_field_track_number)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -527,7 +520,7 @@ private fun EditSongContent(
                         colors = textFieldColors,
                         onValueChange = { discNumber = it },
                         placeholder = { Text(stringResource(R.string.edit_song_field_disc_number)) },
-                        leadingIcon = { Icon(Icons.Rounded.FormatListNumbered, tint = MaterialTheme.colorScheme.secondary, contentDescription = stringResource(R.string.edit_song_field_disc_number)) },
+                        leadingIcon = { Icon(ImageVector.vectorResource(R.drawable.rounded_format_list_bulleted_24), tint = MaterialTheme.colorScheme.secondary, contentDescription = stringResource(R.string.edit_song_field_disc_number)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -552,7 +545,7 @@ private fun EditSongContent(
                         placeholder = { Text(stringResource(R.string.edit_song_replaygain_track_placeholder)) },
                         leadingIcon = {
                             Icon(
-                                Icons.Rounded.RepeatOne,
+                                ImageVector.vectorResource(R.drawable.rounded_repeat_one_24),
                                 tint = MaterialTheme.colorScheme.primary,
                                 contentDescription = stringResource(R.string.edit_song_field_replaygain_track)
                             )
@@ -581,7 +574,7 @@ private fun EditSongContent(
                         placeholder = { Text(stringResource(R.string.edit_song_replaygain_album_placeholder)) },
                         leadingIcon = {
                             Icon(
-                                Icons.Rounded.Repeat,
+                                ImageVector.vectorResource(R.drawable.rounded_repeat_24),
                                 tint = MaterialTheme.colorScheme.tertiary,
                                 contentDescription = stringResource(R.string.edit_song_field_replaygain_album)
                             )
@@ -612,7 +605,7 @@ private fun EditSongContent(
                             shape = textFieldShape,
                             onValueChange = { lyrics = it },
                             placeholder = { Text(stringResource(R.string.lyrics_title)) },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Notes, tint = MaterialTheme.colorScheme.primary, contentDescription = stringResource(R.string.lyrics_title)) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.List, tint = MaterialTheme.colorScheme.primary, contentDescription = stringResource(R.string.lyrics_title)) },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(150.dp)
@@ -814,14 +807,14 @@ private fun CoverArtEditorCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
             ) {
                 FilledTonalButton(onClick = onPickNewArt) {
-                    Icon(Icons.Rounded.Image, contentDescription = null)
+                    Icon(ImageVector.vectorResource(R.drawable.rounded_album_24), contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.edit_song_action_change_cover), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
 
                 if (preview != null || isDeleted) {
                     TextButton(onClick = onReset) {
-                        Icon(Icons.Rounded.Restore, contentDescription = null)
+                        Icon(Icons.Rounded.Refresh, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(stringResource(R.string.common_reset), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }

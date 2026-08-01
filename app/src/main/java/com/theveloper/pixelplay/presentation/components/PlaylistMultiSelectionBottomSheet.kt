@@ -346,6 +346,7 @@ private fun StackedPlaylistCovers(
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
+                    val coverColorArgb = playlist.coverColorArgb
                     if (playlist.coverImageUri != null) {
                         AsyncImage(
                             model = playlist.coverImageUri,
@@ -353,16 +354,16 @@ private fun StackedPlaylistCovers(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.matchParentSize()
                         )
-                    } else if (playlist.coverColorArgb != null) {
+                    } else if (coverColorArgb != null) {
                         Box(
                             modifier = Modifier
                                 .matchParentSize()
-                                .background(Color(playlist.coverColorArgb)),
+                                .background(Color(coverColorArgb)),
                             contentAlignment = Alignment.Center
                         ) {
                             // Show icon if available, otherwise show first letter of playlist name
                             val contentColor = resolvePlaylistCoverContentColor(
-                                playlist.coverColorArgb,
+                                coverColorArgb,
                                 MaterialTheme.colorScheme
                             )
                             

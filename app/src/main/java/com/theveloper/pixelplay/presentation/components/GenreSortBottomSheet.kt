@@ -1,4 +1,5 @@
-package com.theveloper.pixelplay.presentation.components
+﻿package com.theveloper.pixelplay.presentation.components
+import androidx.compose.ui.res.vectorResource
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,11 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -87,7 +85,7 @@ fun GenreSortBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Shuffle Button (Prominent)
+                // ImageVector.vectorResource(R.drawable.rounded_shuffle_24) Button (Prominent)
                 Button(
                     onClick = onShuffle,
                     modifier = Modifier.weight(1f).heightIn(min = 56.dp),
@@ -97,7 +95,7 @@ fun GenreSortBottomSheet(
                     ),
                     shape = AbsoluteSmoothCornerShape(16.dp, 60)
                 ) {
-                    Icon(Icons.Rounded.Shuffle, contentDescription = null)
+                    Icon(ImageVector.vectorResource(R.drawable.rounded_shuffle_24), contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     TightWrapText(
                         text = stringResource(R.string.genre_sort_action_shuffle),
@@ -136,13 +134,13 @@ fun GenreSortBottomSheet(
                 )
                 SortOptionCard(
                     text = stringResource(R.string.genre_sort_album_option),
-                    icon = Icons.Rounded.Album,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_album_24),
                     isSelected = currentSort == SortOption.ALBUM,
                     onClick = { onSortSelected(SortOption.ALBUM) }
                 )
                 SortOptionCard(
                     text = stringResource(R.string.genre_sort_title_option),
-                    icon = Icons.Rounded.SortByAlpha,
+                    icon = ImageVector.vectorResource(R.drawable.rounded_filter_list_24),
                     isSelected = currentSort == SortOption.TITLE,
                     onClick = { onSortSelected(SortOption.TITLE) }
                 )
