@@ -20,8 +20,6 @@ import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
 import com.theveloper.pixelplay.data.preferences.ThemePreference
 import com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy
 import com.theveloper.pixelplay.data.repository.MusicRepository
-import com.theveloper.pixelplay.data.telegram.TelegramRepository
-import com.theveloper.pixelplay.data.telegram.TelegramStreamProxy
 import com.theveloper.pixelplay.presentation.viewmodel.ColorSchemeProcessor
 import com.theveloper.pixelplay.shared.WearDataPaths
 import com.theveloper.pixelplay.shared.WearThemePalette
@@ -60,8 +58,6 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
     private val colorSchemeProcessor: ColorSchemeProcessor,
     private val transferStateStore: PhoneWatchTransferStateStore,
     private val transferCancellationStore: PhoneWatchTransferCancellationStore,
-    private val telegramRepository: TelegramRepository,
-    private val telegramStreamProxy: Lazy<TelegramStreamProxy>,
     private val neteaseStreamProxy: NeteaseStreamProxy,
     private val qqMusicStreamProxy: QqMusicStreamProxy,
     private val navidromeStreamProxy: NavidromeStreamProxy,
@@ -283,7 +279,6 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
     private fun isSongTransferEligible(song: Song): Boolean {
         val contentUri = song.contentUriString
         if (
-            contentUri.startsWith("telegram://") ||
             contentUri.startsWith("netease://") ||
             contentUri.startsWith("gdrive://")
         ) {
@@ -393,7 +388,6 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
         val uri = runCatching { rawUri.toUri() }.getOrNull() ?: return null
         return when (uri.scheme?.lowercase()) {
             "http", "https" -> rawUri
-            "telegram" -> resolveTelegramStreamUrl(song, uri, rawUri)
             "netease" -> {
                 ensureCloudProxyReady(neteaseStreamProxy) || return null
                 neteaseStreamProxy.resolveNeteaseUri(rawUri)
@@ -421,31 +415,7 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
         }
     }
 
-    private suspend fun resolveTelegramStreamUrl(song: Song, uri: android.net.Uri, rawUri: String): String? {
-        if (!telegramRepository.isReady()) {
-            val ready = telegramRepository.awaitReady(10_000L)
-            if (!ready) {
-                Timber.tag(TAG).w("Telegram repository not ready for watch handoff")
-                return null
-            }
-        }
 
-        val resolved = telegramRepository.resolveTelegramUri(rawUri)
-        val fileId = resolved?.first
-            ?: song.telegramFileId
-            ?: uri.host?.toIntOrNull()
-            ?: uri.pathSegments.firstOrNull()?.toIntOrNull()
-            ?: return null
-        val knownSize = (resolved?.second ?: 0L).coerceAtLeast(0L)
-
-        val proxy = telegramStreamProxy.get()
-        val ready = proxy.ensureReady(5_000L)
-        if (!ready) {
-            Timber.tag(TAG).w("Telegram stream proxy not ready for watch handoff")
-            return null
-        }
-        return proxy.getProxyUrl(fileId, knownSize)
-    }
 
     private suspend fun ensureCloudProxyReady(proxy: Any): Boolean {
         return when (proxy) {

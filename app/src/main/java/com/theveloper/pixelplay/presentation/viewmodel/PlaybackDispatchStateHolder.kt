@@ -59,7 +59,6 @@ class PlaybackDispatchCallbacks(
     val sendToast: (String) -> Unit,
     val emitToast: suspend (String) -> Unit,
     val showNoInternetDialog: () -> Unit,
-    val ensureTelegramObservers: () -> Unit,
     val cancelTransitionScheduler: () -> Unit,
     val incrementSongScore: (Song) -> Unit,
     val resetPredictiveBackState: () -> Unit,
@@ -513,27 +512,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
             val validStartSong =
                 validSongs.firstOrNull { it.id == startSong.id } ?: validSongs.first()
 
-            // Offline check for the starting song if it is a Telegram song
-            if (validStartSong.contentUriString.startsWith("telegram:")) {
-                cb.ensureTelegramObservers()
-                val isOnline = connectivityStateHolder.isOnline.value
-                val fileId = validStartSong.telegramFileId
 
-                Timber.d("Offline Check: fileId=$fileId, contentUri=${validStartSong.contentUriString}, isOnline=$isOnline")
-
-                if (!isOnline) {
-                     if (fileId != null) {
-                         val isCached = musicRepository.telegramRepository.isFileCached(fileId)
-                         Timber.d("Offline Check: isCached=$isCached")
-                         throwIfDirectPlaybackRequestIsStale(requestToken)
-                         if (!isCached) {
-                             Timber.w("Blocked playback: Offline and not cached.")
-                             cb.showNoInternetDialog()
-                             return@launch
-                         }
-                     }
-                }
-            }
 
             // Offline check for extension (JIT stream) tracks.
             // Extension tracks always require a live network — there is no local cache fallback.
@@ -922,7 +901,6 @@ class PlaybackDispatchStateHolder @Inject constructor(
         val originalUri = mediaItem.localConfiguration?.uri ?: return mediaItem
         val scheme = originalUri.scheme
         if (
-            scheme != "telegram" &&
             scheme != "netease" &&
             scheme != "qqmusic" &&
             scheme != "navidrome" &&
@@ -931,10 +909,6 @@ class PlaybackDispatchStateHolder @Inject constructor(
             scheme != "extension"
         ) {
             return mediaItem
-        }
-
-        if (scheme == "telegram") {
-            cb.ensureTelegramObservers()
         }
 
         val resolvedMedia = dualPlayerEngine.resolveCloudUri(originalUri)

@@ -39,7 +39,6 @@ import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.os.Build
 import android.provider.MediaStore
-import com.theveloper.pixelplay.data.preferences.TelegramTopicDisplayMode
 import com.theveloper.pixelplay.data.ai.AiPlaylistGenerator
 import com.theveloper.pixelplay.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -55,7 +54,6 @@ import com.theveloper.pixelplay.FeatureFlags
 data class PlaylistUiState(
     val playlists: List<Playlist> = emptyList(),
     val showTelegramCloudPlaylists: Boolean = true,
-    val telegramTopicDisplayMode: TelegramTopicDisplayMode = TelegramTopicDisplayMode.CHANNELS_AND_TOPICS,
     val currentPlaylistSongs: List<Song> = emptyList(),
     val currentPlaylistDetails: Playlist? = null,
     val isLoading: Boolean = false,
@@ -127,7 +125,6 @@ class PlaylistViewModel @Inject constructor(
     init {
         loadPlaylistsAndInitialSortOption()
         observeTelegramCloudPlaylistVisibility()
-        observeTelegramTopicDisplayMode()
         observePlaylistOrderModes()
         viewModelScope.launch {
             val mixedSourceIdsFlow = localPlaylistDao.getMixedSourcePlaylistIds()
@@ -235,20 +232,7 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    private fun observeTelegramTopicDisplayMode() {
-        viewModelScope.launch {
-            playlistPreferencesRepository.telegramTopicDisplayModeFlow.collect { mode ->
-                _uiState.update { it.copy(telegramTopicDisplayMode = mode) }
-            }
-        }
-    }
 
-    fun setTelegramTopicDisplayMode(mode: TelegramTopicDisplayMode) {
-        _uiState.update { it.copy(telegramTopicDisplayMode = mode) }
-        viewModelScope.launch {
-            playlistPreferencesRepository.setTelegramTopicDisplayMode(mode)
-        }
-    }
 
     fun getPlaylistsForExtension(extensionId: String): kotlinx.coroutines.flow.Flow<List<Playlist>> {
         return playlistPreferencesRepository.getPlaylistsForExtension(extensionId)

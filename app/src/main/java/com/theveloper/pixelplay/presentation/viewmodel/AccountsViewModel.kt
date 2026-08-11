@@ -10,7 +10,6 @@ import com.theveloper.pixelplay.data.qqmusic.QqMusicRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.repository.ExtensionRepository
 import dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity.Companion.toCurrentUser
-import com.theveloper.pixelplay.data.telegram.TelegramRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,10 +21,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.drinkless.tdlib.TdApi
 
 enum class ExternalServiceAccount {
-    TELEGRAM,
     GOOGLE_DRIVE,
     NETEASE,
     QQ_MUSIC,
@@ -50,7 +47,6 @@ data class AccountsUiState(
 
 @HiltViewModel
 class AccountsViewModel @Inject constructor(
-    private val telegramRepository: TelegramRepository,
     private val musicRepository: MusicRepository,
     private val gDriveRepository: GDriveRepository,
     private val neteaseRepository: NeteaseRepository,
@@ -63,14 +59,7 @@ class AccountsViewModel @Inject constructor(
     private val loggingOutServices = MutableStateFlow<Set<ExternalServiceAccount>>(emptySet())
     private val loggingOutExtensions = MutableStateFlow<Set<String>>(emptySet())
 
-    private val telegramStateFlow = combine(
-        telegramRepository.authorizationState
-            .map { it is TdApi.AuthorizationStateReady }
-            .distinctUntilChanged(),
-        musicRepository.getAllTelegramChannels().map { it.size }
-    ) { connected, channelCount ->
-        connected to channelCount
-    }
+    private val telegramStateFlow = kotlinx.coroutines.flow.flowOf(false to 0)
 
     private val gDriveStateFlow = combine(
         gDriveRepository.isLoggedInFlow,
@@ -130,21 +119,7 @@ class AccountsViewModel @Inject constructor(
         val (jellyfinConnected, jellyfinPlaylistCount) = states[5] as Pair<Boolean, Int>
 
         val connectedAccounts = buildList {
-            if (telegramConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.TELEGRAM,
-                        title = "Telegram",
-                        accountLabel = "Active Telegram session",
-                        syncedContentLabel = formatCount(
-                            count = telegramChannelCount,
-                            singular = "synced channel",
-                            plural = "synced channels"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.TELEGRAM in activeLogouts
-                    )
-                )
-            }
+
             if (gDriveConnected) {
                 add(
                     ExternalAccountUiModel(
@@ -257,7 +232,6 @@ class AccountsViewModel @Inject constructor(
         }
 
         val disconnectedServices = buildList {
-            if (!telegramConnected) add(ExternalServiceAccount.TELEGRAM)
             if (!gDriveConnected) add(ExternalServiceAccount.GOOGLE_DRIVE)
             if (!neteaseConnected) add(ExternalServiceAccount.NETEASE)
             if (!qqConnected) add(ExternalServiceAccount.QQ_MUSIC)
@@ -279,11 +253,6 @@ class AccountsViewModel @Inject constructor(
             try {
                 runCatching {
                     when (service) {
-                        ExternalServiceAccount.TELEGRAM -> {
-                            telegramRepository.logout()
-                            telegramRepository.clearMemoryCache()
-                            musicRepository.clearTelegramData()
-                        }
                         ExternalServiceAccount.GOOGLE_DRIVE -> gDriveRepository.logout()
                         ExternalServiceAccount.NETEASE -> neteaseRepository.logout()
                         ExternalServiceAccount.QQ_MUSIC -> qqMusicRepository.logout()

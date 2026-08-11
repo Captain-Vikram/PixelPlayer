@@ -1,0 +1,171 @@
+name: 🚀 Build & Publish Release APK
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0-fork). Leave blank to auto-generate.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # needed to create releases and upload assets
+
+concurrency:
+  group: release-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      # ─── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history needed for changelog extraction
+
+      # ─── 2. Java / Gradle Setup ───────────────────────────────────────────────
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # ─── 3. Keystore ──────────────────────────────────────────────────────────
+      - name: Cache keystore
+        id: cache-keystore
+        uses: actions/cache@v4
+        with:
+          path: vz-pixelplay.jks
+          key: ${{ runner.os }}-fork-release-keystore-v1
+
+      - name: Generate keystore if not cached
+        if: steps.cache-keystore.outputs.cache-hit != 'true'
+        run: |
+          keytool -genkey -v -keystore vz-pixelplay.jks \
+            -alias pixelplay-fork-key \
+            -keyalg RSA -keysize 4096 -validity 10000 \
+            -storepass 994273 -keypass 994273 \
+            -dname "CN=PixelPlayer Fork, OU=CaptainVikram, O=PixelPlayer, L=World, S=World, C=IN"
+
+      - name: Write keystore.properties
+        run: |
+          echo "storePassword=994273"   > keystore.properties
+          echo "keyAlias=pixelplay-fork-key" >> keystore.properties
+          echo "keyPassword=994273"    >> keystore.properties
+
+      # ─── 4. Build ─────────────────────────────────────────────────────────────
+      - name: Build release APKs (ABI splits)
+        run: ./gradlew :app:assembleRelease -Ppixelplay.enableAbiSplits=true --no-daemon
+
+      # ─── 5. Verify APKs ───────────────────────────────────────────────────────
+      - name: Verify APKs
+        run: |
+          BUILD_TOOLS_VERSION="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          for apk in \
+            app/build/outputs/apk/release/app-arm64-v8a-release.apk \
+            app/build/outputs/apk/release/app-armeabi-v7a-release.apk
+          do
+            echo "Verifying $apk ..."
+            "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt2" dump badging "$apk" > /dev/null
+            "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$apk"
+          done
+
+      # ─── 6. Rename APKs with short SHA ────────────────────────────────────────
+      - name: Rename APKs
+        id: rename
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+          ARM64_SRC="app/build/outputs/apk/release/app-arm64-v8a-release.apk"
+          ARM32_SRC="app/build/outputs/apk/release/app-armeabi-v7a-release.apk"
+          ARM64_DST="PixelPlayer-fork-arm64-${SHORT_SHA}.apk"
+          ARM32_DST="PixelPlayer-fork-arm32-${SHORT_SHA}.apk"
+
+          cp "$ARM64_SRC" "$ARM64_DST"
+          cp "$ARM32_SRC" "$ARM32_DST"
+
+          echo "arm64_apk=$ARM64_DST" >> "$GITHUB_OUTPUT"
+          echo "arm32_apk=$ARM32_DST" >> "$GITHUB_OUTPUT"
+
+      # ─── 7. Determine release tag ─────────────────────────────────────────────
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            # Auto-tag: fork-YYYYMMDD-<short-sha>
+            DATE="$(date -u +%Y%m%d)"
+            TAG="fork-${DATE}-${{ steps.rename.outputs.short_sha }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Using release tag: $TAG"
+
+      # ─── 8. Extract latest CHANGELOG section ──────────────────────────────────
+      - name: Extract latest changelog entry
+        id: changelog
+        run: |
+          # Grab everything between the first and second "## [" headers
+          NOTES=$(awk '/^## \[/{if(found) exit; found=1; next} found{print}' CHANGELOG.md | head -60)
+          if [ -z "$NOTES" ]; then
+            NOTES="See CHANGELOG.md for full release notes."
+          fi
+
+          # Write to a file to avoid shell escaping issues
+          {
+            echo "## 📦 Download"
+            echo ""
+            echo "| APK | Architecture | Who should use this? |"
+            echo "|-----|-------------|----------------------|"
+            echo "| \`PixelPlayer-fork-arm64-${{ steps.rename.outputs.short_sha }}.apk\` | arm64-v8a | **Most phones (2017+)** — use this |"
+            echo "| \`PixelPlayer-fork-arm32-${{ steps.rename.outputs.short_sha }}.apk\` | armeabi-v7a | Older 32-bit phones |"
+            echo ""
+            echo "> ⚠️ These APKs are signed with a fork-specific key. Do not mix-install with the official PixelPlayer release."
+            echo ""
+            echo "---"
+            echo ""
+            echo "## 🗒️ Latest Changes"
+            echo ""
+            echo "$NOTES"
+            echo ""
+            echo "---"
+            echo ""
+            echo "_Built from commit \`${{ steps.rename.outputs.short_sha }}\` · Fork by [Captain-Vikram](https://github.com/Captain-Vikram/PixelPlayer)_"
+          } > release_notes.md
+
+      # ─── 9. Create GitHub Release & Upload APKs ───────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "PixelPlayer Fork — ${{ steps.tag.outputs.tag }}"
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          files: |
+            ${{ steps.rename.outputs.arm64_apk }}
+            ${{ steps.rename.outputs.arm32_apk }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ─── 10. Upload as Actions artifact too (backup / PRs) ────────────────────
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PixelPlayer-fork-apks-${{ steps.rename.outputs.short_sha }}
+          path: |
+            ${{ steps.rename.outputs.arm64_apk }}
+            ${{ steps.rename.outputs.arm32_apk }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30

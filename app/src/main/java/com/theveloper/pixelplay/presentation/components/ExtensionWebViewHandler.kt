@@ -380,10 +380,30 @@ private fun <T> triggerStop(
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.flush()
                 var cookies = cookieManager.getCookie(url) ?: ""
-                if (url.contains("spotify") && !cookies.contains("sp_dc")) {
-                    val fallbackCookies = cookieManager.getCookie("https://open.spotify.com")
-                    if (!fallbackCookies.isNullOrBlank()) {
-                        cookies = if (cookies.isBlank()) fallbackCookies else "$cookies; $fallbackCookies"
+                if (url.contains("spotify")) {
+                    val merged = mutableMapOf<String, String>()
+                    val domains = listOf(
+                        "https://open.spotify.com",
+                        "https://accounts.spotify.com",
+                        "https://spotify.com",
+                        "https://.spotify.com",
+                        url
+                    )
+                    for (d in domains) {
+                        val cStr = cookieManager.getCookie(d) ?: continue
+                        cStr.split(";").forEach { pair ->
+                            val parts = pair.split("=", limit = 2)
+                            if (parts.size == 2) {
+                                val key = parts[0].trim()
+                                val value = parts[1].trim()
+                                if (key.isNotEmpty() && value.isNotEmpty()) {
+                                    merged[key] = value
+                                }
+                            }
+                        }
+                    }
+                    if (merged.isNotEmpty()) {
+                        cookies = merged.map { "${it.key}=${it.value}" }.joinToString("; ")
                     }
                 }
                 cookieRes = req.onStop(

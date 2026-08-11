@@ -50,10 +50,6 @@ class PlaylistPreferencesRepository @Inject constructor(
     val playlistsSortOptionFlow: Flow<String> = userPreferencesRepository.playlistsSortOptionFlow
     val showTelegramCloudPlaylistsFlow: Flow<Boolean> =
         userPreferencesRepository.showTelegramCloudPlaylistsFlow
-    val telegramTopicDisplayModeFlow: Flow<TelegramTopicDisplayMode> =
-        userPreferencesRepository.telegramTopicDisplayModeFlow
-    suspend fun setTelegramTopicDisplayMode(mode: TelegramTopicDisplayMode) =
-        userPreferencesRepository.setTelegramTopicDisplayMode(mode)
 
     suspend fun createPlaylist(
         name: String,

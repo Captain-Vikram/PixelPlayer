@@ -83,7 +83,6 @@ import com.theveloper.pixelplay.presentation.netease.auth.NeteaseLoginActivity
 import com.theveloper.pixelplay.presentation.jellyfin.auth.JellyfinLoginActivity
 import com.theveloper.pixelplay.presentation.navidrome.auth.NavidromeLoginActivity
 import com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity
-import com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity
 import com.theveloper.pixelplay.presentation.viewmodel.AccountsViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.ExternalAccountUiModel
 import com.theveloper.pixelplay.presentation.viewmodel.ExternalServiceAccount
@@ -229,8 +228,6 @@ fun AccountsScreen(
                             painterResource(R.drawable.netease_cloud_music_logo_icon_206716__1_)
                         } else if (account.service == ExternalServiceAccount.QQ_MUSIC) {
                             painterResource(R.drawable.qq_music)
-                        } else if (account.service == ExternalServiceAccount.TELEGRAM) {
-                            painterResource(R.drawable.telegram)
                         } else if (account.service == ExternalServiceAccount.JELLYFIN) {
                             painterResource(R.drawable.ic_jellyfin)
                         } else if (account.service == ExternalServiceAccount.NAVIDROME) {
@@ -580,7 +577,6 @@ private fun EmptyAccountsCard(
                 val painter = when (service) {
                     ExternalServiceAccount.NETEASE -> painterResource(R.drawable.netease_cloud_music_logo_icon_206716__1_)
                     ExternalServiceAccount.QQ_MUSIC -> painterResource(R.drawable.qq_music)
-                    ExternalServiceAccount.TELEGRAM -> painterResource(R.drawable.telegram)
                     ExternalServiceAccount.GOOGLE_DRIVE -> painterResource(R.drawable.rounded_drive_export_24)
                     ExternalServiceAccount.JELLYFIN -> painterResource(R.drawable.ic_jellyfin)
                     ExternalServiceAccount.NAVIDROME -> painterResource(R.drawable.ic_navidrome_md3)
@@ -638,14 +634,6 @@ private fun servicePalette(service: ExternalServiceAccount?): ServicePalette {
         )
     }
     return when (service) {
-        ExternalServiceAccount.TELEGRAM -> ServicePalette(
-            iconContainer = MaterialTheme.colorScheme.primaryContainer,
-            iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
-            statusContainer = Color(0xFFC9F8E6),
-            statusTint = Color(0xFF035C43),
-            primaryActionContainer = MaterialTheme.colorScheme.primaryContainer,
-            primaryActionTint = MaterialTheme.colorScheme.onPrimaryContainer
-        )
         ExternalServiceAccount.GOOGLE_DRIVE -> ServicePalette(
             iconContainer = MaterialTheme.colorScheme.secondaryContainer,
             iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -692,7 +680,6 @@ private fun servicePalette(service: ExternalServiceAccount?): ServicePalette {
 private fun accountIcon(service: ExternalServiceAccount?): ImageVector {
     if (service == null) return Icons.Rounded.MusicNote
     return when (service) {
-        ExternalServiceAccount.TELEGRAM -> Icons.AutoMirrored.Rounded.Send
         ExternalServiceAccount.GOOGLE_DRIVE -> Icons.Rounded.CloudQueue
         ExternalServiceAccount.NETEASE -> Icons.Rounded.MusicNote
         ExternalServiceAccount.QQ_MUSIC -> Icons.Rounded.MusicNote
@@ -754,7 +741,6 @@ private fun ServiceIcon(service: ExternalServiceAccount?, tint: Color, modifier:
 @Composable
 private fun serviceDisplayName(service: ExternalServiceAccount): String {
     return when (service) {
-        ExternalServiceAccount.TELEGRAM -> stringResource(R.string.auth_telegram_title)
         ExternalServiceAccount.GOOGLE_DRIVE -> stringResource(R.string.auth_gdrive_title)
         ExternalServiceAccount.NETEASE -> stringResource(R.string.auth_netease_title)
         ExternalServiceAccount.QQ_MUSIC -> stringResource(R.string.auth_qq_title)
@@ -773,12 +759,6 @@ private fun openService(
     preferNeteaseDashboard: Boolean
 ) {
     when (service) {
-        ExternalServiceAccount.TELEGRAM -> {
-            safeStartActivity(
-                context = context,
-                intent = Intent(context, TelegramLoginActivity::class.java)
-            )
-        }
         ExternalServiceAccount.GOOGLE_DRIVE -> {
             Toast.makeText(context, context.getString(R.string.accounts_google_drive_soon), Toast.LENGTH_SHORT).show()
         }

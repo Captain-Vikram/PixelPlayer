@@ -31,8 +31,8 @@
 # Rules for JAudioTagger (fallback metadata reader)
 -dontwarn org.jaudiotagger.**
 
-# [NUEVO] Regla general para mantener metadatos de Kotlin, puede ayudar a R8
--keep class kotlin.Metadata { *; }
+# Suppress warnings when R8 cannot parse newer Kotlin metadata formats
+-dontwarn kotlin.Metadata
 
 # ExoPlayer FFmpeg extension
 -keep class androidx.media3.decoder.ffmpeg.** { *; }
@@ -153,38 +153,27 @@
 -dontwarn dev.brahmkshatriya.echo.**
 
 
-# TDLib (Telegram Database Library) rules
-# The native libtdjni.so is loaded dynamically at runtime (not bundled in the APK).
-# We must keep the Java API classes so TelegramClientManager can call them via reflection.
--keep class org.drinkless.tdlib.** { *; }
--keep interface org.drinkless.tdlib.** { *; }
-
 # ─── Modularization Interface Contracts (Section 3 of Modularization Blueprint) ───────────────
 # CRITICAL: These rules prevent R8 from obfuscating or stripping the interfaces and
 # contracts that DexClassLoader-loaded modules depend on at runtime. Without these,
 # dynamic modules will crash with ClassNotFoundException or NoSuchMethodError.
 
-# 1. Disable renaming of class/member signatures to prevent ClassNotFound/NoSuchMethod
-#    exceptions when dynamic plugins try to call into host app interfaces.
--dontobfuscate
-
-# 2. Keep the StreamProxy interface so all proxy implementations (current and future
+# 1. Keep the StreamProxy interface so all proxy implementations (current and future
 #    dynamically-loaded ones) can be cast to it from the host app.
--keep,allowoptimization interface com.theveloper.pixelplay.data.stream.StreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.stream.CloudStreamProxy { *; }
+-keep interface com.theveloper.pixelplay.data.stream.StreamProxy { *; }
+-keep class com.theveloper.pixelplay.data.stream.CloudStreamProxy { *; }
 
-# 3. Keep all concrete proxy implementations (referenced by DualPlayerEngine via injection)
--keep,allowoptimization class com.theveloper.pixelplay.data.telegram.TelegramStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.netease.NeteaseStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy { *; }
--keep,allowoptimization class com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy { *; }
+# 2. Keep all concrete proxy implementations (referenced by DualPlayerEngine via injection)
+-keep class com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy { *; }
+-keep class com.theveloper.pixelplay.data.netease.NeteaseStreamProxy { *; }
+-keep class com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy { *; }
+-keep class com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy { *; }
+-keep class com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy { *; }
 
-# 4. Keep shared data model classes so dynamic modules can serialize/deserialize them
--keep,allowoptimization class com.theveloper.pixelplay.data.model.** { *; }
+# 3. Keep shared data model classes so dynamic modules can serialize/deserialize them
+-keep class com.theveloper.pixelplay.data.model.** { *; }
 
-# 5. Allow optimizing Kotlin & Coroutines without renaming (required for dynamic modules
+# 4. Allow optimizing Kotlin & Coroutines without renaming (required for dynamic modules
 #    that share the same coroutine dispatcher and continuation types)
 -keep,allowoptimization class kotlin.** { public protected *; }
 -keep,allowoptimization class kotlinx.coroutines.** { public protected *; }
@@ -281,3 +270,11 @@
 -dontwarn java.util.concurrent.ForkJoinWorkerThread**
 -dontwarn jdk.internal.misc.**
 -dontwarn sun.nio.fs.**
+
+# Keep login activities from obfuscation
+-keep class com.theveloper.pixelplay.presentation.navidrome.auth.NavidromeLoginActivity { *; }
+-keep class com.theveloper.pixelplay.presentation.netease.auth.NeteaseLoginActivity { *; }
+-keep class com.theveloper.pixelplay.presentation.gdrive.auth.GDriveLoginActivity { *; }
+-keep class com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity { *; }
+-keep class com.theveloper.pixelplay.presentation.jellyfin.auth.JellyfinLoginActivity { *; }
+

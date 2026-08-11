@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import com.theveloper.pixelplay.data.database.EngagementDao
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.theveloper.pixelplay.data.model.ExtensionCapabilities
@@ -123,6 +124,10 @@ class ExtensionRepository @Inject constructor(
 
     private val homeFeedShelvesCache = mutableMapOf<String, List<Shelf>>()
     private val libraryFeedShelvesCache = mutableMapOf<String, List<Shelf>>()
+
+    // Consecutive confirmed HTTP-401/403 auth failures per extension.
+    // Reset to 0 on any successful feed load. Never auto-logout — only warn.
+    private val feedAuthFailureCount = ConcurrentHashMap<String, Int>()
 
     private val _messages = MutableSharedFlow<dev.brahmkshatriya.echo.common.models.Message>()
     val messages = _messages.asSharedFlow()
@@ -409,6 +414,7 @@ class ExtensionRepository @Inject constructor(
 
     private fun syncLoginSessionWhenReady(
         extension: Extension<*>,
+        @Suppress("UNUSED_PARAMETER")
         currentUsers: List<dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser>
     ) {
         repositoryScope.launch {
@@ -417,7 +423,10 @@ class ExtensionRepository @Inject constructor(
                 val instance = extension.instance.value().getOrNull()
                 if (instance != null) {
                     if (instance is LoginClient) {
-                        syncLoginSession(extension, currentUsers)
+                        // Re-read the current users fresh from the DAO at this moment
+                        // to avoid using a stale snapshot captured before login completed.
+                        val freshUsers = extensionEngine.extensionUserDao.getCurrentUsers()
+                        syncLoginSession(extension, freshUsers)
                     }
                     break
                 }
@@ -506,24 +515,29 @@ class ExtensionRepository @Inject constructor(
                     _shelves.value = sortedShelves
                     homeFeedShelvesCache[cacheKey] = loadedShelves
                     extractSongsFromShelves(sortedShelves, extensionId)
+                    feedAuthFailureCount[extensionId] = 0 // Reset on success
                 } catch (e: Exception) {
                     e.printStackTrace()
                     val msg = e.message ?: ""
-                    val isAuthError = msg.contains("auth", ignoreCase = true) || 
-                            msg.contains("login", ignoreCase = true) || 
-                            msg.contains("401") || 
-                            msg.contains("unauthorized", ignoreCase = true) ||
-                            msg.contains("credentials", ignoreCase = true)
+                    // Only hard HTTP 401/403 responses are a confirmed auth failure.
+                    // NullPointerExceptions from GraphQL null payloads are TRANSIENT
+                    // (Spotify sometimes returns null on flaky connections) and must
+                    // NEVER trigger a session wipe.
+                    val isHardAuthError = msg.contains("401") ||
+                            msg.contains("403") ||
+                            (msg.contains("unauthorized", ignoreCase = true) && !e.message.isNullOrBlank())
 
-                    if (isAuthError) {
-                        _homeFeed.value = null
-                        _shelves.value = emptyList()
-                        _yourMixSongsFromExtension.value = emptyList()
-                        _dailyMixSongsFromExtension.value = emptyList()
-                        homeFeedContinuationToken = null
-                    }
-                    
-                    if (!isAuthError) {
+                    if (isHardAuthError) {
+                        val failures = feedAuthFailureCount.merge(extensionId, 1, Int::plus) ?: 1
+                        Timber.w("ExtensionRepository: Auth failure #$failures for $extensionId")
+                        if (failures >= 3) {
+                            // After 3 consecutive hard auth errors notify the user,
+                            // but do NOT auto-logout — user session data is preserved.
+                            _errors.emit("Spotify session may have expired. If issues persist, please log out and log in again.")
+                            feedAuthFailureCount[extensionId] = 0 // reset counter after warning
+                        }
+                    } else {
+                        // Any other error (network, NPE, parse) — just log, don't touch session
                         _errors.emit("Failed to load home feed: ${e.message}")
                     }
                 } finally {
@@ -869,19 +883,24 @@ class ExtensionRepository @Inject constructor(
 
                     _libraryShelves.value = loadedShelves
                     libraryFeedShelvesCache[extensionId] = loadedShelves
+                    feedAuthFailureCount[extensionId] = 0 // Reset on success
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    _errors.emit("Failed to load library: ${e.message}")
                     val msg = e.message ?: ""
-                    val isAuthError = msg.contains("auth", ignoreCase = true) ||
-                            msg.contains("login", ignoreCase = true) ||
-                            msg.contains("401") ||
-                            msg.contains("unauthorized", ignoreCase = true) ||
-                            msg.contains("credentials", ignoreCase = true)
+                    // Same policy as home feed: only hard 401/403 counts as auth failure.
+                    val isHardAuthError = msg.contains("401") ||
+                            msg.contains("403") ||
+                            (msg.contains("unauthorized", ignoreCase = true) && !e.message.isNullOrBlank())
 
-                    if (isAuthError) {
-                        _libraryFeed.value = null
-                        _libraryShelves.value = emptyList()
+                    if (isHardAuthError) {
+                        val failures = feedAuthFailureCount.merge(extensionId, 1, Int::plus) ?: 1
+                        Timber.w("ExtensionRepository: Library auth failure #$failures for $extensionId")
+                        if (failures >= 3) {
+                            _errors.emit("Spotify session may have expired. If issues persist, please log out and log in again.")
+                            feedAuthFailureCount[extensionId] = 0
+                        }
+                    } else {
+                        _errors.emit("Failed to load library: ${e.message}")
                     }
                 } finally {
                     _isLoadingLibraryFeed.value = false
