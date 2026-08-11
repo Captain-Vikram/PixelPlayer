@@ -362,7 +362,6 @@ dependencies {
     implementation(libs.googleid)
     implementation(libs.androidx.security.crypto)
     implementation(libs.google.play.services.cast.framework)
-    implementation(libs.tdlib)
 
     // UI Utilities & Extra
     implementation(libs.timber)

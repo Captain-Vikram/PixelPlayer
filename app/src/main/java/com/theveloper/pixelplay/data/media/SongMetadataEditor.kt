@@ -16,8 +16,6 @@ import com.kyant.taglib.TagLib
 import com.theveloper.pixelplay.data.database.ArtistEntity
 import com.theveloper.pixelplay.data.database.MusicDao
 import com.theveloper.pixelplay.data.database.SongArtistCrossRef
-import com.theveloper.pixelplay.data.database.TelegramDao // Added
-import com.theveloper.pixelplay.data.database.TelegramSongEntity // Added
 import com.theveloper.pixelplay.data.database.serializeArtistRefs
 import com.theveloper.pixelplay.data.model.ArtistRef
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
@@ -86,7 +84,6 @@ private sealed interface ReplayGainUpdate {
 class SongMetadataEditor(
     private val context: Context,
     private val musicDao: MusicDao,
-    private val telegramDao: TelegramDao, // Added
     private val userPreferencesRepository: UserPreferencesRepository
 ) {
 
@@ -492,19 +489,7 @@ class SongMetadataEditor(
             }
 
             if (isTelegramSong) {
-                val songEntity = musicDao.getSongById(songId).first()
-                if (songEntity?.telegramChatId != null && songEntity.telegramFileId != null) {
-                    val telegramId = "${songEntity.telegramChatId}_${songEntity.telegramFileId}"
-                    val telegramSong = telegramDao.getSongsByIds(listOf(telegramId)).first().firstOrNull()
-                    if (telegramSong != null) {
-                        val updatedTelegramSong = telegramSong.copy(
-                            title = newTitle,
-                            artist = newArtist,
-                        )
-                        telegramDao.insertSongs(listOf(updatedTelegramSong))
-                        Timber.d("Updated TelegramDao for song: $telegramId")
-                    }
-                }
+                // Telegram features are removed, no local Telegram DB updates needed.
             } else {
                 val mediaStoreSuccess = updateMediaStoreMetadata(
                     songId = songId,

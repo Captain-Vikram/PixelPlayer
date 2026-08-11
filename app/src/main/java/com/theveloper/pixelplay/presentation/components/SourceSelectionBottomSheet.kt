@@ -35,7 +35,6 @@ import androidx.compose.material.icons.rounded.Storage
 import com.theveloper.pixelplay.data.model.ExtensionCapabilities
 import com.theveloper.pixelplay.presentation.netease.auth.NeteaseLoginActivity
 import com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity
-import com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import dev.brahmkshatriya.echo.common.MusicExtension
 import dev.brahmkshatriya.echo.common.Extension
@@ -233,18 +232,7 @@ fun SourceSelectionBottomSheet(
                 }
 
                 // Cloud Providers
-                item {
-                    SourceRow(
-                        title = "Telegram",
-                        subtitle = "Cloud Storage & Chats",
-                        iconPainter = painterResource(R.drawable.telegram),
-                        iconTint = Color(0xFF2AABEE),
-                        onClick = { 
-                            context.startActivity(Intent(context, TelegramLoginActivity::class.java))
-                        },
-                        shape = itemShape
-                    )
-                }
+
 
                 item {
                     SourceRow(

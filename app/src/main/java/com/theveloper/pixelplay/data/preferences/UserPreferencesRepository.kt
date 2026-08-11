@@ -107,7 +107,6 @@ class UserPreferencesRepository @Inject constructor(
         val IS_FOLDERS_PLAYLIST_VIEW = booleanPreferencesKey("is_folders_playlist_view")
         val SHOW_TELEGRAM_CLOUD_PLAYLISTS = booleanPreferencesKey("show_telegram_cloud_playlists")
         val HIDE_LOCAL_MEDIA = booleanPreferencesKey("hide_local_media")
-        val TELEGRAM_TOPIC_DISPLAY_MODE = stringPreferencesKey("telegram_topic_display_mode")
         val FOLDERS_SOURCE = stringPreferencesKey("folders_source")
         val FOLDER_BACK_GESTURE_NAVIGATION = booleanPreferencesKey("folder_back_gesture_navigation")
         val USE_SMOOTH_CORNERS = booleanPreferencesKey("use_smooth_corners")
@@ -926,12 +925,7 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.edit { it[PreferencesKeys.HIDE_LOCAL_MEDIA] = hide }
     }
 
-    val telegramTopicDisplayModeFlow: Flow<TelegramTopicDisplayMode> =
-        pref { TelegramTopicDisplayMode.fromStorageKey(it[PreferencesKeys.TELEGRAM_TOPIC_DISPLAY_MODE]) }
 
-    suspend fun setTelegramTopicDisplayMode(mode: TelegramTopicDisplayMode) {
-        dataStore.edit { it[PreferencesKeys.TELEGRAM_TOPIC_DISPLAY_MODE] = mode.storageKey }
-    }
 
     val foldersSourceFlow: Flow<FolderSource> =
         pref { FolderSource.fromStorageKey(it[PreferencesKeys.FOLDERS_SOURCE]) }

@@ -27,6 +27,12 @@ interface UserDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun setCurrentUser(currentUser: CurrentUser)
 
+    @Query("SELECT * FROM CurrentUser WHERE type = :type AND extId = :extId")
+    suspend fun getCurrentUser(type: ExtensionType, extId: String): CurrentUser?
+
+    @Query("SELECT * FROM CurrentUser")
+    suspend fun getCurrentUsers(): List<CurrentUser>
+
     @Query("DELETE FROM CurrentUser WHERE type = :type AND extId = :extId")
     suspend fun deleteCurrentUser(type: ExtensionType, extId: String)
 

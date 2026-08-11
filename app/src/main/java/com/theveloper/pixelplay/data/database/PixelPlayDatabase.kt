@@ -15,8 +15,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ArtistEntity::class,
         TransitionRuleEntity::class,
         SongArtistCrossRef::class,
-        TelegramSongEntity::class,
-        TelegramChannelEntity::class,
         SongEngagementEntity::class,
         FavoritesEntity::class,
         LyricsEntity::class,
@@ -30,7 +28,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         QqMusicPlaylistEntity::class,
         NavidromeSongEntity::class,
         NavidromePlaylistEntity::class,
-        TelegramTopicEntity::class,
         JellyfinSongEntity::class,
         JellyfinPlaylistEntity::class,
         AiCacheEntity::class,
@@ -41,7 +38,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity::class,
         dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser::class
     ],
-    version = 47,
+    version = 48,
     exportSchema = true
 )
 @androidx.room.TypeConverters(PixelPlayDatabase.ExtensionTypeConverters::class)
@@ -50,7 +47,6 @@ abstract class PixelPlayDatabase : RoomDatabase() {
     abstract fun searchHistoryDao(): SearchHistoryDao
     abstract fun musicDao(): MusicDao
     abstract fun transitionDao(): TransitionDao
-    abstract fun telegramDao(): TelegramDao
     abstract fun engagementDao(): EngagementDao
     abstract fun favoritesDao(): FavoritesDao
     abstract fun lyricsDao(): LyricsDao
@@ -1631,6 +1627,14 @@ abstract class PixelPlayDatabase : RoomDatabase() {
                 """.trimIndent())
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_extension_track_cache_extension_id` ON `extension_track_cache` (`extension_id`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_extension_track_cache_cached_at` ON `extension_track_cache` (`cached_at`)")
+            }
+        }
+
+        val MIGRATION_47_48 = object : Migration(47, 48) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS telegram_channels")
+                db.execSQL("DROP TABLE IF EXISTS telegram_songs")
+                db.execSQL("DROP TABLE IF EXISTS telegram_topics")
             }
         }
 

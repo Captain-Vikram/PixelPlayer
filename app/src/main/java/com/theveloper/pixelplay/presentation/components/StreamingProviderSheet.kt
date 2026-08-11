@@ -29,7 +29,6 @@ import com.theveloper.pixelplay.presentation.jellyfin.auth.JellyfinLoginActivity
 import com.theveloper.pixelplay.presentation.navidrome.auth.NavidromeLoginActivity
 import com.theveloper.pixelplay.presentation.netease.auth.NeteaseLoginActivity
 import com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity
-import com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 
 import androidx.compose.foundation.rememberScrollState
@@ -154,17 +153,7 @@ fun StreamingProviderSheet(
                         )
                     }
 
-                    ProviderRow(
-                        iconPainter = painterResource(R.drawable.telegram),
-                        iconTint = Color(0xFF2AABEE),
-                        title = "Telegram",
-                        subtitle = "Stream from channels & chats",
-                        shape = providerSegmentItemShape,
-                        onClick = {
-                            context.startActivity(Intent(context, TelegramLoginActivity::class.java))
-                            onDismissRequest()
-                        }
-                    )
+
 
                     ProviderRow(
                         iconPainter = painterResource(R.drawable.rounded_drive_export_24),
