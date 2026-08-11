@@ -38,6 +38,10 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # AGP 8.13.2 is incompatible with Gradle 9.6+; wrapper pins 9.5.1.
+          # Prevent setup-gradle from auto-upgrading beyond the wrapper version.
+          gradle-version: wrapper
 
       # ─── Android SDK 37 ───────────────────────────────────────────────────────
       # ubuntu-latest ships with SDK ≤35/36; SDK 37 must be installed explicitly.
@@ -74,7 +78,7 @@ jobs:
       - name: Build release APKs (ABI splits)
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:assembleRelease -Ppixelplay.enableAbiSplits=true --no-daemon
+          ./gradlew :app:assembleRelease -Ppixelplay.enableAbiSplits=true
 
       # ─── 5. Verify APKs ───────────────────────────────────────────────────────
       - name: Verify APKs
