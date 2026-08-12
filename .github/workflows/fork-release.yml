@@ -220,3 +220,17 @@ jobs:
           name: build-log-${{ github.sha }}
           path: build.log
 
+      # ─── 15. Print Build Log to Annotations ───────────────────────────────────
+      - name: Print Build Log to Annotations
+        if: always()
+        run: |
+          echo "=== BUILD LOG CONTENT ==="
+          cat build.log || true
+          
+          # Create check-run annotations with the build log head and tail
+          LOG_HEAD=$(head -n 25 build.log | tr '\n' ' ' | tr '"' "'")
+          LOG_TAIL=$(tail -n 45 build.log | tr '\n' ' ' | tr '"' "'")
+          echo "::warning file=.github,line=10::LOG HEAD: $LOG_HEAD"
+          echo "::error file=.github,line=90::LOG TAIL: $LOG_TAIL"
+
+
