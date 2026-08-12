@@ -90,8 +90,8 @@ jobs:
       - name: Build release APKs (ABI splits)
         run: |
           ./gradlew :app:assembleRelease -Ppixelplay.enableAbiSplits=true \
-            -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m -XX:+UseG1GC" \
-            -Pkotlin.daemon.jvmargs="-Xmx1536m" \
+            -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=768m -XX:+UseG1GC" \
+            -Pkotlin.compiler.execution.strategy=in-process \
             --max-workers=2 \
             --no-configuration-cache \
             --stacktrace 2>&1 | tee build.log
