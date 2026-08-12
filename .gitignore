@@ -43,7 +43,7 @@ CLAUDE.md
 markdown.xml
 .vscode/
 .agents/
-echo*/
+/echo*/
 
 # Node/tooling dependencies and local env files
 **/node_modules/
