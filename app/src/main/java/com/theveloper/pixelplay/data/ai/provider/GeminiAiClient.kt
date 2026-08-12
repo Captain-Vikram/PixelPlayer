@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 class GeminiAiClient(private val apiKey: String) : AiClient {
 
     companion object {
-        private const val DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
+        private const val DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
         private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
 
@@ -37,6 +37,7 @@ class GeminiAiClient(private val apiKey: String) : AiClient {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
+        explicitNulls = false
     }
 
     @Serializable
@@ -274,6 +275,10 @@ class GeminiAiClient(private val apiKey: String) : AiClient {
 
     private fun getDefaultModels(): List<String> {
         return listOf(
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-2.0-flash",
+            "gemini-2.5-flash",
             "gemini-3.1-flash-lite",
             "gemini-3.5-flash",
             "gemini-3.1-pro-preview",

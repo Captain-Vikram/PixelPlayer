@@ -6,7 +6,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import com.google.common.truth.Truth.assertThat
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
-import com.theveloper.pixelplay.data.telegram.TelegramRepository
 import com.theveloper.pixelplay.data.netease.NeteaseStreamProxy
 import com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy
 import com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy
@@ -43,7 +42,6 @@ class DualPlayerEngineTest {
         val audioManager = mockk<android.media.AudioManager>(relaxed = true)
         every { context.getSystemService(Context.AUDIO_SERVICE) } returns audioManager
         
-        val telegramRepository = mockk<TelegramRepository>(relaxed = true)
         val extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         val userPreferencesRepository = mockk<UserPreferencesRepository>(relaxed = true)
         
@@ -51,14 +49,11 @@ class DualPlayerEngineTest {
 
         val engine = DualPlayerEngine(
             context = context,
-            telegramRepository = telegramRepository,
-            telegramStreamProxy = mockk(relaxed = true),
             neteaseStreamProxy = mockk(relaxed = true),
             qqMusicStreamProxy = mockk(relaxed = true),
             navidromeStreamProxy = mockk(relaxed = true),
             jellyfinStreamProxy = mockk(relaxed = true),
             gdriveStreamProxy = mockk(relaxed = true),
-            telegramCacheManager = mockk(relaxed = true),
             connectivityStateHolder = mockk(relaxed = true),
             extensionHost = mockk(relaxed = true),
             extensionEngine = extensionLoader,
