@@ -102,6 +102,10 @@ jobs:
           echo "Listing release output directory contents:"
           ls -R app/build/outputs/apk/ || true
           
+          # Create warning annotation with all found APKs
+          APK_LIST=$(find app/build/outputs/ -name "*.apk" | tr '\n' ' ')
+          echo "::warning file=.github,line=15::Generated APKs: $APK_LIST"
+          
           ANDROID_SDK_PATH="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           BUILD_TOOLS_VERSION="$(ls "$ANDROID_SDK_PATH/build-tools" | sort -V | tail -n 1)"
           echo "Using Android SDK Build Tools Version: $BUILD_TOOLS_VERSION"
@@ -114,6 +118,9 @@ jobs:
               "$ANDROID_SDK_PATH/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$apk"
             else
               echo "Error: No APK files found in release directory!"
+              # Print full outputs folder structure to check-runs annotations
+              ALL_FILES=$(find app/build/outputs/ -type f | tr '\n' ' ')
+              echo "::error file=.github,line=29::Output files found: $ALL_FILES"
               exit 1
             fi
           done
