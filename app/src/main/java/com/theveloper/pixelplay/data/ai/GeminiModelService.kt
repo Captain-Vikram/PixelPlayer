@@ -146,7 +146,11 @@ class GeminiModelService @Inject constructor(
 
     private fun getDefaultModels(): List<GeminiModel> {
         return listOf(
-            GeminiModel("gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite (Recommended Default)"),
+            GeminiModel("gemini-1.5-flash", "Gemini 1.5 Flash (Recommended Default)"),
+            GeminiModel("gemini-1.5-pro", "Gemini 1.5 Pro"),
+            GeminiModel("gemini-2.0-flash", "Gemini 2.0 Flash"),
+            GeminiModel("gemini-2.5-flash", "Gemini 2.5 Flash"),
+            GeminiModel("gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite"),
             GeminiModel("gemini-3.5-flash", "Gemini 3.5 Flash"),
             GeminiModel("gemini-3.1-pro-preview", "Gemini 3.1 Pro (Preview)"),
             GeminiModel("gemini-flash-lite-latest", "Gemini Flash Lite Latest"),
