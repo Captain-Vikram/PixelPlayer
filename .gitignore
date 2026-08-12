@@ -36,6 +36,7 @@ shared/build/
 baselineprofile/build/
 core/common/build/
 core/shared/build/
+core/database/build/
 feature/ktor-server/build/
 
 misc.xml
