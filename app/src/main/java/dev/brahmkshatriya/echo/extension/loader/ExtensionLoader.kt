@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -117,6 +118,11 @@ class ExtensionLoader @Inject constructor(
     @Suppress("UNCHECKED_CAST")
     private fun <T : ExtensionClient> Injectable<ExtensionClient>.casted() = this as Injectable<T>
 
+    private val currentUserSeq = java.util.concurrent.atomic.AtomicLong(0)
+    private val observeCurrentUserWithSeq = extensionUserDao.observeCurrentUser().map { list ->
+        list to currentUserSeq.incrementAndGet()
+    }.shareIn(scope, SharingStarted.Eagerly, replay = 1)
+
     private val injected = repository.flow.map { list ->
         list?.groupBy { it.getOrNull()?.first?.run { type to id } }?.map { entry ->
             entry.value.minBy { it.getOrNull()?.first?.importType?.ordinal ?: Int.MAX_VALUE }
@@ -136,12 +142,13 @@ class ExtensionLoader @Inject constructor(
                 it.first to it.second.injected(it.first)
             }
         }
-    }.combine(extensionUserDao.observeCurrentUser()) { list, users ->
+    }.combine(observeCurrentUserWithSeq) { list: List<Result<Pair<Metadata, Injectable<ExtensionClient>>>>, usersAndSeq: Pair<List<CurrentUser>, Long> ->
+        val (users, seq) = usersAndSeq
         list.onEach { result ->
             scope.launch(Dispatchers.IO) {
                 val (metadata, injectable) = result.getOrNull() ?: return@launch
                 runCatching {
-                    injectable.injectOrRun("user") {
+                    injectable.injectOrRun("user", seq) {
                         if (this !is LoginClient) return@injectOrRun
                         val newCurr = users.getUser(metadata)
                         val userEntity = newCurr?.let { extensionUserDao.getUser(it.type, it.extId, it.userId ?: "") }

@@ -53,6 +53,7 @@ data class ExtensionArtistDetails(
     val shelves: List<dev.brahmkshatriya.echo.common.models.Shelf>
 )
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Singleton
 class ExtensionRepository @Inject constructor(
     private val extensionEngine: ExtensionLoader,
@@ -160,36 +161,31 @@ class ExtensionRepository @Inject constructor(
         }
 
         repositoryScope.launch {
-            combine(
-                allExtensions,
-                extensionEngine.extensionUserDao.observeCurrentUser()
-            ) { extensions, currentUsers ->
-                extensions to currentUsers
-            }.collect { (extensions, currentUsers) ->
-                extensions.forEach { ext ->
-                    syncLoginSessionWhenReady(ext, currentUsers)
+            allExtensions.flatMapLatest { extensions ->
+                if (extensions.isEmpty()) {
+                    flowOf(emptyMap<String, ExtensionCapabilities>())
+                } else {
+                    combine(extensions.map { ext ->
+                        ext.instance.instanceFlow.map { instanceResult ->
+                            val instance = instanceResult?.getOrNull()
+                            ext.metadata.id to ExtensionCapabilities(
+                                isLoginNeeded = instance is LoginClient,
+                                canHomeFeed = instance is HomeFeedClient,
+                                canLibraryFeed = instance is LibraryFeedClient,
+                                canLyrics = instance is LyricsClient,
+                                canRadio = instance is RadioClient,
+                                canEditPlaylists = instance is PlaylistEditClient,
+                                canTracks = instance is dev.brahmkshatriya.echo.common.clients.TrackClient,
+                                canAlbums = instance is dev.brahmkshatriya.echo.common.clients.AlbumClient,
+                                canArtists = instance is dev.brahmkshatriya.echo.common.clients.ArtistClient,
+                                canPlaylists = instance is dev.brahmkshatriya.echo.common.clients.PlaylistClient
+                            )
+                        }
+                    }) { capabilitiesList ->
+                        capabilitiesList.toMap()
+                    }
                 }
-            }
-        }
-
-        repositoryScope.launch {
-            allExtensions.collectLatest { extensions ->
-                val caps = mutableMapOf<String, ExtensionCapabilities>()
-                extensions.forEach { ext ->
-                    val instance = ext.instance.value().getOrNull()
-                    caps[ext.metadata.id] = ExtensionCapabilities(
-                        isLoginNeeded = instance is LoginClient,
-                        canHomeFeed = instance is HomeFeedClient,
-                        canLibraryFeed = instance is LibraryFeedClient,
-                        canLyrics = instance is LyricsClient,
-                        canRadio = instance is RadioClient,
-                        canEditPlaylists = instance is PlaylistEditClient,
-                        canTracks = instance is dev.brahmkshatriya.echo.common.clients.TrackClient,
-                        canAlbums = instance is dev.brahmkshatriya.echo.common.clients.AlbumClient,
-                        canArtists = instance is dev.brahmkshatriya.echo.common.clients.ArtistClient,
-                        canPlaylists = instance is dev.brahmkshatriya.echo.common.clients.PlaylistClient
-                    )
-                }
+            }.collect { caps ->
                 _extensionCapabilities.value = caps
             }
         }
@@ -362,9 +358,26 @@ class ExtensionRepository @Inject constructor(
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return
         val userEntity = user.toEntity(extension.metadata.type, extension.metadata.id)
 
+        val currentUser = extensionEngine.extensionUserDao.getCurrentUsers().find { it.extId == extensionId }
+        val isSameUser = currentUser?.userId == user.id
+
+        if (isSameUser) {
+            val client = extension.instance.value().getOrNull() as? LoginClient
+            try {
+                client?.setLoginUser(user)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to set login user synchronously")
+            }
+        } else {
+            extension.instance.rearmNamedInjection("user")
+        }
+
         extensionEngine.extensionUserDao.insertUser(userEntity)
-        syncLoginUser(extension, user)
         extensionEngine.extensionUserDao.setCurrentUser(userEntity.toCurrentUser())
+
+        if (isSameUser) {
+            extension.instance.setNamedInjectionComplete("user")
+        }
 
         clearCache(extensionId)
 
@@ -377,7 +390,7 @@ class ExtensionRepository @Inject constructor(
     suspend fun removeLoginSession(extensionId: String) {
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return
         
-        syncLoginUser(extension, null)
+        extension.instance.rearmNamedInjection("user")
         
         extensionEngine.extensionUserDao.deleteCurrentUser(extension.metadata.type, extension.metadata.id)
         extensionEngine.extensionUserDao.deleteUsersForExtension(extension.metadata.type, extension.metadata.id)
@@ -387,66 +400,6 @@ class ExtensionRepository @Inject constructor(
         if (_currentMusicExtension.value?.metadata?.id == extensionId) {
             loadHomeFeed(forceRefresh = true)
             loadLibraryFeed(forceRefresh = true)
-        }
-    }
-
-    private suspend fun syncLoginSession(
-        extension: Extension<*>,
-        currentUsers: List<dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser>
-    ) {
-        val currentUser = currentUsers.find { it.extId == extension.metadata.id }
-        val userId = currentUser?.userId
-
-        if (userId == null) {
-            syncLoginUser(extension, null)
-            return
-        }
-
-        val userEntity = extensionEngine.extensionUserDao.getUser(currentUser.type, currentUser.extId, userId)
-        val user = userEntity?.user?.getOrNull()
-        if (user != null) {
-            syncLoginUser(extension, user)
-        } else {
-            Timber.w("ExtensionRepository: Missing persisted user for ${extension.metadata.id}, clearing live session")
-            syncLoginUser(extension, null)
-        }
-    }
-
-    private fun syncLoginSessionWhenReady(
-        extension: Extension<*>,
-        @Suppress("UNUSED_PARAMETER")
-        currentUsers: List<dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser>
-    ) {
-        repositoryScope.launch {
-            var attempts = 0
-            while (attempts < 50) {
-                val instance = extension.instance.value().getOrNull()
-                if (instance != null) {
-                    if (instance is LoginClient) {
-                        // Re-read the current users fresh from the DAO at this moment
-                        // to avoid using a stale snapshot captured before login completed.
-                        val freshUsers = extensionEngine.extensionUserDao.getCurrentUsers()
-                        syncLoginSession(extension, freshUsers)
-                    }
-                    break
-                }
-                attempts++
-                kotlinx.coroutines.delay(200)
-            }
-        }
-    }
-
-    private suspend fun syncLoginUser(extension: Extension<*>, user: User?) {
-        val client = extension.instance.value().getOrNull() as? LoginClient ?: return
-        try {
-            client.setLoginUser(user)
-            if (user != null) {
-                Timber.d("ExtensionRepository: Applied user session ${user.name} to ${extension.metadata.id}")
-            } else {
-                Timber.d("ExtensionRepository: Cleared user session for ${extension.metadata.id}")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to update login user for ${extension.metadata.id}")
         }
     }
 
@@ -460,6 +413,7 @@ class ExtensionRepository @Inject constructor(
         val extensionId = extension.metadata.id
         
         repositoryScope.launch {
+            extension.instance.awaitNamedInjection("user")
             val client = extension.instance.value().getOrNull()
             if (client is HomeFeedClient) {
                 _isLoadingFeed.value = true
@@ -839,6 +793,7 @@ class ExtensionRepository @Inject constructor(
         }
 
         repositoryScope.launch {
+            extension.instance.awaitNamedInjection("user")
             val client = extension.instance.value().getOrNull()
             if (client is LibraryFeedClient) {
                 _isLoadingLibraryFeed.value = true
