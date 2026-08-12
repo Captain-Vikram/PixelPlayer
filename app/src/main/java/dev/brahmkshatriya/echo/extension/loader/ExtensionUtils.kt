@@ -66,9 +66,10 @@ object ExtensionUtils {
     suspend fun Extension<*>.inject(
         id: String,
         throwableFlow: MutableSharedFlow<Throwable>,
+        seq: Long = 0L,
         block: suspend ExtensionClient.() -> Unit
     ) = runCatching {
-        instance.injectOrRun(id) { withContext(Dispatchers.IO) { block() } }
+        instance.injectOrRun(id, seq) { withContext(Dispatchers.IO) { block() } }
     }.getOrElse {
         throwableFlow.emit(it.toAppException(this))
     }
