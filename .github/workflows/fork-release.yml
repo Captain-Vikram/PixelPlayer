@@ -175,8 +175,6 @@ jobs:
             echo "| \`PixelPlayer-fork-arm64-${{ steps.rename.outputs.short_sha }}.apk\` | arm64-v8a | **Most phones (2017+)** — use this |"
             echo "| \`PixelPlayer-fork-arm32-${{ steps.rename.outputs.short_sha }}.apk\` | armeabi-v7a | Older 32-bit phones |"
             echo ""
-            echo "> ⚠️ These APKs are signed with a fork-specific key. Do not mix-install with the official PixelPlayer release."
-            echo ""
             echo "---"
             echo ""
             echo "## 🗒️ Latest Changes"
