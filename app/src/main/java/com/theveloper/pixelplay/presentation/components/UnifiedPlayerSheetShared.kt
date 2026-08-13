@@ -102,15 +102,6 @@ internal fun MiniPlayerContentInternal(
                     } else null
                 )
             }
-            if (isCastConnecting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp,
-                    color = LocalMaterialTheme.current.onPrimaryContainer
-                )
-            } else if (isPreparingPlayback) {
-                CircularWavyProgressIndicator(modifier = Modifier.size(24.dp))
-            }
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(

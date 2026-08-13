@@ -1315,7 +1315,7 @@ private fun ActiveDeviceHero(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 56.dp)
+                    .height(IntrinsicSize.Min)
             ) {
                 Box(
                     modifier = Modifier
