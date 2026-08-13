@@ -1624,7 +1624,7 @@ class DualPlayerEngine @Inject constructor(
         return@withContext try {
             val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.TrackClient ?: return@withContext null
             val echoTrack = dev.brahmkshatriya.echo.common.models.Track(itemId, "")
-            val loadedTrack = client.loadTrack(echoTrack, true)
+            val loadedTrack = client.loadTrack(echoTrack, false)
             
             // Collect all potential sources with their quality
             val potentialSources = mutableListOf<Pair<dev.brahmkshatriya.echo.common.models.Streamable.Source, dev.brahmkshatriya.echo.common.models.Streamable>>()
@@ -1648,7 +1648,7 @@ class DualPlayerEngine @Inject constructor(
 
             for (streamable in streamablesToTry) {
                 try {
-                    val media = client.loadStreamableMedia(streamable, true)
+                    val media = client.loadStreamableMedia(streamable, false)
                     if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
                         for (source in media.sources) {
                             potentialSources.add(source to streamable)
@@ -1664,7 +1664,7 @@ class DualPlayerEngine @Inject constructor(
                 observedTiersCache.remove(extensionId)
                 for (streamable in allStreamables) {
                     try {
-                        val media = client.loadStreamableMedia(streamable, true)
+                        val media = client.loadStreamableMedia(streamable, false)
                         if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
                             for (source in media.sources) {
                                 potentialSources.add(source to streamable)
@@ -1702,12 +1702,12 @@ class DualPlayerEngine @Inject constructor(
                                 }
                                 .firstOrNull()
                             if (fallbackTrack != null) {
-                                val resolvedFallbackTrack = trackClient.loadTrack(fallbackTrack, true)
+                                val resolvedFallbackTrack = trackClient.loadTrack(fallbackTrack, false)
                                 val fallbackStreamables = (resolvedFallbackTrack.servers.ifEmpty { resolvedFallbackTrack.streamables })
                                     .sortedByDescending { it.quality }
                                 for (streamable in fallbackStreamables) {
                                     try {
-                                        val media = trackClient.loadStreamableMedia(streamable, true)
+                                        val media = trackClient.loadStreamableMedia(streamable, false)
                                         if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
                                             for (source in media.sources) {
                                                 potentialSources.add(source to streamable)

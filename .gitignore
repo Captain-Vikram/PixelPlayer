@@ -54,3 +54,4 @@ markdown.xml
 **/.env
 **/.env.*
 !**/.env.example
+keystore*
