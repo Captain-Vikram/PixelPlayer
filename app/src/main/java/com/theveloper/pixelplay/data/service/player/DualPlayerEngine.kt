@@ -1622,6 +1622,7 @@ class DualPlayerEngine @Inject constructor(
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return@withContext null
         
         return@withContext try {
+            extension.instance.awaitNamedInjection("user")
             val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.TrackClient ?: return@withContext null
             val echoTrack = dev.brahmkshatriya.echo.common.models.Track(itemId, "")
             val loadedTrack = client.loadTrack(echoTrack, false)
@@ -1682,6 +1683,7 @@ class DualPlayerEngine @Inject constructor(
                     ext.metadata.id != extensionId && ext.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.SearchFeedClient
                 }
                 if (fallbackExtension != null) {
+                    fallbackExtension.instance.awaitNamedInjection("user")
                     val searchClient = fallbackExtension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.SearchFeedClient
                     val trackClient = fallbackExtension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.TrackClient
                     if (searchClient != null && trackClient != null) {
