@@ -2089,7 +2089,9 @@ private fun EfficientTimeLabels(
         derivedStateOf { if (isVisible) formatDuration(coarsePositionMs) else "--:--" }
     }
     val durStr = remember(isVisible, duration) {
-        if (isVisible) formatDuration(duration.coerceAtLeast(0L)) else "--:--"
+        if (!isVisible) "--:--"
+        else if (duration <= 0L) "LIVE"
+        else formatDuration(duration)
     }
 
     Box(

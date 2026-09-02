@@ -660,8 +660,9 @@ class LyricsRepositoryImpl @Inject constructor(
 
     private fun buildEchoTrack(song: Song, useAlbum: Boolean, cleanTitle: Boolean): dev.brahmkshatriya.echo.common.models.Track {
         val displayTitle = if (cleanTitle) cleanSongTitle(song.title) else song.title
+        val rawTrackId = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(song.id)?.rawId ?: song.id
         return dev.brahmkshatriya.echo.common.models.Track(
-            id = song.id,
+            id = rawTrackId,
             title = displayTitle,
             artists = listOf(
                 dev.brahmkshatriya.echo.common.models.Artist(
@@ -681,11 +682,20 @@ class LyricsRepositoryImpl @Inject constructor(
 
     private suspend fun fetchFromExtensionsProviders(song: Song): Lyrics? = withContext(Dispatchers.IO) {
         try {
-            val extensions = extensionLoader.lyrics.value
+            // Find ALL extensions that implement LyricsClient (both dedicated LYRICS and MUSIC extensions)
+            val dedicatedLyrics = extensionLoader.lyrics.value
+            val musicWithLyrics = extensionLoader.music.value.filter { ext ->
+                ext.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.LyricsClient
+            }
+            val extensions = (dedicatedLyrics + musicWithLyrics).distinctBy { it.metadata.id }
+
             if (extensions.isEmpty()) {
                 Log.w(TAG, "No lyrics extensions available for ${song.title}")
                 return@withContext null
             }
+
+            val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(song.id)
+            val originClientId = decoded?.extensionId ?: song.extensionId ?: ""
 
             // Create query attempts: 1. Clean Title + Album, 2. Clean Title (No Album)
             val queryAttempts = listOf(
@@ -696,42 +706,24 @@ class LyricsRepositoryImpl @Inject constructor(
             val results = extensions.map { ext ->
                 async {
                     if (!ext.isEnabled) return@async null
-                    
-                    val extId = ext.metadata.id
-                    val consecutiveFailures = unresponsiveExtensions[extId] ?: 0
-                    if (consecutiveFailures >= 3) {
-                        Log.w(TAG, "Skipping unresponsive lyrics extension: ${ext.metadata.name} (failures: $consecutiveFailures)")
-                        return@async null
-                    }
-                    
+
                     kotlinx.coroutines.withTimeoutOrNull(4000) {
                         var candidateLyrics: Lyrics? = null
                         val instance = runCatching { ext.instance.awaitNamedInjection("user") }.getOrNull()
                             ?: ext.instance.value().getOrNull()
-                        val client = instance as? dev.brahmkshatriya.echo.common.clients.LyricsClient
-                        
-                        if (client == null) {
-                            Log.e(TAG, "Extension ${ext.metadata.id} is not a LyricsClient or failed to inject")
-                            return@withTimeoutOrNull null
-                        }
+                        val client = instance as? dev.brahmkshatriya.echo.common.clients.LyricsClient ?: return@withTimeoutOrNull null
 
                         // Try fallback queries sequentially
                         for (queryTrack in queryAttempts) {
                             val feedResult = runCatching {
-                                client.searchTrackLyrics(ext.metadata.id, queryTrack)
+                                client.searchTrackLyrics(originClientId, queryTrack)
                             }
-                            
-                            val items = feedResult.onFailure {
-                                Log.e(TAG, "Extension ${ext.metadata.id} search failed for query '${queryTrack.title}': ${it.message}")
-                            }.getOrNull()?.loadAll().orEmpty()
+
+                            val items = feedResult.getOrNull()?.loadAll().orEmpty()
 
                             if (items.isNotEmpty()) {
                                 for (candidate in items) {
-                                    val loadedResult = runCatching { client.loadLyrics(candidate) }
-                                    loadedResult.onFailure {
-                                        Log.e(TAG, "Failed to load lyrics from ${ext.metadata.name}: ${it.message}")
-                                    }
-                                    val loaded = loadedResult.getOrNull() ?: continue
+                                    val loaded = runCatching { client.loadLyrics(candidate) }.getOrNull() ?: continue
                                     val converted = loaded.toAppLyrics(ext.metadata.id)
                                     if (converted.isValid() && isRealLyrics(converted) && isPlausibleMatch(song, converted.extensionTitle)) {
                                         candidateLyrics = converted
@@ -741,25 +733,14 @@ class LyricsRepositoryImpl @Inject constructor(
                             }
                             if (candidateLyrics != null) break
                         }
-                        
-                        if (candidateLyrics != null) {
-                            unresponsiveExtensions.remove(extId) // Reset on success!
-                        } else {
-                            unresponsiveExtensions[extId] = (unresponsiveExtensions[extId] ?: 0) + 1
-                        }
-                        
+
                         candidateLyrics
-                    } ?: run {
-                        // Timeout occurred
-                        unresponsiveExtensions[extId] = (unresponsiveExtensions[extId] ?: 0) + 1
-                        Log.w(TAG, "Lyrics extension timed out: ${ext.metadata.name}")
-                        null
                     }
                 }
             }.awaitAll().filterNotNull()
 
             if (results.isEmpty()) {
-                Log.w(TAG, "All ${extensions.size} extensions failed or returned no plausible matches for '${song.title}'")
+                Log.w(TAG, "All ${extensions.size} extensions returned no plausible matches for '${song.title}'")
                 return@withContext null
             }
 

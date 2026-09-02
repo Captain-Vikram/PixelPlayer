@@ -329,10 +329,14 @@ class LyricsStateHolder @Inject constructor(
     }
 
     fun selectLyricsSource(song: Song, extensionId: String?) {
-        val availableExtensions = extensionLoader.lyrics.value
-        
         loadingJob?.cancel()
         loadingJob = scope?.launch {
+            val dedicatedLyrics = extensionLoader.lyrics.value
+            val musicWithLyrics = extensionLoader.music.value.filter { ext ->
+                ext.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.LyricsClient
+            }
+            val availableExtensions = (dedicatedLyrics + musicWithLyrics).distinctBy { it.metadata.id }
+
             _searchUiState.value = LyricsSearchUiState.PickResult(
                 query = "${song.title} - ${song.displayArtist}",
                 results = emptyList(),
@@ -340,77 +344,63 @@ class LyricsStateHolder @Inject constructor(
                 selectedExtensionId = extensionId,
                 isLoading = true
             )
-            
+
             if (extensionId == null) {
                 musicRepository.searchRemoteLyricsByQuery(song.title, song.displayArtist)
                     .onSuccess { (q, results) ->
-                        _searchUiState.value = (_searchUiState.value as LyricsSearchUiState.PickResult).copy(
+                        _searchUiState.value = LyricsSearchUiState.PickResult(
+                            query = q,
                             results = results,
+                            availableExtensions = availableExtensions,
+                            selectedExtensionId = null,
                             isLoading = false
                         )
                     }
-                    .onFailure { error -> handleError(error, availableExtensions) }
+                    .onFailure { error ->
+                        _searchUiState.value = LyricsSearchUiState.PickResult(
+                            query = song.title,
+                            results = emptyList(),
+                            availableExtensions = availableExtensions,
+                            selectedExtensionId = null,
+                            isLoading = false
+                        )
+                    }
             } else {
                 try {
-                    val extension = extensionLoader.lyrics.value.find { it.metadata.id == extensionId } ?: return@launch
-                    val client = extension.instance.value().getOrNull() ?: return@launch
-                    
-                    val songOriginId = if (song.id.startsWith("extension:")) {
-                        song.id.substringAfter("extension:").substringBefore(":")
-                    } else {
-                        null
+                    val extension = availableExtensions.find { it.metadata.id == extensionId } ?: return@launch
+                    val instance = runCatching { extension.instance.awaitNamedInjection("user") }.getOrNull()
+                        ?: extension.instance.value().getOrNull()
+                    val client = instance as? dev.brahmkshatriya.echo.common.clients.LyricsClient ?: return@launch
+
+                    val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(song.id)
+                    val originClientId = decoded?.extensionId ?: song.extensionId ?: ""
+                    val rawTrackId = decoded?.rawId ?: song.id
+
+                    val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
+                        id = rawTrackId,
+                        title = song.title,
+                        artists = listOf(dev.brahmkshatriya.echo.common.models.Artist(id = "", name = song.displayArtist)),
+                        album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album)
+                    )
+
+                    // 1. Try searchTrackLyrics with originClientId
+                    val feed = runCatching { client.searchTrackLyrics(originClientId, echoTrack) }.getOrNull()
+                    var rawCandidates = feed?.loadAll().orEmpty()
+
+                    // 2. If empty and extension implements LyricsSearchClient, try searchLyrics with query
+                    if (rawCandidates.isEmpty() && client is dev.brahmkshatriya.echo.common.clients.LyricsSearchClient) {
+                        val query = "${song.title} ${song.displayArtist}".trim()
+                        val searchFeed = runCatching { client.searchLyrics(query) }.getOrNull()
+                        rawCandidates = searchFeed?.loadAll().orEmpty()
                     }
 
-                    val candidateLyricsList = if (songOriginId != null && songOriginId == extensionId) {
-                        // Same provider: direct ID-based lookup
-                        val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
-                            id = song.id.substringAfter(":track:"),
-                            title = song.title,
-                            artists = listOf(dev.brahmkshatriya.echo.common.models.Artist(id = "", name = song.displayArtist)),
-                            album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album)
-                        )
-                        client.searchTrackLyrics(extensionId, echoTrack).loadAll()
-                    } else {
-                        // Cross-provider lookup: perform search-based query
-                        val queryTrack = dev.brahmkshatriya.echo.common.models.Track(
-                            id = "",
-                            title = song.title,
-                            artists = listOf(dev.brahmkshatriya.echo.common.models.Artist(id = "", name = song.displayArtist)),
-                            album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album)
-                        )
-                        val feed = runCatching { client.searchTrackLyrics(extensionId, queryTrack) }.getOrNull()
-                        val rawCandidates = feed?.loadAll().orEmpty()
-
-                        val scored = rawCandidates.mapNotNull { candidate ->
-                            val loaded = runCatching { client.loadLyrics(candidate) }.getOrNull() ?: return@mapNotNull null
-                            val appLyrics = loaded.toAppLyrics(extensionId)
-                            val plausible = LyricsUtils.isPlausibleMatch(song.title, appLyrics.extensionTitle)
-                            if (hasValidLyrics(appLyrics) && plausible) {
-                                var score = 0
-                                if (!appLyrics.synced.isNullOrEmpty()) score += 2
-                                score += 1 // plausible title match score
-                                Triple(candidate, appLyrics, score)
-                            } else {
-                                null
-                            }
-                        }.sortedByDescending { it.third }
-
-                        scored.map { it.first }
-                    }
-
-                    if (candidateLyricsList.isEmpty()) {
-                        _searchUiState.value = LyricsSearchUiState.NotFound("No lyrics found from this provider", allowManualSearch = true)
-                        return@launch
-                    }
-
-                    val results = candidateLyricsList.map { echoLyrics ->
-                        val loadedLyrics = client.loadLyrics(echoLyrics)
-                        val appLyrics = loadedLyrics.toAppLyrics(extensionId)
+                    val results = rawCandidates.mapNotNull { echoLyrics ->
+                        val loaded = runCatching { client.loadLyrics(echoLyrics) }.getOrNull() ?: return@mapNotNull null
+                        val appLyrics = loaded.toAppLyrics(extensionId)
                         val raw = LyricsUtils.toLrcString(appLyrics)
-                        
                         LyricsSearchResult(
                             record = com.theveloper.pixelplay.data.network.lyrics.LrcLibResponse(
-                                id = loadedLyrics.id.hashCode(),
+                                id = loaded.id.hashCode(),
                                 name = echoLyrics.title ?: song.title,
                                 artistName = echoLyrics.subtitle ?: song.displayArtist,
                                 albumName = "",
@@ -422,13 +412,22 @@ class LyricsStateHolder @Inject constructor(
                             rawLyrics = raw
                         )
                     }
-                    
-                    _searchUiState.value = (_searchUiState.value as LyricsSearchUiState.PickResult).copy(
+
+                    _searchUiState.value = LyricsSearchUiState.PickResult(
+                        query = song.title,
                         results = results,
+                        availableExtensions = availableExtensions,
+                        selectedExtensionId = extensionId,
                         isLoading = false
                     )
                 } catch (e: Exception) {
-                    handleError(e, availableExtensions)
+                    _searchUiState.value = LyricsSearchUiState.PickResult(
+                        query = song.title,
+                        results = emptyList(),
+                        availableExtensions = availableExtensions,
+                        selectedExtensionId = extensionId,
+                        isLoading = false
+                    )
                 }
             }
         }

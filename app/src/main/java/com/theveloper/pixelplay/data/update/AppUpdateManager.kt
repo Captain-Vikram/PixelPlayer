@@ -27,7 +27,9 @@ data class AppReleaseInfo(
     val changelog: String,
     val apkDownloadUrl: String?,
     val releasePageUrl: String,
-    val isNewer: Boolean
+    val isNewer: Boolean,
+    val apkSizeFormatted: String? = null,
+    val publishedAt: String? = null
 )
 
 sealed interface UpdateCheckState {
@@ -68,22 +70,29 @@ class AppUpdateManager @Inject constructor(
                 return@withContext Result.failure(Exception(errorMsg))
             }
 
-            val bodyString = response.body?.string() ?: throw IllegalStateException("Empty response body")
+            val bodyString = response.body.string()
             val json = JSONObject(bodyString)
 
             val tagName = json.optString("tag_name", "")
             val title = json.optString("name", tagName)
             val changelog = json.optString("body", "No release notes provided.")
             val releasePageUrl = json.optString("html_url", "https://github.com/Captain-Vikram/PixelPlayer/releases")
+            val publishedAt = if (json.has("published_at")) json.optString("published_at").take(10) else null
 
             var apkUrl: String? = null
+            var apkSizeFormatted: String? = null
             val assets = json.optJSONArray("assets")
             if (assets != null) {
                 for (i in 0 until assets.length()) {
                     val asset = assets.getJSONObject(i)
                     val name = asset.optString("name", "")
                     if (name.endsWith(".apk", ignoreCase = true)) {
-                        apkUrl = asset.optString("browser_download_url", null)
+                        apkUrl = if (asset.has("browser_download_url")) asset.optString("browser_download_url") else null
+                        val sizeBytes = asset.optLong("size", 0L)
+                        if (sizeBytes > 0) {
+                            val mb = sizeBytes / (1024.0 * 1024.0)
+                            apkSizeFormatted = String.format(java.util.Locale.US, "%.1f MB", mb)
+                        }
                         if (name.contains("arm64", ignoreCase = true)) {
                             break
                         }
@@ -100,7 +109,9 @@ class AppUpdateManager @Inject constructor(
                 changelog = changelog,
                 apkDownloadUrl = apkUrl,
                 releasePageUrl = releasePageUrl,
-                isNewer = isNewer
+                isNewer = isNewer,
+                apkSizeFormatted = apkSizeFormatted,
+                publishedAt = publishedAt
             )
 
             if (isNewer) {
