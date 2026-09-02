@@ -34,10 +34,12 @@ class AiPlaylistGenerator @Inject constructor(
             val minScoreThreshold = if (isExplicitDiscovery) 0.05 else 0.20
             val engagements = runCatching { engagementDao.getAllEngagements() }.getOrDefault(emptyList()).associateBy { it.songId }
             val now = System.currentTimeMillis()
-            val decayLambda = 0.04951
+            // Dual-curve half-life decay constants: 14-day short-term + 120-day long-term baseline
+            val shortLambda = 0.04951
+            val longLambda = 0.00577
 
             // Pre-filter candidate songs using PersonalizationMLModel
-            val scoredCandidates = (candidateSongs ?: allSongs).mapNotNull { song ->
+            val rawScored = (candidateSongs ?: allSongs).mapNotNull { song ->
                 val engagement = engagements[song.id]
                 val playCount = engagement?.playCount ?: 0
                 val skipCount = engagement?.skipCount ?: 0
@@ -46,34 +48,60 @@ class AiPlaylistGenerator @Inject constructor(
                 val totalInteractions = playCount + skipCount
                 val skipRate = if (totalInteractions > 0) skipCount.toDouble() / totalInteractions else 0.0
 
-                // Exclude heavily skipped tracks unless explicitly requested
+                // Exclude heavily skipped tracks unless explicitly in discovery mode
                 if (!isExplicitDiscovery && skipRate > 0.7 && skipCount >= 3) {
                     return@mapNotNull null
                 }
 
                 val lastPlayed = engagement?.lastPlayedTimestamp ?: 0L
                 val daysAgo = if (lastPlayed > 0) maxOf(0.0, (now - lastPlayed) / (1000.0 * 60 * 60 * 24)) else 30.0
-                val decayWeight = kotlin.math.exp(-decayLambda * daysAgo)
+                
+                // Dual-curve memory model: 70% current rotation + 30% enduring favorites
+                val decayWeight = 0.7 * kotlin.math.exp(-shortLambda * daysAgo) + 0.3 * kotlin.math.exp(-longLambda * daysAgo)
+                val likeDecayed = if (likeStatus > 0) likeStatus * kotlin.math.exp(-0.01 * daysAgo) else 0.0
 
                 val features = doubleArrayOf(
-                    playCount * decayWeight,
-                    0.5, // artist_affinity
-                    0.5, // album_affinity
-                    0.5, // genre_affinity
-                    skipRate,
-                    if (playCount > 0) completionCount.toDouble() / playCount else 0.0,
-                    likeStatus.toDouble(),
-                    daysAgo,
-                    0.5  // remote_rank_index
+                    playCount * decayWeight, // x0: log-compressed in model
+                    0.5, // x1: artist_affinity
+                    0.5, // x2: album_affinity
+                    0.5, // x3: genre_affinity
+                    skipRate, // x4: skip_rate
+                    if (playCount > 0) completionCount.toDouble() / playCount else 0.0, // x5: completion_rate
+                    likeDecayed, // x6: decayed like score
+                    0.5, // x7: time_of_day
+                    0.5  // x8: remote_rank_index
                 )
 
-                val score = PersonalizationMLModel.predictEngagementProbability(features)
-                if (score >= minScoreThreshold || isExplicitDiscovery) {
-                    Triple(song, score, features)
-                } else null
-            }.sortedByDescending { it.second }.take(50) // Strictly cap pool to 50 tracks
+                val mlScore = PersonalizationMLModel.predictEngagementProbability(features)
+                
+                // Cold-start confidence blending: fade in personalization as user logs >= 15 interactions
+                val confidence = minOf(1.0, totalInteractions / 15.0)
+                var blendedScore = confidence * mlScore + (1.0 - confidence) * 0.50
 
-            val candidatePool = if (scoredCandidates.isNotEmpty()) scoredCandidates else allSongs.take(50).map { Triple(it, 0.5, doubleArrayOf()) }
+                // Exploration / Curiosity bonus for unplayed tracks in discovery mode
+                if (isExplicitDiscovery && playCount == 0) {
+                    blendedScore += 0.15
+                }
+
+                if (blendedScore >= minScoreThreshold || isExplicitDiscovery) {
+                    Triple(song, blendedScore, features)
+                } else null
+            }.sortedByDescending { it.second }
+
+            // Diversity constraint: Limit to max 2 tracks per artist in top pool
+            val artistCounts = mutableMapOf<String, Int>()
+            val diversePool = mutableListOf<Triple<com.theveloper.pixelplay.data.model.Song, Double, DoubleArray>>()
+            for (candidate in rawScored) {
+                val artistKey = candidate.first.displayArtist.lowercase()
+                val count = artistCounts.getOrDefault(artistKey, 0)
+                if (count < 2 || diversePool.size < 20) {
+                    diversePool.add(candidate)
+                    artistCounts[artistKey] = count + 1
+                }
+                if (diversePool.size >= 50) break
+            }
+
+            val candidatePool = if (diversePool.isNotEmpty()) diversePool else allSongs.take(50).map { Triple(it, 0.5, doubleArrayOf()) }
 
             // Token Optimization: Compact JSON format with normalized "s" field (0.00 - 1.00)
             val availableSongsJson = buildString {

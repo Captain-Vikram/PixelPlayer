@@ -39,15 +39,27 @@ class PlaylistFeedbackCollector @Inject constructor(
                     )
                 )
 
-                // Trigger online SGD weight update for local ML model
+                // Trigger online regularized SGD weight update for local ML model with graded feedback
                 val label = when (action) {
-                    ACTION_PLAY, ACTION_COMPLETE, ACTION_LIKE -> 1.0
-                    ACTION_SKIP -> 0.0
+                    ACTION_COMPLETE -> 1.0
+                    ACTION_LIKE -> 1.0
+                    ACTION_PLAY -> 0.75
+                    ACTION_SKIP -> 0.05
                     else -> 0.5
                 }
-                // Dummy default features vector for online feedback update
-                val dummyFeatures = doubleArrayOf(0.5, 0.5, 0.5, 0.5, if (action == ACTION_SKIP) 1.0 else 0.0, if (action == ACTION_COMPLETE) 1.0 else 0.0, if (action == ACTION_LIKE) 1.0 else 0.0, 0.1, 0.5)
-                PersonalizationMLModel.updateWeights(dummyFeatures, label)
+
+                val interactionFeatures = doubleArrayOf(
+                    if (action != ACTION_SKIP) 1.0 else 0.0, // direct play
+                    0.5, // artist affinity
+                    0.5, // album affinity
+                    0.5, // genre affinity
+                    if (action == ACTION_SKIP) 1.0 else 0.0, // skip rate
+                    if (action == ACTION_COMPLETE) 1.0 else (if (action == ACTION_PLAY) 0.6 else 0.0), // completion rate
+                    if (action == ACTION_LIKE) 1.0 else 0.0, // like score
+                    0.5, // time of day
+                    0.5  // remote rank
+                )
+                PersonalizationMLModel.updateWeights(interactionFeatures, label)
             } catch (e: Exception) {
                 // Ignore background logging errors
             }
