@@ -287,59 +287,61 @@ class MainActivity : ComponentActivity() {
                 PixelPlayTheme(
                     darkTheme = useDarkTheme
                 ) {
-                    var contentVisible by remember { mutableStateOf(false) }
-                    val contentAlpha by animateFloatAsState(
-                        targetValue = if (contentVisible) 1f else 0f,
-                        animationSpec = tween(600, easing = LinearOutSlowInEasing),
-                        label = "AppContentAlpha"
-                    )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        var contentVisible by remember { mutableStateOf(false) }
+                        val contentAlpha by animateFloatAsState(
+                            targetValue = if (contentVisible) 1f else 0f,
+                            animationSpec = tween(600, easing = LinearOutSlowInEasing),
+                            label = "AppContentAlpha"
+                        )
 
-                    LaunchedEffect(Unit) {
-                        delay(100)
-                        contentVisible = true
-                    }
+                        LaunchedEffect(Unit) {
+                            delay(100)
+                            contentVisible = true
+                        }
 
-                    Surface(
-                        modifier = Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }, 
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        if (showSetupScreen == null) {
-                            SetupGateLoadingScreen()
-                        } else {
-                            AnimatedContent(
-                                targetState = showSetupScreen,
-                                transitionSpec = {
-                                    if (targetState) {
-                                        fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
+                        Surface(
+                            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }, 
+                            color = MaterialTheme.colorScheme.background
+                        ) {
+                            if (showSetupScreen == null) {
+                                SetupGateLoadingScreen()
+                            } else {
+                                AnimatedContent(
+                                    targetState = showSetupScreen,
+                                    transitionSpec = {
+                                        if (targetState) {
+                                            fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
+                                        } else {
+                                            scaleIn(initialScale = 0.95f, animationSpec = tween(450)) + fadeIn(animationSpec = tween(450)) togetherWith
+                                                    slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(450)) + fadeOut(animationSpec = tween(450))
+                                        }
+                                    },
+                                    label = "SetupTransition"
+                                ) { shouldShowSetup ->
+                                    if (shouldShowSetup) {
+                                        SetupScreen(onSetupComplete = {
+                                        })
                                     } else {
-                                        scaleIn(initialScale = 0.95f, animationSpec = tween(450)) + fadeIn(animationSpec = tween(450)) togetherWith
-                                                slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(450)) + fadeOut(animationSpec = tween(450))
+                                        MainAppContent(playerViewModel, mainViewModel)
                                     }
-                                },
-                                label = "SetupTransition"
-                            ) { shouldShowSetup ->
-                                if (shouldShowSetup) {
-                                    SetupScreen(onSetupComplete = {
-                                    })
-                                } else {
-                                    MainAppContent(playerViewModel, mainViewModel)
                                 }
+                            }
+
+                            if (showCrashReportDialog && crashLogDataState != null) {
+                                CrashReportDialog(
+                                    crashLog = crashLogDataState!!,
+                                    onDismiss = {
+                                        CrashHandler.clearCrashLog()
+                                        crashLogDataState = null
+                                        showCrashReportDialog = false
+                                    }
+                                )
                             }
                         }
 
-                        if (showCrashReportDialog && crashLogDataState != null) {
-                            CrashReportDialog(
-                                crashLog = crashLogDataState!!,
-                                onDismiss = {
-                                    CrashHandler.clearCrashLog()
-                                    crashLogDataState = null
-                                    showCrashReportDialog = false
-                                }
-                            )
-                        }
+                        ExtensionWebViewHandler(extensionWebViewManager)
                     }
-
-                    ExtensionWebViewHandler(extensionWebViewManager)
                 }
             }
         }

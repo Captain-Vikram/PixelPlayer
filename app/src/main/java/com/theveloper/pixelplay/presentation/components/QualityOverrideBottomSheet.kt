@@ -12,12 +12,17 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Audiotrack
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Hd
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,16 +33,22 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.StreamingQuality
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, UnstableApi::class)
 @Composable
 fun QualityOverrideBottomSheet(
     currentOverride: StreamingQuality?,
@@ -46,13 +57,23 @@ fun QualityOverrideBottomSheet(
     selectedSource: dev.brahmkshatriya.echo.common.models.Streamable.Source? = null,
     confirmedTiers: Set<StreamingQuality>? = null,
     onSourceSelected: (dev.brahmkshatriya.echo.common.models.Streamable.Source) -> Unit = {},
+    currentTracks: Tracks = Tracks.EMPTY,
+    onTrackGroupSelected: (TrackGroup, Int) -> Unit = { _, _ -> },
     onDismiss: () -> Unit
 ) {
+    // Extract live Media3 Audio & Video tracks (for instant local switching)
+    val audioTrackGroups = remember(currentTracks) {
+        currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+    }
+    val videoTrackGroups = remember(currentTracks) {
+        currentTracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
+    }
+
     val allOptions = listOf(
-        Triple(StreamingQuality.DATA_SAVER, stringResource(R.string.settings_quality_data_saver), "Low bandwidth, saves mobile data"),
-        Triple(StreamingQuality.STANDARD, stringResource(R.string.settings_quality_standard), "Balanced speed and fidelity"),
-        Triple(StreamingQuality.HIGH, stringResource(R.string.settings_quality_high), "High-bitrate audio"),
-        Triple(StreamingQuality.LOSSLESS, stringResource(R.string.settings_quality_lossless), "Maximum fidelity format (if available)")
+        Triple(StreamingQuality.DATA_SAVER, stringResource(R.string.settings_quality_data_saver), "Fastest start • Low bandwidth"),
+        Triple(StreamingQuality.STANDARD, stringResource(R.string.settings_quality_standard), "Balanced speed & quality (Fast)"),
+        Triple(StreamingQuality.HIGH, stringResource(R.string.settings_quality_high), "High fidelity (320 kbps)"),
+        Triple(StreamingQuality.LOSSLESS, stringResource(R.string.settings_quality_lossless), "Maximum fidelity / Lossless")
     )
 
     fun getQualityTierForInt(quality: Int): StreamingQuality {
@@ -69,15 +90,13 @@ fun QualityOverrideBottomSheet(
     }
 
     val effectiveConfirmedTiers = remember(confirmedTiers, resolvedTiers) {
-        if (!resolvedTiers.isEmpty()) resolvedTiers
+        if (resolvedTiers.isNotEmpty()) resolvedTiers
         else confirmedTiers
     }
 
     val isCacheMiss = remember(confirmedTiers, resolvedTiers) {
         confirmedTiers == null && resolvedTiers.isEmpty()
     }
-
-    val options = allOptions
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -92,7 +111,7 @@ fun QualityOverrideBottomSheet(
                 .padding(bottom = 24.dp)
         ) {
             Text(
-                text = "Stream Configuration",
+                text = "Stream & Quality Configuration",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
                     fontFamily = GoogleSansRounded
@@ -106,17 +125,65 @@ fun QualityOverrideBottomSheet(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
+                // 1. LIVE VIDEO TRACKS (If video is present in stream)
+                if (videoTrackGroups.isNotEmpty()) {
+                    item {
+                        SectionHeader(title = "VIDEO RESOLUTION", color = MaterialTheme.colorScheme.primary)
+                    }
+                    items(videoTrackGroups) { group ->
+                        val trackGroup = group.mediaTrackGroup
+                        for (i in 0 until group.length) {
+                            val format = group.getTrackFormat(i)
+                            val isSelected = group.isTrackSelected(i)
+                            val height = if (format.height > 0) "${format.height}p" else "Video Track"
+                            val fps = if (format.frameRate > 0) " • ${format.frameRate.toInt()} fps" else ""
+                            val bitrate = if (format.bitrate > 0) " • ${format.bitrate / 1000} kbps" else ""
+                            QualityItem(
+                                label = "$height$fps",
+                                subtitle = "Bitrate: ${bitrate.removePrefix(" • ")}",
+                                icon = { Icon(Icons.Rounded.Videocam, null, tint = MaterialTheme.colorScheme.primary) },
+                                selected = isSelected,
+                                onClick = {
+                                    onTrackGroupSelected(trackGroup, i)
+                                    onDismiss()
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // 2. LIVE AUDIO TRACKS (From ExoPlayer container/HLS/DASH)
+                if (audioTrackGroups.isNotEmpty() && audioTrackGroups.any { it.length > 1 }) {
+                    item {
+                        SectionHeader(title = "AUDIO BITRATE & FORMAT", color = MaterialTheme.colorScheme.primary)
+                    }
+                    items(audioTrackGroups) { group ->
+                        val trackGroup = group.mediaTrackGroup
+                        for (i in 0 until group.length) {
+                            val format = group.getTrackFormat(i)
+                            val isSelected = group.isTrackSelected(i)
+                            val mime = format.sampleMimeType?.substringAfter("audio/")?.uppercase() ?: "AUDIO"
+                            val kbps = if (format.bitrate > 0) " • ${format.bitrate / 1000} kbps" else ""
+                            val hz = if (format.sampleRate > 0) " • ${format.sampleRate} Hz" else ""
+                            val ch = if (format.channelCount > 0) " • ${format.channelCount}ch" else ""
+                            QualityItem(
+                                label = "$mime$kbps",
+                                subtitle = "Specs:$hz$ch",
+                                icon = { Icon(Icons.Rounded.Audiotrack, null, tint = MaterialTheme.colorScheme.primary) },
+                                selected = isSelected,
+                                onClick = {
+                                    onTrackGroupSelected(trackGroup, i)
+                                    onDismiss()
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // 3. EXTENSION SOURCES (If extension returned multiple audio servers/sources)
                 if (availableSources.isNotEmpty()) {
                     item {
-                        Text(
-                            text = "AVAILABLE AUDIO SOURCES (DYNAMIC)",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = GoogleSansRounded
-                            ),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                        )
+                        SectionHeader(title = "AVAILABLE EXTENSION SOURCES", color = MaterialTheme.colorScheme.primary)
                     }
 
                     items(availableSources.size) { index ->
@@ -124,7 +191,7 @@ fun QualityOverrideBottomSheet(
                         val isSelected = selectedSource?.id == source.id
                         val label = source.title ?: when (source.quality) {
                             0 -> "Low Quality"
-                            1 -> "Standard Quality"
+                            1 -> "Standard Quality (Balanced)"
                             2 -> "High Quality"
                             3 -> "Lossless Quality"
                             96 -> "Low Quality (96 kbps)"
@@ -134,13 +201,7 @@ fun QualityOverrideBottomSheet(
                             256 -> "High Quality (256 kbps)"
                             320 -> "High Quality (320 kbps)"
                             1411 -> "Lossless Quality (1411 kbps)"
-                            else -> {
-                                if (source.quality > 10) {
-                                    "Quality (${source.quality} kbps)"
-                                } else {
-                                    "Quality (${source.quality})"
-                                }
-                            }
+                            else -> if (source.quality > 10) "Quality (${source.quality} kbps)" else "Quality (${source.quality})"
                         }
                         val mimeType = when (source) {
                             is dev.brahmkshatriya.echo.common.models.Streamable.Source.Http -> "HTTP Direct"
@@ -157,74 +218,60 @@ fun QualityOverrideBottomSheet(
                             }
                         )
                     }
+                }
 
-                    item {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                        )
-                    }
+                // 4. STREAMING QUALITY TIER OVERRIDES
+                item {
+                    SectionHeader(title = "QUALITY PREFERENCE (AUTO ADAPTIVE)", color = MaterialTheme.colorScheme.secondary)
+                }
 
-                    item {
-                        QualityItem(
-                            label = "No Override (Follow Settings)",
-                            subtitle = "Uses configured Wi-Fi / Mobile Data preferences",
-                            icon = { Icon(Icons.Rounded.SettingsBackupRestore, null, tint = MaterialTheme.colorScheme.secondary) },
-                            selected = currentOverride == null && selectedSource == null,
-                            onClick = {
-                                onOverrideSelected(null)
-                                onDismiss()
-                            }
-                        )
-                    }
-                } else {
-                    item {
-                        Text(
-                            text = "SESSION QUALITY OVERRIDE",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = GoogleSansRounded
-                            ),
-                            color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                        )
-                    }
+                item {
+                    QualityItem(
+                        label = "Auto (Follow Settings)",
+                        subtitle = "Fast startup • Balanced Wi-Fi / Mobile data",
+                        icon = { Icon(Icons.Rounded.SettingsBackupRestore, null, tint = MaterialTheme.colorScheme.secondary) },
+                        selected = currentOverride == null && selectedSource == null,
+                        onClick = {
+                            onOverrideSelected(null)
+                            onDismiss()
+                        }
+                    )
+                }
 
-                    item {
-                        QualityItem(
-                            label = "No Override (Follow Settings)",
-                            subtitle = "Uses configured Wi-Fi / Mobile Data preferences",
-                            icon = { Icon(Icons.Rounded.SettingsBackupRestore, null, tint = MaterialTheme.colorScheme.secondary) },
-                            selected = currentOverride == null && selectedSource == null,
-                            onClick = {
-                                onOverrideSelected(null)
-                                onDismiss()
-                            }
-                        )
-                    }
-
-                    items(options.size) { index ->
-                        val option = options[index]
-                        val isAvailable = isCacheMiss || effectiveConfirmedTiers?.contains(option.first) == true
-                        val labelText = if (isCacheMiss) "${option.second} (Unconfirmed)"
-                                        else if (!isAvailable) "${option.second} (Unavailable)"
-                                        else option.second
-                        QualityItem(
-                            label = labelText,
-                            subtitle = option.third,
-                            icon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = if (isAvailable) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
-                            selected = currentOverride == option.first,
-                            enabled = isAvailable,
-                            onClick = {
-                                onOverrideSelected(option.first)
-                                onDismiss()
-                            }
-                        )
-                    }
+                items(allOptions.size) { index ->
+                    val option = allOptions[index]
+                    val isAvailable = isCacheMiss || effectiveConfirmedTiers?.contains(option.first) == true
+                    val labelText = if (isCacheMiss) "${option.second} (Unconfirmed)"
+                                    else if (!isAvailable) "${option.second} (Unavailable)"
+                                    else option.second
+                    QualityItem(
+                        label = labelText,
+                        subtitle = option.third,
+                        icon = { Icon(Icons.Rounded.HighQuality, null, tint = if (isAvailable) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+                        selected = currentOverride == option.first,
+                        enabled = isAvailable,
+                        onClick = {
+                            onOverrideSelected(option.first)
+                            onDismiss()
+                        }
+                    )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SectionHeader(title: String, color: Color) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.Bold,
+            fontFamily = GoogleSansRounded
+        ),
+        color = color,
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+    )
 }
 
 @Composable
@@ -329,9 +376,4 @@ private fun Modifier.qualityClickable(
             enabled = enabled,
             onClick = onClick
         )
-}
-
-@Composable
-private fun painterResource(id: Int): androidx.compose.ui.graphics.painter.Painter {
-    return androidx.compose.ui.res.painterResource(id)
 }

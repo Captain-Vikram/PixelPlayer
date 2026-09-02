@@ -42,15 +42,10 @@ class DownloadManager @Inject constructor(
 
     suspend fun downloadSong(song: Song) {
         if (!song.id.startsWith("extension:")) return
-        val parts = song.id.split(":")
-        if (parts.size < 4) return
-        val extId = parts[1]
-        var trackId = parts.drop(3).joinToString(":")
-        if (extId == "spotify") {
-            trackId = if (trackId.startsWith("spotify:")) trackId
-            else if (trackId.startsWith("track:")) "spotify:$trackId"
-            else "spotify:track:$trackId"
-        }
+        val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(song.id)
+            ?: return
+        val extId = decoded.extensionId
+        val trackId = decoded.rawId // Opaque raw ID as stored by the extension.
 
         // Check if already downloading or downloaded (verifying file presence on disk)
         val existing = downloadDao.getDownloadBySongId(song.id)

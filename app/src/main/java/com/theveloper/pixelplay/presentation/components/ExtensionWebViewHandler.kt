@@ -115,19 +115,20 @@ private fun WebViewContainer(
                 request.request.initialUrl.url.contains("auth", ignoreCase = true) ||
                 request.request.initialUrl.url.contains("accounts.google", ignoreCase = true)
 
-        val isGoogleOrYoutube = request.request.initialUrl.url.contains("google", ignoreCase = true) ||
-                request.request.initialUrl.url.contains("youtube", ignoreCase = true) ||
-                request.reason.contains("google", ignoreCase = true) ||
-                request.reason.contains("youtube", ignoreCase = true)
-
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.databaseEnabled = true
-        webView.settings.setSupportMultipleWindows(true)
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        webView.settings.setSupportMultipleWindows(false)
+        webView.settings.javaScriptCanOpenWindowsAutomatically = false
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        }
         
-        val desktopUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-        if (isLoginRequest || isGoogleOrYoutube) {
+        // Use a desktop User-Agent for login/auth flows. OAuth providers (including Google)
+        // present better flows to desktop UAs without blocking embedded webviews.
+        val useDesktopUserAgent = isLoginRequest
+        val desktopUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        if (useDesktopUserAgent) {
             webView.settings.userAgentString = desktopUserAgent
         } else {
             webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
@@ -145,11 +146,9 @@ private fun WebViewContainer(
         
         webView.addJavascriptInterface(bridge, "bridge")
         
-        val stopRegex = if (request.request.initialUrl.url.contains("spotify")) {
-            Regex("(https://accounts\\.spotify\\.com/.*status.*)|(https://open\\.spotify\\.com.*)")
-        } else {
-            request.request.stopUrlRegex
-        }
+        // Always use the regex declared by the extension in its WebViewRequest.
+        // Extensions define their own stop conditions — PixelPlayer must not override them.
+        val stopRegex = request.request.stopUrlRegex
         val interceptRegex = if (request.request is WebViewRequest.Headers) {
             request.request.interceptUrlRegex
         } else {
@@ -183,26 +182,6 @@ private fun WebViewContainer(
                 }
             }
             if (stopRegex.containsMatchIn(networkRequest.url)) {
-                val isYoutubeOrGoogleRequest = networkRequest.url.contains("youtube", ignoreCase = true) ||
-                        networkRequest.url.contains("google", ignoreCase = true) ||
-                        request.request.initialUrl.url.contains("youtube", ignoreCase = true) ||
-                        request.request.initialUrl.url.contains("google", ignoreCase = true)
-
-                if (isYoutubeOrGoogleRequest && isLoginRequest) {
-                    val cm = CookieManager.getInstance()
-                    cm.flush()
-                    val cookies = cm.getCookie(networkRequest.url) ?: ""
-                    val hasAuthCookie = cookies.contains("SAPISID") ||
-                            cookies.contains("LOGIN_INFO") ||
-                            cookies.contains("SID") ||
-                            cookies.contains("SSID") ||
-                            cookies.contains("__Secure-3PAPISID") ||
-                            cookies.contains("__Secure-1PAPISID")
-                    if (!hasAuthCookie) {
-                        Timber.d("ExtensionWebView: Match found for stopRegex on ${networkRequest.url}, but auth cookies are missing. Continuing login...")
-                        return
-                    }
-                }
                 timeoutJob.cancel()
                 triggerStop(webView, networkRequest.url, request, this, bridge, interceptedRequests, doneState)
             }
@@ -418,61 +397,54 @@ private fun <T> triggerStop(
             if (req is WebViewRequest.Cookie) {
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.flush()
-                var cookies = cookieManager.getCookie(url) ?: ""
-                if (url.contains("spotify")) {
-                    val merged = mutableMapOf<String, String>()
-                    val domains = listOf(
-                        "https://open.spotify.com",
-                        "https://accounts.spotify.com",
-                        "https://spotify.com",
-                        "https://.spotify.com",
-                        url
-                    )
-                    for (d in domains) {
-                        val cStr = cookieManager.getCookie(d) ?: continue
-                        cStr.split(";").forEach { pair ->
-                            val parts = pair.split("=", limit = 2)
-                            if (parts.size == 2) {
-                                val key = parts[0].trim()
-                                val value = parts[1].trim()
-                                if (key.isNotEmpty() && value.isNotEmpty()) {
-                                    merged[key] = value
-                                }
+
+                // Generic: collect cookies from the URL's domain hierarchy and the initial URL's
+                // domain hierarchy. This handles any extension's login flow without hardcoding
+                // extension names or domains.
+                fun extractBaseDomain(rawUrl: String): String? {
+                    return try {
+                        val uri = android.net.Uri.parse(rawUrl)
+                        val host = uri.host?.lowercase()?.removePrefix("www.") ?: return null
+                        host
+                    } catch (_: Exception) { null }
+                }
+
+                fun buildDomainVariants(rawUrl: String): List<String> {
+                    val uri = android.net.Uri.parse(rawUrl)
+                    val scheme = uri.scheme ?: "https"
+                    val host = uri.host ?: return emptyList()
+                    val apex = host.lowercase().removePrefix("www.")
+                    return listOf(
+                        "$scheme://$host",
+                        "$scheme://www.$apex",
+                        "$scheme://$apex",
+                        "$scheme://.$apex",
+                        rawUrl
+                    ).distinct()
+                }
+
+                val domains = (buildDomainVariants(url) +
+                        buildDomainVariants(target.request.initialUrl.url)).distinct()
+
+                val merged = mutableMapOf<String, String>()
+                for (d in domains) {
+                    val cStr = cookieManager.getCookie(d) ?: continue
+                    cStr.split(";").forEach { pair ->
+                        val parts = pair.split("=", limit = 2)
+                        if (parts.size == 2) {
+                            val key = parts[0].trim()
+                            val value = parts[1].trim()
+                            if (key.isNotEmpty() && value.isNotEmpty()) {
+                                merged[key] = value
                             }
                         }
-                    }
-                    if (merged.isNotEmpty()) {
-                        cookies = merged.map { "${it.key}=${it.value}" }.joinToString("; ")
-                    }
-                } else if (url.contains("youtube") || url.contains("google") || target.request.initialUrl.url.contains("youtube") || target.request.initialUrl.url.contains("google")) {
-                    val merged = mutableMapOf<String, String>()
-                    val domains = listOf(
-                        "https://music.youtube.com",
-                        "https://youtube.com",
-                        "https://www.youtube.com",
-                        "https://.youtube.com",
-                        "https://accounts.google.com",
-                        "https://google.com",
-                        "https://.google.com",
-                        url
-                    )
-                    for (d in domains) {
-                        val cStr = cookieManager.getCookie(d) ?: continue
-                        cStr.split(";").forEach { pair ->
-                            val parts = pair.split("=", limit = 2)
-                            if (parts.size == 2) {
-                                val key = parts[0].trim()
-                                val value = parts[1].trim()
-                                if (key.isNotEmpty() && value.isNotEmpty()) {
-                                    merged[key] = value
-                                }
-                            }
-                        }
-                    }
-                    if (merged.isNotEmpty()) {
-                        cookies = merged.map { "${it.key}=${it.value}" }.joinToString("; ")
                     }
                 }
+                val cookies = if (merged.isNotEmpty())
+                    merged.map { "${it.key}=${it.value}" }.joinToString("; ")
+                else
+                    cookieManager.getCookie(url) ?: ""
+
                 cookieRes = req.onStop(
                     NetworkRequest(NetworkRequest.Method.GET, url),
                     cookies
