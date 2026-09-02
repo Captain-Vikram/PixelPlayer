@@ -707,7 +707,7 @@ class LyricsRepositoryImpl @Inject constructor(
                     kotlinx.coroutines.withTimeoutOrNull(4000) {
                         var candidateLyrics: Lyrics? = null
                         val instance = runCatching { ext.instance.awaitNamedInjection("user") }.getOrNull()
-                            ?: ext.instance.getOrNull()
+                            ?: ext.instance.value().getOrNull()
                         val client = instance as? dev.brahmkshatriya.echo.common.clients.LyricsClient
                         
                         if (client == null) {

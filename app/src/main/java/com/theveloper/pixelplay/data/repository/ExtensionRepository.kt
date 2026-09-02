@@ -363,7 +363,7 @@ class ExtensionRepository @Inject constructor(
 
         if (isSameUser) {
             val instance = runCatching { extension.instance.awaitNamedInjection("user") }.getOrNull()
-                ?: extension.instance.getOrNull()
+                ?: extension.instance.value().getOrNull()
             val client = instance as? LoginClient
             try {
                 client?.setLoginUser(user)

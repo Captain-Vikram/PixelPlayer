@@ -2,17 +2,22 @@ package com.theveloper.pixelplay.data.service.player
 
 import android.app.ActivityManager
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioAttributes
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.Uri
 import android.os.BatteryManager
+import android.os.Build
+import android.os.SystemClock
 import android.util.LruCache
+import kotlinx.coroutines.isActive
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
 import androidx.media3.common.AudioAttributes as Media3AudioAttributes
@@ -71,7 +76,6 @@ import com.theveloper.pixelplay.data.netease.NeteaseStreamProxy
 import com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy
 import com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy
 import androidx.core.net.toUri
-import android.net.ConnectivityManager
 import com.theveloper.pixelplay.data.model.StreamingQuality
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.flow.first
@@ -314,6 +318,7 @@ class DualPlayerEngine @Inject constructor(
 
     // Temporary Quality Override Flow (resets/lives per session in memory)
     private val _temporaryQualityOverride = MutableStateFlow<StreamingQuality?>(null)
+    val temporaryQualityOverrideFlow: StateFlow<StreamingQuality?> = _temporaryQualityOverride.asStateFlow()
     val temporaryQualityOverride: StreamingQuality?
         get() = _temporaryQualityOverride.value
 
@@ -1664,7 +1669,7 @@ class DualPlayerEngine @Inject constructor(
         // Audio Output Hardware Awareness
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
         if (audioManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val devices = audioManager.getDevices(AudioDeviceInfo.GET_DEVICES_OUTPUTS)
+            val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             val isPhoneSpeaker = devices.any { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER } &&
                     devices.none { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || 
                                     it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || 

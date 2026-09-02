@@ -76,7 +76,7 @@ class ExtensionLoginViewModel @Inject constructor(
 
         while (System.currentTimeMillis() < deadlineMs) {
             val rawInstance = runCatching { extension.instance.awaitNamedInjection("user") }.getOrNull()
-                ?: extension.instance.getOrNull()
+                ?: extension.instance.value().getOrNull()
 
             if (rawInstance is LoginClient) {
                 return rawInstance
