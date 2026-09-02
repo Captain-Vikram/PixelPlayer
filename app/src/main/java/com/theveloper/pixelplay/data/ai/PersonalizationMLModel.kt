@@ -44,12 +44,31 @@ object PersonalizationMLModel {
     @Volatile
     private var bias = DEFAULT_BIAS
 
-    // AdaGrad running squared gradient accumulators for per-parameter adaptive learning rates
+    // RMSProp moving average squared gradient accumulators (beta = 0.90) to prevent vanishing learning rates
     @Volatile
-    private var gradSq = DoubleArray(9) { 1.0 }
+    private var rmsGradSq = DoubleArray(9) { 0.01 }
 
     @Volatile
-    private var biasGradSq = 1.0
+    private var rmsBiasGradSq = 0.01
+
+    private const val RMS_BETA = 0.90
+
+    // Checkpoint snapshot state (auto-saved every 50 updates)
+    @Volatile
+    private var checkpointWeights = DEFAULT_WEIGHTS.clone()
+
+    @Volatile
+    private var checkpointBias = DEFAULT_BIAS
+
+    @Volatile
+    private var checkpointShortTermMix = 0.70
+
+    @Volatile
+    private var checkpointLongTermMix = 0.30
+
+    // Recent errors rolling buffer for automatic degradation detection
+    private val recentErrors = DoubleArray(20) { 0.25 }
+    private var errorIndex = 0
 
     // Learnable dual-curve memory mix (starts at 70/30 prior)
     @Volatile
@@ -109,45 +128,65 @@ object PersonalizationMLModel {
     }
 
     /**
-     * Online AdaGrad update step with L2 weight decay regularizer and gradient bounds.
+     * Online RMSProp update step with L2 weight decay regularizer, non-vanishing moving average,
+     * periodic checkpointing, and automatic rollback protection.
      * 
      * @param features Feature vector of length >= 9
      * @param label Target engagement [0.0, 1.0] (supports soft/graded feedback)
-     * @param baseLearningRate Base step size (default 0.05 for AdaGrad)
+     * @param baseLearningRate Base step size (default 0.02 for RMSProp)
      * @param l2Lambda L2 regularization penalty to prevent weight drift (default 0.0001)
      */
     @Synchronized
     fun updateWeights(
         features: DoubleArray,
         label: Double,
-        baseLearningRate: Double = 0.05,
+        baseLearningRate: Double = 0.02,
         l2Lambda: Double = 0.0001
     ) {
         val normalized = normalizeFeatures(features)
         val prediction = predictEngagementProbability(normalized)
         val error = (label.coerceIn(0.0, 1.0) - prediction).coerceIn(-1.0, 1.0)
+        val absError = kotlin.math.abs(error)
 
         totalUpdatesCount++
-        cumulativeAbsoluteError += kotlin.math.abs(error)
+        cumulativeAbsoluteError += absError
+
+        // Track rolling window error
+        recentErrors[errorIndex % recentErrors.size] = absError
+        errorIndex++
+
+        // Auto-save checkpoint every 50 updates
+        if (totalUpdatesCount % 50L == 0L) {
+            val rollingAvgError = recentErrors.average()
+            if (rollingAvgError < 0.45) { // Only checkpoint if model performance is healthy
+                checkpointWeights = weights.clone()
+                checkpointBias = bias
+                checkpointShortTermMix = shortTermMix
+                checkpointLongTermMix = longTermMix
+            } else if (rollingAvgError > 0.80) { // Severe model degradation detected -> auto-rollback
+                rollbackToLastCheckpoint()
+                return
+            }
+        }
 
         val newWeights = weights.clone()
-        val newGradSq = gradSq.clone()
+        val newRmsGradSq = rmsGradSq.clone()
 
         for (i in newWeights.indices) {
             val grad = error * normalized[i]
-            newGradSq[i] += grad * grad
-            // AdaGrad adaptive learning rate per feature: lr / sqrt(G + eps)
-            val effLr = baseLearningRate / (kotlin.math.sqrt(newGradSq[i]) + 1e-6)
+            // RMSProp exponential moving average: v_t = beta * v_{t-1} + (1 - beta) * g_t^2
+            newRmsGradSq[i] = RMS_BETA * newRmsGradSq[i] + (1.0 - RMS_BETA) * (grad * grad)
+            val effLr = baseLearningRate / (kotlin.math.sqrt(newRmsGradSq[i]) + 1e-6)
             val updated = newWeights[i] * (1.0 - effLr * l2Lambda) + (effLr * grad)
             newWeights[i] = updated.coerceIn(-8.0, 8.0)
         }
 
-        biasGradSq += error * error
-        val effBiasLr = baseLearningRate / (kotlin.math.sqrt(biasGradSq) + 1e-6)
+        rmsBiasGradSq = RMS_BETA * rmsBiasGradSq + (1.0 - RMS_BETA) * (error * error)
+        val effBiasLr = baseLearningRate / (kotlin.math.sqrt(rmsBiasGradSq) + 1e-6)
         bias = (bias + effBiasLr * error).coerceIn(-5.0, 5.0)
 
         weights = newWeights
-        gradSq = newGradSq
+        rmsGradSq = newRmsGradSq
     }
 
     /**
@@ -161,18 +200,35 @@ object PersonalizationMLModel {
     }
 
     /**
-     * Resets personalization weights and AdaGrad accumulators back to baseline defaults.
+     * Reverts personalization weights to the last healthy checkpoint.
+     */
+    @Synchronized
+    fun rollbackToLastCheckpoint() {
+        weights = checkpointWeights.clone()
+        bias = checkpointBias
+        shortTermMix = checkpointShortTermMix
+        longTermMix = checkpointLongTermMix
+        rmsGradSq = DoubleArray(9) { 0.01 }
+        rmsBiasGradSq = 0.01
+        for (i in recentErrors.indices) recentErrors[i] = 0.25
+    }
+
+    /**
+     * Resets personalization weights and RMSProp accumulators back to baseline defaults.
      */
     @Synchronized
     fun resetToDefaults() {
         weights = DEFAULT_WEIGHTS.clone()
         bias = DEFAULT_BIAS
-        gradSq = DoubleArray(9) { 1.0 }
-        biasGradSq = 1.0
+        checkpointWeights = DEFAULT_WEIGHTS.clone()
+        checkpointBias = DEFAULT_BIAS
+        rmsGradSq = DoubleArray(9) { 0.01 }
+        rmsBiasGradSq = 0.01
         shortTermMix = 0.70
         longTermMix = 0.30
         cumulativeAbsoluteError = 0.0
         totalUpdatesCount = 0L
+        for (i in recentErrors.indices) recentErrors[i] = 0.25
     }
 
     /**
