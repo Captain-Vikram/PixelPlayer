@@ -235,21 +235,38 @@ private fun VideoLoopCanvas(
         }
     }
 
-    AndroidView(
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                useController = false
-                player = exoPlayer
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            }
-        },
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .graphicsLayer {
-                alpha = expansionFraction
-            }
-    )
+            .graphicsLayer { alpha = expansionFraction }
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    useController = false
+                    player = exoPlayer
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Gradient protection scrim: keeps titles, controls, and top bar legible
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.45f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.65f)
+                        )
+                    )
+                )
+        )
+    }
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -312,6 +329,7 @@ fun FullPlayerContent(
     val temporaryQualityOverride by playerViewModel.temporaryQualityOverride.collectAsStateWithLifecycle()
     val currentTrackSources by playerViewModel.currentTrackSources.collectAsStateWithLifecycle()
     val currentSelectedSource by playerViewModel.currentSelectedSource.collectAsStateWithLifecycle()
+    val currentTracks by playerViewModel.currentTracks.collectAsStateWithLifecycle()
     var showLyricsSheet by rememberSaveable { mutableStateOf(false) }
     var showArtistPicker by rememberSaveable { mutableStateOf(false) }
     
@@ -1014,6 +1032,16 @@ fun FullPlayerContent(
                 .fillMaxSize()
                 .graphicsLayer { alpha = contentAlpha }
         ) {
+            // Animated video canvas / video loop playback (e.g. Spotify Canvas, YouTube video loops)
+            if (!song.backgroundUriString.isNullOrBlank()) {
+                VideoLoopCanvas(
+                    videoUri = song.backgroundUriString,
+                    isPlaying = isPlayingProvider(),
+                    expansionFraction = expansionFractionProvider(),
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
             if (isLandscape) {
                 FullPlayerLandscapeContent(
                     paddingValues = paddingValues,
@@ -1119,6 +1147,10 @@ fun FullPlayerContent(
             confirmedTiers = confirmedTiers,
             onSourceSelected = { source ->
                 playerViewModel.selectTrackSource(source)
+            },
+            currentTracks = currentTracks,
+            onTrackGroupSelected = { trackGroup, index ->
+                playerViewModel.changeTrackSelection(trackGroup, index)
             },
             onDismiss = { showQualityOverrideSheet = false }
         )

@@ -377,18 +377,10 @@ class PlayerViewModel @Inject constructor(
                         var radioResult = extension.getAs<RadioClient, dev.brahmkshatriya.echo.common.models.Radio> {
                             val rawItemId = when {
                                 artist.mediaId?.startsWith("extension:") == true -> {
-                                    val parts = artist.mediaId.split(":")
-                                    if (parts.size >= 4) {
-                                        var itemId = parts.drop(3).joinToString(":")
-                                        if (extensionId == "spotify") {
-                                            itemId = if (itemId.startsWith("spotify:")) itemId
-                                            else if (itemId.startsWith("artist:")) "spotify:$itemId"
-                                            else "spotify:artist:$itemId"
-                                        }
-                                        itemId
-                                    } else {
-                                        artist.mediaId.substringAfter("artist:")
-                                    }
+                                    // Decode with limit=4 so rawId (which may contain colons) is preserved intact.
+                                    val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId
+                                        .decode(artist.mediaId)
+                                    decoded?.rawId ?: artist.mediaId.substringAfter("artist:")
                                 }
                                 else -> artist.mediaId ?: ""
                             }
@@ -2811,6 +2803,7 @@ class PlayerViewModel @Inject constructor(
     val temporaryQualityOverride = dualPlayerEngine.temporaryQualityOverrideFlow
     val currentTrackSources = dualPlayerEngine.currentTrackSources
     val currentSelectedSource = dualPlayerEngine.currentSelectedSource
+    val currentTracks = dualPlayerEngine.currentTracks
 
     fun setTemporaryQualityOverride(quality: StreamingQuality?) {
         dualPlayerEngine.setTemporaryQualityOverride(quality)
@@ -2822,6 +2815,10 @@ class PlayerViewModel @Inject constructor(
 
     fun selectTrackSource(source: dev.brahmkshatriya.echo.common.models.Streamable.Source) {
         dualPlayerEngine.selectTrackSource(source)
+    }
+
+    fun changeTrackSelection(trackGroup: androidx.media3.common.TrackGroup, index: Int) {
+        dualPlayerEngine.changeTrackSelection(trackGroup, index)
     }
 
     fun toggleShuffle(currentSongOverride: Song? = null) {

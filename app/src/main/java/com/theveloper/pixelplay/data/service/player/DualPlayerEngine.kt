@@ -374,6 +374,20 @@ class DualPlayerEngine @Inject constructor(
     private val _currentSelectedSource = MutableStateFlow<dev.brahmkshatriya.echo.common.models.Streamable.Source?>(null)
     val currentSelectedSource: StateFlow<dev.brahmkshatriya.echo.common.models.Streamable.Source?> = _currentSelectedSource.asStateFlow()
 
+    // Live ExoPlayer Tracks Flow (Exposes audio/video track groups for instant switching without network reload)
+    private val _currentTracks = MutableStateFlow<androidx.media3.common.Tracks>(androidx.media3.common.Tracks.EMPTY)
+    val currentTracks: StateFlow<androidx.media3.common.Tracks> = _currentTracks.asStateFlow()
+
+    fun changeTrackSelection(trackGroup: androidx.media3.common.TrackGroup, index: Int) {
+        if (::playerA.isInitialized) {
+            playerA.trackSelectionParameters = playerA.trackSelectionParameters
+                .buildUpon()
+                .clearOverride(trackGroup)
+                .addOverride(androidx.media3.common.TrackSelectionOverride(trackGroup, index))
+                .build()
+        }
+    }
+
     private var manualSelectedSource: dev.brahmkshatriya.echo.common.models.Streamable.Source? = null
 
     fun selectTrackSource(source: dev.brahmkshatriya.echo.common.models.Streamable.Source) {
@@ -562,6 +576,10 @@ class DualPlayerEngine @Inject constructor(
                 // between (user pause/play) keeps the request alive to avoid contention races
                 // that occasionally caused press-play to auto-pause after a short wait.
             }
+        }
+
+        override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+            _currentTracks.value = tracks
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -1738,13 +1756,10 @@ class DualPlayerEngine @Inject constructor(
         _currentTrackSources.value = emptyList()
         _currentSelectedSource.value = null
 
-        val parts = uriString.split(":")
-        if (parts.size < 4 || parts[0] != "extension") return@withContext null
-        val extensionId = parts[1]
-        var itemId = parts.drop(3).joinToString(":")
-        if (extensionId == "spotify" && !itemId.contains(":")) {
-            itemId = "spotify:track:$itemId"
-        }
+        val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(uriString)
+            ?: return@withContext null
+        val extensionId = decoded.extensionId
+        val itemId = decoded.rawId // Opaque raw ID as stored by the extension. MUST NOT be mutated.
 
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return@withContext null
         
@@ -1754,29 +1769,40 @@ class DualPlayerEngine @Inject constructor(
             val echoTrack = dev.brahmkshatriya.echo.common.models.Track(itemId, "")
             val loadedTrack = client.loadTrack(echoTrack, false)
             
-            // Collect all potential sources with their quality
+            val targetTier = resolveTargetStreamingQuality(extensionId, itemId)
+            Timber.tag("DualPlayerEngine").d("Resolving stream with target quality tier: %s", targetTier)
+
             val potentialSources = mutableListOf<Pair<dev.brahmkshatriya.echo.common.models.Streamable.Source, dev.brahmkshatriya.echo.common.models.Streamable>>()
-            
             val allStreamables = (loadedTrack.servers.ifEmpty { loadedTrack.streamables })
-                .sortedByDescending { it.quality }
-            
-            // Fetch streamable media in parallel coroutines to minimize quality resolution latency
-            val mediaDeferreds = allStreamables.map { streamable ->
-                async(Dispatchers.IO) {
-                    try {
-                        val media = client.loadStreamableMedia(streamable, false)
-                        if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
-                            media.sources.map { source -> source to streamable }
-                        } else emptyList()
-                    } catch (e: Exception) {
-                        Timber.tag("DualPlayerEngine").w(e, "Failed to load streamable media for %s", streamable.id)
-                        emptyList()
-                    }
+
+            // Order streamables based on target quality tier (Highest / Balanced / Fastest)
+            val orderedStreamables = when (targetTier) {
+                StreamingQuality.LOSSLESS, StreamingQuality.HIGH -> allStreamables.sortedByDescending { it.quality }
+                StreamingQuality.DATA_SAVER -> allStreamables.sortedBy { it.quality }
+                else -> { // AUTO or STANDARD - pick balanced/median quality for instant playback start
+                    val sorted = allStreamables.sortedBy { it.quality }
+                    if (sorted.size > 1) {
+                        val mid = sorted[sorted.size / 2]
+                        listOf(mid) + sorted.filter { it.id != mid.id }
+                    } else sorted
                 }
             }
 
-            val resolvedPairs = mediaDeferreds.awaitAll().flatten()
-            potentialSources.addAll(resolvedPairs)
+            // Lazily resolve streamable media — stops at the first successful server instead of
+            // firing 6-10 parallel network requests per track start.
+            for (streamable in orderedStreamables) {
+                try {
+                    val media = client.loadStreamableMedia(streamable, false)
+                    if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
+                        for (source in media.sources) {
+                            potentialSources.add(source to streamable)
+                        }
+                        if (potentialSources.isNotEmpty()) break
+                    }
+                } catch (e: Exception) {
+                    Timber.tag("DualPlayerEngine").w(e, "Failed to load streamable media for %s", streamable.id)
+                }
+            }
 
             if (potentialSources.isEmpty()) {
                 Timber.tag("DualPlayerEngine").w("No potential sources found for track %s. Running fallback search...", loadedTrack.title)
@@ -1828,8 +1854,7 @@ class DualPlayerEngine @Inject constructor(
                 }
             }
             
-            val targetTier = resolveTargetStreamingQuality(extensionId, itemId)
-            Timber.tag("DualPlayerEngine").d("Resolving stream with target quality tier: %s", targetTier)
+
 
             // Sort potential sources:
             // 1. Closest tier difference (absolute rank diff) first.

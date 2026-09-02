@@ -140,13 +140,9 @@ fun LibraryTabContent(
                 ) {
                     ExtensionLoginBanner(
                         extensionName = activeExtension?.metadata?.name ?: "",
-                        brandColor = when {
-                            extensionId.contains("spotify", ignoreCase = true) -> Color(0xFF1DB954)
-                            extensionId.contains("youtube", ignoreCase = true) || extensionId.contains("ytmusic", ignoreCase = true) -> Color(0xFFFF0000)
-                            extensionId.contains("jellyfin", ignoreCase = true) -> Color(0xFF00A4DC)
-                            extensionId.contains("navidrome", ignoreCase = true) -> Color(0xFFEC5840)
-                            else -> MaterialTheme.colorScheme.primary
-                        },
+                        brandColor = com.theveloper.pixelplay.extensions.core.rememberExtensionAccentColor(
+                            activeExtension?.metadata
+                        ),
                         onLoginClick = {
                             navController.navigate(Screen.ExtensionLogin.createRoute(extensionId))
                         }

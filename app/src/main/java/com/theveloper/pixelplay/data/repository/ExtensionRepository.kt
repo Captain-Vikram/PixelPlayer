@@ -252,16 +252,11 @@ class ExtensionRepository @Inject constructor(
     }
 
     suspend fun loadAlbumDetails(mediaId: String): Pair<com.theveloper.pixelplay.data.model.Album, List<com.theveloper.pixelplay.data.model.Song>>? {
-        val parts = mediaId.split(":")
-        if (parts.size < 4 || parts[0] != "extension") return null
-        val extensionId = parts[1]
-        var itemId = parts.drop(3).joinToString(":")
-        if (extensionId == "spotify") {
-            itemId = if (itemId.startsWith("spotify:")) itemId
-            else if (itemId.startsWith("album:")) "spotify:$itemId"
-            else "spotify:album:$itemId"
-        }
-        
+        val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(mediaId)
+            ?: return null
+        val extensionId = decoded.extensionId
+        val itemId = decoded.rawId // Opaque raw ID exactly as stored by the extension.
+
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return null
         
         return try {
@@ -284,15 +279,10 @@ class ExtensionRepository @Inject constructor(
     }
 
     suspend fun loadArtistDetails(mediaId: String): ExtensionArtistDetails? {
-        val parts = mediaId.split(":")
-        if (parts.size < 4 || parts[0] != "extension") return null
-        val extensionId = parts[1]
-        var itemId = parts.drop(3).joinToString(":")
-        if (extensionId == "spotify") {
-            itemId = if (itemId.startsWith("spotify:")) itemId
-            else if (itemId.startsWith("artist:")) "spotify:$itemId"
-            else "spotify:artist:$itemId"
-        }
+        val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(mediaId)
+            ?: return null
+        val extensionId = decoded.extensionId
+        val itemId = decoded.rawId // Opaque raw ID exactly as stored by the extension.
 
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return null
 
@@ -316,15 +306,10 @@ class ExtensionRepository @Inject constructor(
     }
 
     suspend fun loadPlaylistDetails(mediaId: String): Pair<com.theveloper.pixelplay.data.model.Playlist, List<com.theveloper.pixelplay.data.model.Song>>? {
-        val parts = mediaId.split(":")
-        if (parts.size < 4 || parts[0] != "extension") return null
-        val extensionId = parts[1]
-        var itemId = parts.drop(3).joinToString(":")
-        if (extensionId == "spotify") {
-            itemId = if (itemId.startsWith("spotify:")) itemId
-            else if (itemId.startsWith("playlist:")) "spotify:$itemId"
-            else "spotify:playlist:$itemId"
-        }
+        val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(mediaId)
+            ?: return null
+        val extensionId = decoded.extensionId
+        val itemId = decoded.rawId // Opaque raw ID exactly as stored by the extension.
 
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return null
 
@@ -752,7 +737,10 @@ class ExtensionRepository @Inject constructor(
         
         return try {
             val echoTrack = dev.brahmkshatriya.echo.common.models.Track(
-                id = song.id.substringAfter(":track:"),
+                // Use the generic decoder so the raw opaque track ID is preserved
+                // for any extension (not just Spotify-style "x:track:y" IDs).
+                id = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(song.id)?.rawId
+                    ?: song.id,
                 title = song.title
             )
             extension.getAs<PlaylistEditClient, List<Pair<dev.brahmkshatriya.echo.common.models.Playlist, Boolean>>> {
@@ -765,17 +753,19 @@ class ExtensionRepository @Inject constructor(
     }
 
     suspend fun addTracksToExtensionPlaylist(playlistId: String, trackIds: List<String>) {
-        val parts = playlistId.split(":")
-        if (parts.size < 4 || parts[0] != "extension") return
-        val extensionId = parts[1]
-        val itemId = parts.drop(3).joinToString(":")
+        val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(playlistId)
+            ?: return
+        val extensionId = decoded.extensionId
+        val itemId = decoded.rawId
 
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return
         try {
             extension.getAs<PlaylistEditClient, Unit> {
                 val echoPlaylist = dev.brahmkshatriya.echo.common.models.Playlist(itemId, "", true)
                 val echoTracks = trackIds.map { 
-                    dev.brahmkshatriya.echo.common.models.Track(it.substringAfter(":track:"), "") 
+                    dev.brahmkshatriya.echo.common.models.Track(
+                        com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(it)?.rawId ?: it, ""
+                    )
                 }
                 addTracksToPlaylist(echoPlaylist, emptyList(), 0, echoTracks)
             }
@@ -786,17 +776,19 @@ class ExtensionRepository @Inject constructor(
     }
 
     suspend fun removeTracksFromExtensionPlaylist(playlistId: String, trackIds: List<String>) {
-        val parts = playlistId.split(":")
-        if (parts.size < 4 || parts[0] != "extension") return
-        val extensionId = parts[1]
-        val itemId = parts.drop(3).joinToString(":")
+        val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(playlistId)
+            ?: return
+        val extensionId = decoded.extensionId
+        val itemId = decoded.rawId
 
         val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return
         try {
             extension.getAs<PlaylistEditClient, Unit> {
                 val echoPlaylist = dev.brahmkshatriya.echo.common.models.Playlist(itemId, "", true)
                 val echoTracks = trackIds.map { 
-                    dev.brahmkshatriya.echo.common.models.Track(it.substringAfter(":track:"), "") 
+                    dev.brahmkshatriya.echo.common.models.Track(
+                        com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(it)?.rawId ?: it, ""
+                    )
                 }
                 removeTracksFromPlaylist(echoPlaylist, emptyList(), emptyList()) // Cannot remove by ID without indexes in this API
             }

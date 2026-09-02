@@ -72,16 +72,16 @@ class ExtensionLoginViewModel @Inject constructor(
     }
 
     private suspend fun waitForLoginClient(extension: Extension<*>): LoginClient? {
-        val deadlineMs = System.currentTimeMillis() + 10_000L
+        val deadlineMs = System.currentTimeMillis() + 5_000L
 
         while (System.currentTimeMillis() < deadlineMs) {
-            val rawInstance = runCatching { extension.instance.awaitNamedInjection("user") }.getOrNull()
-                ?: extension.instance.value().getOrNull()
+            val rawInstance = extension.instance.value().getOrNull()
+                ?: runCatching { withTimeoutOrNull(400) { extension.instance.awaitNamedInjection("user") } }.getOrNull()
 
             if (rawInstance is LoginClient) {
                 return rawInstance
             }
-            delay(200L)
+            delay(150L)
         }
 
         return null
