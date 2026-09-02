@@ -331,17 +331,19 @@ private fun PickResultContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (extensions.isNotEmpty()) {
+            val rawIndex = if (selectedId == null) 0 else (extensions.indexOfFirst { it.metadata.id == selectedId }.takeIf { it >= 0 }?.plus(1) ?: 0)
+            val selectedTabIndex = rawIndex.coerceIn(0, extensions.size)
+
             ScrollableTabRow(
-                selectedTabIndex = if (selectedId == null) 0 else extensions.indexOfFirst { it.metadata.id == selectedId } + 1,
+                selectedTabIndex = selectedTabIndex,
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.primary,
                 edgePadding = 0.dp,
                 divider = {},
                 indicator = { tabPositions ->
-                    val index = if (selectedId == null) 0 else extensions.indexOfFirst { it.metadata.id == selectedId } + 1
-                    if (index < tabPositions.size) {
+                    if (selectedTabIndex < tabPositions.size) {
                         TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[index]),
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
                             color = MaterialTheme.colorScheme.primary
                         )
                     }

@@ -1469,7 +1469,10 @@ class DualPlayerEngine @Inject constructor(
         val cacheDataSourceFactory = androidx.media3.datasource.cache.CacheDataSource.Factory()
             .setCache(extensionHost.cache)
             .setUpstreamDataSourceFactory(baseDataSourceFactory)
-            .setFlags(androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+            .setFlags(
+                androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR or
+                androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_FOR_UNSET_LENGTH_REQUESTS
+            )
 
         val resolvingFactory = ResolvingDataSource.Factory(cacheDataSourceFactory, resolver)
         val extractorsFactory = DefaultExtractorsFactory()
