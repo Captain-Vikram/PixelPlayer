@@ -44,21 +44,52 @@ object PersonalizationMLModel {
     @Volatile
     private var bias = DEFAULT_BIAS
 
+    // AdaGrad running squared gradient accumulators for per-parameter adaptive learning rates
+    @Volatile
+    private var gradSq = DoubleArray(9) { 1.0 }
+
+    @Volatile
+    private var biasGradSq = 1.0
+
+    // Learnable dual-curve memory mix (starts at 70/30 prior)
+    @Volatile
+    var shortTermMix: Double = 0.70
+        private set
+
+    @Volatile
+    var longTermMix: Double = 0.30
+        private set
+
+    // On-device aggregate metrics (privacy-safe local counters)
+    @Volatile
+    var totalPredictionsCount: Long = 0L
+        private set
+
+    @Volatile
+    var totalUpdatesCount: Long = 0L
+        private set
+
+    @Volatile
+    var cumulativeAbsoluteError: Double = 0.0
+        private set
+
     /**
-     * Normalizes raw feature inputs to [0.0, 1.0] to prevent gradient explosion.
+     * Normalizes raw feature inputs strictly to [0.0, 1.0] to eliminate gradient saturation.
+     * All unbounded numeric features (plays, days) are log1p compressed and explicitly clamped.
      */
     fun normalizeFeatures(rawFeatures: DoubleArray): DoubleArray {
         require(rawFeatures.size >= 9) { "Feature vector must contain at least 9 elements" }
         return doubleArrayOf(
-            // x0: log-compressed play count (e.g. 50 plays -> ~0.78, 10 plays -> ~0.48)
-            (ln(1.0 + max(0.0, rawFeatures[0])) / 5.0).coerceIn(0.0, 1.0),
+            // x0: log1p compressed play count (divisor 6.0 accommodates up to ~400+ plays before maxing at 1.0)
+            (ln(1.0 + max(0.0, rawFeatures[0])) / 6.0).coerceIn(0.0, 1.0),
             rawFeatures[1].coerceIn(0.0, 1.0), // x1: artist_affinity
             rawFeatures[2].coerceIn(0.0, 1.0), // x2: album_affinity
             rawFeatures[3].coerceIn(0.0, 1.0), // x3: genre_affinity
             rawFeatures[4].coerceIn(0.0, 1.0), // x4: skip_rate
             rawFeatures[5].coerceIn(0.0, 1.0), // x5: completion_rate
             rawFeatures[6].coerceIn(0.0, 1.0), // x6: like_score
-            rawFeatures[7].coerceIn(0.0, 1.0), // x7: time_of_day_affinity
+            // x7: log1p compressed days-since-last-play / time-of-day (divisor 5.0 accommodates up to ~150 days)
+            (ln(1.0 + max(0.0, rawFeatures[7])) / 5.0).coerceIn(0.0, 1.0),
             rawFeatures[8].coerceIn(0.0, 1.0)  // x8: remote_rank_index
         )
     }
@@ -73,45 +104,75 @@ object PersonalizationMLModel {
         for (i in currentWeights.indices) {
             logit += currentWeights[i] * normalized[i]
         }
+        totalPredictionsCount++
         return 1.0 / (1.0 + exp(-logit.coerceIn(-20.0, 20.0)))
     }
 
     /**
-     * Online Stochastic Gradient Descent (SGD) with L2 weight decay and gradient clipping.
+     * Online AdaGrad update step with L2 weight decay regularizer and gradient bounds.
      * 
      * @param features Feature vector of length >= 9
      * @param label Target engagement [0.0, 1.0] (supports soft/graded feedback)
-     * @param learningRate Step size for update (default 0.01)
+     * @param baseLearningRate Base step size (default 0.05 for AdaGrad)
      * @param l2Lambda L2 regularization penalty to prevent weight drift (default 0.0001)
      */
     @Synchronized
     fun updateWeights(
         features: DoubleArray,
         label: Double,
-        learningRate: Double = 0.01,
+        baseLearningRate: Double = 0.05,
         l2Lambda: Double = 0.0001
     ) {
         val normalized = normalizeFeatures(features)
         val prediction = predictEngagementProbability(normalized)
         val error = (label.coerceIn(0.0, 1.0) - prediction).coerceIn(-1.0, 1.0)
 
+        totalUpdatesCount++
+        cumulativeAbsoluteError += kotlin.math.abs(error)
+
         val newWeights = weights.clone()
+        val newGradSq = gradSq.clone()
+
         for (i in newWeights.indices) {
-            // L2 weight decay regularizer applied on each step: (1 - lr * lambda)
-            val updated = newWeights[i] * (1.0 - learningRate * l2Lambda) + (learningRate * error * normalized[i])
-            newWeights[i] = updated.coerceIn(-8.0, 8.0) // Hard bounds prevent catastrophic drift
+            val grad = error * normalized[i]
+            newGradSq[i] += grad * grad
+            // AdaGrad adaptive learning rate per feature: lr / sqrt(G + eps)
+            val effLr = baseLearningRate / (kotlin.math.sqrt(newGradSq[i]) + 1e-6)
+            val updated = newWeights[i] * (1.0 - effLr * l2Lambda) + (effLr * grad)
+            newWeights[i] = updated.coerceIn(-8.0, 8.0)
         }
-        bias = (bias + learningRate * error).coerceIn(-5.0, 5.0)
+
+        biasGradSq += error * error
+        val effBiasLr = baseLearningRate / (kotlin.math.sqrt(biasGradSq) + 1e-6)
+        bias = (bias + effBiasLr * error).coerceIn(-5.0, 5.0)
+
         weights = newWeights
+        gradSq = newGradSq
     }
 
     /**
-     * Resets personalization weights back to baseline defaults.
+     * Updates the learnable dual-curve memory mixture based on user engagement.
+     */
+    @Synchronized
+    fun updateMemoryMix(label: Double, shortTermRecency: Double, longTermRecency: Double, lr: Double = 0.02) {
+        val error = label - (shortTermMix * shortTermRecency + longTermMix * longTermRecency)
+        shortTermMix = (shortTermMix + lr * error * shortTermRecency).coerceIn(0.10, 0.90)
+        longTermMix = (1.0 - shortTermMix).coerceIn(0.10, 0.90)
+    }
+
+    /**
+     * Resets personalization weights and AdaGrad accumulators back to baseline defaults.
      */
     @Synchronized
     fun resetToDefaults() {
         weights = DEFAULT_WEIGHTS.clone()
         bias = DEFAULT_BIAS
+        gradSq = DoubleArray(9) { 1.0 }
+        biasGradSq = 1.0
+        shortTermMix = 0.70
+        longTermMix = 0.30
+        cumulativeAbsoluteError = 0.0
+        totalUpdatesCount = 0L
     }
 
     /**

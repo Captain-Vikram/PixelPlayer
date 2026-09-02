@@ -56,19 +56,20 @@ class AiPlaylistGenerator @Inject constructor(
                 val lastPlayed = engagement?.lastPlayedTimestamp ?: 0L
                 val daysAgo = if (lastPlayed > 0) maxOf(0.0, (now - lastPlayed) / (1000.0 * 60 * 60 * 24)) else 30.0
                 
-                // Dual-curve memory model: 70% current rotation + 30% enduring favorites
-                val decayWeight = 0.7 * kotlin.math.exp(-shortLambda * daysAgo) + 0.3 * kotlin.math.exp(-longLambda * daysAgo)
+                // Dual-curve memory model with dynamically learned short/long mixture weights
+                val decayWeight = PersonalizationMLModel.shortTermMix * kotlin.math.exp(-shortLambda * daysAgo) +
+                                  PersonalizationMLModel.longTermMix * kotlin.math.exp(-longLambda * daysAgo)
                 val likeDecayed = if (likeStatus > 0) likeStatus * kotlin.math.exp(-0.01 * daysAgo) else 0.0
 
                 val features = doubleArrayOf(
-                    playCount * decayWeight, // x0: log-compressed in model
+                    playCount * decayWeight, // x0: log1p-compressed in model (div 6.0)
                     0.5, // x1: artist_affinity
                     0.5, // x2: album_affinity
                     0.5, // x3: genre_affinity
                     skipRate, // x4: skip_rate
                     if (playCount > 0) completionCount.toDouble() / playCount else 0.0, // x5: completion_rate
                     likeDecayed, // x6: decayed like score
-                    0.5, // x7: time_of_day
+                    daysAgo, // x7: log1p-compressed in model (div 5.0)
                     0.5  // x8: remote_rank_index
                 )
 
