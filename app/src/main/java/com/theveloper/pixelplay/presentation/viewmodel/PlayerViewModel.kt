@@ -1926,7 +1926,7 @@ class PlayerViewModel @Inject constructor(
         extensionRepository.dailyMixSongsFromExtension
     ) { localMix, currentExt, loggedInIds, extMix ->
         val isExtLoggedIn = currentExt?.let { loggedInIds.contains(it.metadata.id) } == true
-        if (currentExt != null && isExtLoggedIn && extMix.isNotEmpty()) {
+        if (currentExt != null && isExtLoggedIn) {
             extMix.toImmutableList()
         } else {
             localMix
@@ -1944,7 +1944,7 @@ class PlayerViewModel @Inject constructor(
         extensionRepository.yourMixSongsFromExtension
     ) { localMix, currentExt, loggedInIds, extMix ->
         val isExtLoggedIn = currentExt?.let { loggedInIds.contains(it.metadata.id) } == true
-        if (currentExt != null && isExtLoggedIn && extMix.isNotEmpty()) {
+        if (currentExt != null && isExtLoggedIn) {
             extMix.toImmutableList()
         } else {
             localMix

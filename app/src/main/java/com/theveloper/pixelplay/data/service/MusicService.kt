@@ -438,8 +438,7 @@ class MusicService : MediaLibraryService() {
         // immediately on cold start before super.onCreate(): Hilt injection and MediaLibraryService
         // startup can otherwise consume Android's 5-second FGS deadline before onStartCommand()
         // receives the media-button intent.
-        temporaryForegroundStartedInOnCreate =
-            consumePendingMediaButtonForegroundStart() || Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        temporaryForegroundStartedInOnCreate = consumePendingMediaButtonForegroundStart()
         if (temporaryForegroundStartedInOnCreate) {
             startTemporaryForegroundForCommand()
         }
@@ -1071,6 +1070,23 @@ class MusicService : MediaLibraryService() {
         }
     }
 
+    private var temporaryForegroundCleanupJob: Job? = null
+
+    private fun scheduleTemporaryForegroundCleanup() {
+        temporaryForegroundCleanupJob?.cancel()
+        temporaryForegroundCleanupJob = serviceScope.launch {
+            delay(1_500L)
+            val player = mediaSession?.player ?: engine.masterPlayer
+            if (!player.hasForegroundPlaybackIntent()) {
+                try {
+                    ServiceCompat.stopForeground(this@MusicService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                } catch (e: Exception) {
+                    // Ignore foreground stop errors
+                }
+            }
+        }
+    }
+
     private fun isServiceAlreadyForeground(): Boolean {
         val player = mediaSession?.player ?: return false
         return player.hasForegroundPlaybackIntent()
@@ -1108,6 +1124,7 @@ class MusicService : MediaLibraryService() {
         if (needsTemporaryForeground && !startedTemporaryForegroundInOnCreate) {
             startTemporaryForegroundForCommand()
         }
+        scheduleTemporaryForegroundCleanup()
 
         intent?.action?.let { action ->
             Timber.tag(TAG).d("onStartCommand widget action: %s", action)

@@ -392,6 +392,11 @@ class LyricsRepositoryImpl @Inject constructor(
             Log.d(TAG, "===== FORCE REFRESH - BYPASSING IN-MEMORY CACHE =====")
         }
 
+        if (forceRefresh) {
+            unresponsiveExtensions.clear()
+            Log.d(TAG, "===== FORCE REFRESH - RESETTING UNRESPONSIVE EXTENSIONS =====")
+        }
+
         if (!forceRefresh) {
             loadStoredLyrics(song, cacheKey, includeMemoryCache = false)?.let { stored ->
                 lyricsCache.put(cacheKey, stored.first)
@@ -403,7 +408,7 @@ class LyricsRepositoryImpl @Inject constructor(
 
         _lyricsFetchState.value = LyricsFetchState.Loading
 
-        // Define source fetchers (matching Rhythm pattern)
+        // Define source fetchers
         val fetchFromLocal: suspend () -> Lyrics? = {
             findLocalLyricsFile(song)
         }
@@ -420,9 +425,9 @@ class LyricsRepositoryImpl @Inject constructor(
             fetchFromExtensionsProviders(song)
         }
 
-        // Try sources in order based on preference, with fallback (matching Rhythm)
+        // Try sources in order based on preference (Extensions take precedence when active)
         val sourceFetchers = when (sourcePreference) {
-            LyricsSourcePreference.API_FIRST -> listOf(fetchFromAPI, fetchFromExtensions, fetchFromEmbedded, fetchFromLocal)
+            LyricsSourcePreference.API_FIRST -> listOf(fetchFromExtensions, fetchFromAPI, fetchFromEmbedded, fetchFromLocal)
             LyricsSourcePreference.EMBEDDED_FIRST -> listOf(fetchFromEmbedded, fetchFromExtensions, fetchFromAPI, fetchFromLocal)
             LyricsSourcePreference.LOCAL_FIRST -> listOf(fetchFromLocal, fetchFromEmbedded, fetchFromExtensions, fetchFromAPI)
         }
@@ -701,10 +706,12 @@ class LyricsRepositoryImpl @Inject constructor(
                     
                     kotlinx.coroutines.withTimeoutOrNull(4000) {
                         var candidateLyrics: Lyrics? = null
-                        val client = ext.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.LyricsClient
+                        val instance = runCatching { ext.instance.awaitNamedInjection("user") }.getOrNull()
+                            ?: ext.instance.getOrNull()
+                        val client = instance as? dev.brahmkshatriya.echo.common.clients.LyricsClient
                         
                         if (client == null) {
-                            Log.e(TAG, "Extension ${ext.metadata.id} is not a LyricsClient")
+                            Log.e(TAG, "Extension ${ext.metadata.id} is not a LyricsClient or failed to inject")
                             return@withTimeoutOrNull null
                         }
 

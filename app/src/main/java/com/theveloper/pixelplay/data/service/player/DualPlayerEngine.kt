@@ -4,10 +4,14 @@ import android.app.ActivityManager
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
-import android.media.AudioManager
-import android.net.Uri
-import android.os.Build
-import android.os.SystemClock
+import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
 import android.util.LruCache
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
@@ -47,6 +51,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -308,14 +314,17 @@ class DualPlayerEngine @Inject constructor(
 
     // Temporary Quality Override Flow (resets/lives per session in memory)
     private val _temporaryQualityOverride = MutableStateFlow<StreamingQuality?>(null)
-    val temporaryQualityOverrideFlow: StateFlow<StreamingQuality?> = _temporaryQualityOverride.asStateFlow()
-
     val temporaryQualityOverride: StreamingQuality?
         get() = _temporaryQualityOverride.value
 
+    private var qualityOverrideJob: Job? = null
+
     fun setTemporaryQualityOverride(quality: StreamingQuality?) {
+        if (_temporaryQualityOverride.value == quality) return
         _temporaryQualityOverride.value = quality
-        scope.launch {
+        qualityOverrideJob?.cancel()
+        qualityOverrideJob = scope.launch {
+            delay(150L) // Debounce aggressive tapping
             if (::playerA.isInitialized) {
                 val currentMediaItem = playerA.currentMediaItem
                 if (currentMediaItem != null && currentMediaItem.mediaId.startsWith("extension:")) {
@@ -326,13 +335,10 @@ class DualPlayerEngine @Inject constructor(
                     currentMediaItem.localConfiguration?.uri?.let { uri ->
                         resolvedUriCache.remove(uri.toString())
                     }
-                    // Resolve to the real HTTP URL NOW, on the coroutine thread, and
-                    // build a MediaItem that has the actual URL baked in.  This avoids
-                    // the JIT runBlocking path in ResolvingDataSource.resolver which
-                    // races with replaceMediaItem/prepare/seekTo and breaks UI controls.
                     val extensionUri = currentMediaItem.localConfiguration?.uri
                     if (extensionUri != null) {
                         val resolved = resolveCloudUri(extensionUri)
+                        if (!isActive) return@launch
                         // Persist headers so ResolvingDataSource applies them when
                         // OkHttp opens the resolved HTTPS URL.
                         if (resolved.headers.isNotEmpty()) {
@@ -342,11 +348,13 @@ class DualPlayerEngine @Inject constructor(
                             .setUri(resolved.uri)
                             .setMimeType(resolved.mimeType)
                             .build()
-                        playerA.replaceMediaItem(playerA.currentMediaItemIndex, resolvedMediaItem)
-                        playerA.prepare()
-                        playerA.seekTo(position)
-                        if (wasPlaying) {
-                            playerA.play()
+                        withContext(Dispatchers.Main) {
+                            playerA.replaceMediaItem(playerA.currentMediaItemIndex, resolvedMediaItem)
+                            playerA.prepare()
+                            playerA.seekTo(position)
+                            if (wasPlaying) {
+                                playerA.play()
+                            }
                         }
                     }
                 }
@@ -541,7 +549,7 @@ class DualPlayerEngine @Inject constructor(
                 }
             } else {
                 cancelAudioOffloadFallback()
-                if (transitionRunning) {
+                if (transitionRunning && reason != Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
                     playerB?.playWhenReady = false
                 }
                 // Keep focus across user pauses so a quick resume doesn't have to re-acquire it.
@@ -1017,6 +1025,7 @@ class DualPlayerEngine @Inject constructor(
         activeWindowStartIndex = 0
         activePlayerUsesWindowedQueue = false
         resetPreparedWindowState()
+        initializeQualityResolver()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -1563,48 +1572,161 @@ class DualPlayerEngine @Inject constructor(
      * pre-buffers the next track) to avoid immediate playback interruptions and prevent
      * cellular data waste from discarding the current buffer.
      */
-    private suspend fun resolveTargetStreamingQuality(): StreamingQuality {
-        // Respect temporary override if set
-        val override = temporaryQualityOverride
-        if (override != null) {
-            return override
+    // Push-driven Quality Resolver State (Zero IPC / Microsecond In-Memory Lookups)
+    @Volatile private var cachedBaseQuality: StreamingQuality = StreamingQuality.HIGH
+    @Volatile private var cachedWifiPreference: StreamingQuality = StreamingQuality.AUTO
+    @Volatile private var cachedCellularPreference: StreamingQuality = StreamingQuality.AUTO
+    private val perExtensionQualityOverrides = java.util.concurrent.ConcurrentHashMap<String, StreamingQuality>()
+    private val perTrackQualityOverrides = java.util.concurrent.ConcurrentHashMap<String, StreamingQuality>()
+
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var audioDeviceCallback: AudioDeviceCallback? = null
+
+    private fun initializeQualityResolver() {
+        // Collect user preference flows into memory
+        scope.launch {
+            userPreferencesRepository.preferredQualityWifiFlow.collect { quality ->
+                cachedWifiPreference = quality
+                recomputeBaseQuality()
+            }
+        }
+        scope.launch {
+            userPreferencesRepository.preferredQualityCellularFlow.collect { quality ->
+                cachedCellularPreference = quality
+                recomputeBaseQuality()
+            }
         }
 
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+
+        // Register Push Event Listener: Network Capabilities & Link Speed
+        if (connectivityManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                    recomputeBaseQuality()
+                }
+                override fun onAvailable(network: Network) {
+                    recomputeBaseQuality()
+                }
+                override fun onLost(network: Network) {
+                    recomputeBaseQuality()
+                }
+            }
+            networkCallback = callback
+            runCatching { connectivityManager.registerDefaultNetworkCallback(callback) }
+        }
+
+        // Register Push Event Listener: Audio Hardware Output (Speaker / Headphones / Bluetooth)
+        if (audioManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val callback = object : AudioDeviceCallback() {
+                override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+                    recomputeBaseQuality()
+                }
+                override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+                    recomputeBaseQuality()
+                }
+            }
+            audioDeviceCallback = callback
+            runCatching { audioManager.registerAudioDeviceCallback(callback, null) }
+        }
+
+        recomputeBaseQuality()
+    }
+
+    private fun recomputeBaseQuality() {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
         val isMetered = connectivityManager.isActiveNetworkMetered
-        
-        // Read user preferences
-        val wifiPreference = userPreferencesRepository.preferredQualityWifiFlow.first()
-        val cellularPreference = userPreferencesRepository.preferredQualityCellularFlow.first()
-        
-        var targetQuality = if (isMetered) cellularPreference else wifiPreference
-        
-        // Resolve AUTO
-        if (targetQuality == StreamingQuality.AUTO) {
-            targetQuality = if (isMetered) {
-                // Metered (Cellular): default to STANDARD to save data
-                StreamingQuality.STANDARD
-            } else {
-                // Unmetered (Wi-Fi): default to HIGH for best experience
-                StreamingQuality.HIGH
+        val activeNetwork = connectivityManager.activeNetwork
+        val caps = connectivityManager.getNetworkCapabilities(activeNetwork)
+
+        val isEthernet = caps?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true
+        val isRoaming = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING) == false
+        val linkSpeedKbps = caps?.linkDownstreamBandwidthKbps ?: 10_000
+
+        var quality = when {
+            isEthernet -> StreamingQuality.HIGH
+            isRoaming -> StreamingQuality.STANDARD
+            isMetered -> cachedCellularPreference
+            else -> cachedWifiPreference
+        }
+
+        if (quality == StreamingQuality.AUTO) {
+            quality = when {
+                isRoaming -> StreamingQuality.STANDARD
+                isMetered -> StreamingQuality.STANDARD
+                linkSpeedKbps in 1..800 -> StreamingQuality.DATA_SAVER
+                linkSpeedKbps in 801..2500 -> StreamingQuality.STANDARD
+                else -> StreamingQuality.HIGH
             }
         }
-        
-        // Respect system-wide Data Saver mode
-        val isDataSaverActive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            connectivityManager.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+
+        // Audio Output Hardware Awareness
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+        if (audioManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val devices = audioManager.getDevices(AudioDeviceInfo.GET_DEVICES_OUTPUTS)
+            val isPhoneSpeaker = devices.any { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER } &&
+                    devices.none { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || 
+                                    it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || 
+                                    it.type == AudioDeviceInfo.TYPE_USB_HEADSET || 
+                                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP }
+
+            if (isPhoneSpeaker && quality.rank > StreamingQuality.STANDARD.rank) {
+                quality = StreamingQuality.STANDARD
+            }
+        }
+
+        // Data Saver Guard (Only apply on metered networks)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val isDataSaver = connectivityManager.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+            if (isDataSaver && isMetered && quality.rank > StreamingQuality.STANDARD.rank) {
+                quality = StreamingQuality.STANDARD
+            }
+        }
+
+        cachedBaseQuality = quality
+    }
+
+    fun setPerTrackQualityOverride(songId: String, quality: StreamingQuality?) {
+        if (quality == null) {
+            perTrackQualityOverrides.remove(songId)
         } else {
-            false
+            perTrackQualityOverrides[songId] = quality
         }
-        
-        if (isDataSaverActive) {
-            // Cap quality at DATA_SAVER or STANDARD
-            if (targetQuality.rank > StreamingQuality.STANDARD.rank) {
-                targetQuality = StreamingQuality.STANDARD
+    }
+
+    fun getPerTrackQualityOverride(songId: String): StreamingQuality? {
+        return perTrackQualityOverrides[songId]
+    }
+
+    fun setPerExtensionQualityOverride(extensionId: String, quality: StreamingQuality?) {
+        if (quality == null) {
+            perExtensionQualityOverrides.remove(extensionId)
+        } else {
+            perExtensionQualityOverrides[extensionId] = quality
+        }
+    }
+
+    private suspend fun resolveTargetStreamingQuality(extensionId: String? = null, songId: String? = null): StreamingQuality {
+        // 1. Per-Track Override (O(1) In-Memory Lookup)
+        val trackOverride = songId?.let { perTrackQualityOverrides[it] }
+        if (trackOverride != null) return trackOverride
+
+        // 2. Session Temporary Override (O(1) In-Memory Lookup)
+        val sessionOverride = temporaryQualityOverride
+        if (sessionOverride != null) return sessionOverride
+
+        // 3. Per-Extension Quality Override (O(1) In-Memory Lookup)
+        if (!extensionId.isNullOrBlank()) {
+            val extQuality = perExtensionQualityOverrides[extensionId]
+                ?: userPreferencesRepository.getExtensionQualityFlow(extensionId).first()
+            if (extQuality != null && extQuality != StreamingQuality.AUTO) {
+                return extQuality
             }
         }
-        
-        return targetQuality
+
+        // 4. Return Precomputed Event-Driven Base Quality (O(1) In-Memory Read — ZERO IPC / System Calls)
+        return cachedBaseQuality
     }
 
     private suspend fun resolveExtensionUriAsync(uri: Uri, uriString: String): ResolvedMedia? = withContext(Dispatchers.IO) {
@@ -1633,49 +1755,23 @@ class DualPlayerEngine @Inject constructor(
             val allStreamables = (loadedTrack.servers.ifEmpty { loadedTrack.streamables })
                 .sortedByDescending { it.quality }
             
-            val cachedTiers = getObservedTiers(extensionId)
-            val isCacheValid = cachedTiers != null && cachedTiers.isNotEmpty()
-            
-            val streamablesToTry = if (isCacheValid) {
-                val targetTier = resolveTargetStreamingQuality()
-                val sortedStreamables = allStreamables.sortedBy { streamable ->
-                    val tier = getQualityTierForInt(streamable.quality)
-                    kotlin.math.abs(tier.rank - targetTier.rank)
-                }
-                sortedStreamables.take(1)
-            } else {
-                allStreamables
-            }
-
-            for (streamable in streamablesToTry) {
-                try {
-                    val media = client.loadStreamableMedia(streamable, false)
-                    if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
-                        for (source in media.sources) {
-                            potentialSources.add(source to streamable)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Timber.tag("DualPlayerEngine").w(e, "Failed to load streamable media for %s", streamable.id)
-                }
-            }
-
-            // Fallback: If cache was used but we found no sources, clear cache and retry with all streamables
-            if (isCacheValid && potentialSources.isEmpty()) {
-                observedTiersCache.remove(extensionId)
-                for (streamable in allStreamables) {
+            // Fetch streamable media in parallel coroutines to minimize quality resolution latency
+            val mediaDeferreds = allStreamables.map { streamable ->
+                async(Dispatchers.IO) {
                     try {
                         val media = client.loadStreamableMedia(streamable, false)
                         if (media is dev.brahmkshatriya.echo.common.models.Streamable.Media.Server) {
-                            for (source in media.sources) {
-                                potentialSources.add(source to streamable)
-                            }
-                        }
+                            media.sources.map { source -> source to streamable }
+                        } else emptyList()
                     } catch (e: Exception) {
                         Timber.tag("DualPlayerEngine").w(e, "Failed to load streamable media for %s", streamable.id)
+                        emptyList()
                     }
                 }
             }
+
+            val resolvedPairs = mediaDeferreds.awaitAll().flatten()
+            potentialSources.addAll(resolvedPairs)
 
             if (potentialSources.isEmpty()) {
                 Timber.tag("DualPlayerEngine").w("No potential sources found for track %s. Running fallback search...", loadedTrack.title)
@@ -1727,7 +1823,7 @@ class DualPlayerEngine @Inject constructor(
                 }
             }
             
-            val targetTier = resolveTargetStreamingQuality()
+            val targetTier = resolveTargetStreamingQuality(extensionId, itemId)
             Timber.tag("DualPlayerEngine").d("Resolving stream with target quality tier: %s", targetTier)
 
             // Sort potential sources:

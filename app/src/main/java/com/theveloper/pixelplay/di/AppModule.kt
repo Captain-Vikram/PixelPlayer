@@ -220,6 +220,12 @@ object AppModule {
 
     @Singleton
     @Provides
+    fun providePlaylistInteractionDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.PlaylistInteractionDao {
+        return database.playlistInteractionDao()
+    }
+
+    @Singleton
+    @Provides
     fun provideFavoritesDao(database: PixelPlayDatabase): FavoritesDao {
         return database.favoritesDao()
     }

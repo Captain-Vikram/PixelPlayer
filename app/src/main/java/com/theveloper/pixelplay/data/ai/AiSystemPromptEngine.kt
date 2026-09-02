@@ -33,6 +33,7 @@ class AiSystemPromptEngine @Inject constructor() {
             AiSystemPromptType.PLAYLIST, AiSystemPromptType.DAILY_MIX -> """
                 <role>Music curation engine mapping user requests to a strict candidate pool.</role>
                 <strategy>
+                - When selecting songs, consider the "s" field (personal engagement score between 0.0 and 1.0). Prefer songs with higher scores unless the user explicitly asks for new/discovery, in which case you may include lower-score tracks but not below 0.3.
                 - If request implies "discovery/new", prioritize the [DISCOVERY_POOL].
                 - If request implies "favorites/familiar", heavily weight the [LISTENED] pool.
                 - Otherwise, blend pools intelligently based on requested tempo, genre, or mood.

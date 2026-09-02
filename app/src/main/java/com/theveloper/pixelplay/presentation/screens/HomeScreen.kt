@@ -138,24 +138,30 @@ fun HomeScreen(
         currentMusicExtension?.let { extensionCapabilities[it.metadata.id] } ?: com.theveloper.pixelplay.data.model.ExtensionCapabilities()
     }
 
-    val dailyMixSongs = remember(currentMusicExtension, isExtensionLoggedIn, dailyMixSongsFromExtension, localDailyMixSongs) {
-        if (currentMusicExtension != null && isExtensionLoggedIn) {
+    val isExtensionAvailable = remember(currentMusicExtension, isExtensionLoggedIn, caps) {
+        if (currentMusicExtension == null) false
+        else if (!caps.isLoginNeeded) true
+        else isExtensionLoggedIn
+    }
+
+    val dailyMixSongs = remember(currentMusicExtension, isExtensionAvailable, dailyMixSongsFromExtension, localDailyMixSongs) {
+        if (isExtensionAvailable) {
             dailyMixSongsFromExtension
         } else {
             localDailyMixSongs
         }
     }
 
-    val usesFallbackHomeMix = remember(currentMusicExtension, isExtensionLoggedIn, curatedYourMixSongs, localDailyMixSongs) {
-        if (currentMusicExtension != null && isExtensionLoggedIn) {
+    val usesFallbackHomeMix = remember(currentMusicExtension, isExtensionAvailable, curatedYourMixSongs, localDailyMixSongs) {
+        if (isExtensionAvailable) {
             false
         } else {
             curatedYourMixSongs.isEmpty() && localDailyMixSongs.isEmpty()
         }
     }
 
-    val yourMixSongs = remember(currentMusicExtension, isExtensionLoggedIn, yourMixSongsFromExtension, curatedYourMixSongs, localDailyMixSongs, homeMixPreviewSongs) {
-        if (currentMusicExtension != null && isExtensionLoggedIn) {
+    val yourMixSongs = remember(currentMusicExtension, isExtensionAvailable, yourMixSongsFromExtension, curatedYourMixSongs, localDailyMixSongs, homeMixPreviewSongs) {
+        if (isExtensionAvailable) {
             yourMixSongsFromExtension
         } else {
             when {
@@ -404,7 +410,7 @@ fun HomeScreen(
                             )
                         }
                     }
-                } else if (isExtensionLoggedIn && yourMixSongs.isNotEmpty()) {
+                } else if (isExtensionAvailable && yourMixSongs.isNotEmpty()) {
                     item(key = "your_mix_header") {
                         YourMixHeader(
                             song = yourMixSong,
@@ -421,7 +427,7 @@ fun HomeScreen(
                 }
 
                 // Collage
-                if ((currentMusicExtension == null || isExtensionLoggedIn) && yourMixSongs.isNotEmpty()) {
+                if ((currentMusicExtension == null || isExtensionAvailable) && yourMixSongs.isNotEmpty()) {
                     item(key = "album_art_collage") {
                         val basePattern = settingsUiState.collagePattern
                         val isAutoRotate = settingsUiState.collageAutoRotate
@@ -455,7 +461,7 @@ fun HomeScreen(
                 }
 
                 // Daily Mix
-                if ((currentMusicExtension == null || isExtensionLoggedIn) && dailyMixSongs.isNotEmpty()) {
+                if ((currentMusicExtension == null || isExtensionAvailable) && dailyMixSongs.isNotEmpty()) {
                     item(key = "daily_mix_section") {
                         DailyMixSection(
                             songs = dailyMixSongs.toImmutableList(),

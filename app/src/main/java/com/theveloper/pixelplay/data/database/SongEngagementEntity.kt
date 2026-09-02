@@ -40,5 +40,17 @@ data class SongEngagementEntity(
         value = "lastPlayedTimestamp",
         alternate = ["last_played_timestamp", "lastPlayedAt", "last_played_at", "timestamp"]
     )
-    val lastPlayedTimestamp: Long = 0L
+    val lastPlayedTimestamp: Long = 0L,
+
+    @ColumnInfo(name = "skip_count")
+    @SerializedName(value = "skipCount", alternate = ["skip_count", "skips"])
+    val skipCount: Int = 0,
+
+    @ColumnInfo(name = "completion_count")
+    @SerializedName(value = "completionCount", alternate = ["completion_count", "completions"])
+    val completionCount: Int = 0,
+
+    @ColumnInfo(name = "like_status")
+    @SerializedName(value = "likeStatus", alternate = ["like_status", "liked"])
+    val likeStatus: Int = 0 // -1 = Disliked, 0 = Neutral, 1 = Liked
 )

@@ -55,6 +55,29 @@ interface EngagementDao {
     """)
     suspend fun recordPlay(songId: String, durationMs: Long, timestamp: Long)
 
+    @Query("""
+        INSERT INTO song_engagements (song_id, skip_count, last_played_timestamp)
+        VALUES (:songId, 1, :timestamp)
+        ON CONFLICT(song_id) DO UPDATE SET
+            skip_count = skip_count + 1,
+            last_played_timestamp = :timestamp
+    """)
+    suspend fun recordSkip(songId: String, timestamp: Long)
+
+    @Query("""
+        INSERT INTO song_engagements (song_id, completion_count, last_played_timestamp)
+        VALUES (:songId, 1, :timestamp)
+        ON CONFLICT(song_id) DO UPDATE SET
+            completion_count = completion_count + 1,
+            last_played_timestamp = :timestamp
+    """)
+    suspend fun recordCompletion(songId: String, timestamp: Long)
+
+    @Query("""
+        UPDATE song_engagements SET like_status = :status WHERE song_id = :songId
+    """)
+    suspend fun updateLikeStatus(songId: String, status: Int)
+
     /**
      * Get top songs by play count for quick access.
      */

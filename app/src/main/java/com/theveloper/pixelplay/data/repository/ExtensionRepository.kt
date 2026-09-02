@@ -362,7 +362,9 @@ class ExtensionRepository @Inject constructor(
         val isSameUser = currentUser?.userId == user.id
 
         if (isSameUser) {
-            val client = extension.instance.value().getOrNull() as? LoginClient
+            val instance = runCatching { extension.instance.awaitNamedInjection("user") }.getOrNull()
+                ?: extension.instance.getOrNull()
+            val client = instance as? LoginClient
             try {
                 client?.setLoginUser(user)
             } catch (e: Exception) {
@@ -642,7 +644,10 @@ class ExtensionRepository @Inject constructor(
                     shelfTitle.contains("similar") || shelfTitle.contains("fav") || 
                     shelfTitle.contains("like") || shelfTitle.contains("recent") ||
                     shelfTitle.contains("artist") || shelfTitle.contains("album") ||
-                    shelfTitle.contains("playlist")
+                    shelfTitle.contains("playlist") || shelfTitle.contains("trending") ||
+                    shelfTitle.contains("top") || shelfTitle.contains("chart") ||
+                    shelfTitle.contains("hot") || shelfTitle.contains("popular") ||
+                    shelfTitle.contains("new") || shelfTitle.contains("release")
 
             val items = when (shelf) {
                 is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> shelf.list
@@ -657,6 +662,24 @@ class ExtensionRepository @Inject constructor(
                         itemTitle.contains("like") || isMixShelf
 
                 if (isMixItem) {
+                    if (item is dev.brahmkshatriya.echo.common.models.Playlist) {
+                        mixPlaylists.add(item)
+                    } else if (item is dev.brahmkshatriya.echo.common.models.Album) {
+                        mixAlbums.add(item)
+                    }
+                }
+            }
+        }
+
+        // Fallback: If no explicit mix items were found, gather any available playlists or albums from the home feed
+        if (mixPlaylists.isEmpty() && mixAlbums.isEmpty()) {
+            shelves.forEach { shelf ->
+                val items = when (shelf) {
+                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> shelf.list
+                    is dev.brahmkshatriya.echo.common.models.Shelf.Item -> listOf(shelf.media)
+                    else -> emptyList()
+                }
+                items.forEach { item ->
                     if (item is dev.brahmkshatriya.echo.common.models.Playlist) {
                         mixPlaylists.add(item)
                     } else if (item is dev.brahmkshatriya.echo.common.models.Album) {
@@ -1035,56 +1058,84 @@ class ExtensionRepository @Inject constructor(
             emptyList()
         }
         val metadataMap = extensionMetadataCache.getAllMetadata()
-        
-        val artistScores = mutableMapOf<String, Int>()
-        val albumScores = mutableMapOf<String, Int>()
-        val genreScores = mutableMapOf<String, Int>()
-        val trackScores = engagements.associate { it.songId to it.playCount }
+        val now = System.currentTimeMillis()
+        val decayLambda = 0.04951 // Exponential decay constant for a 14-day half-life
+
+        val artistScores = mutableMapOf<String, Double>()
+        val albumScores = mutableMapOf<String, Double>()
+        val genreScores = mutableMapOf<String, Double>()
+        val engagementMap = engagements.associateBy { it.songId }
 
         engagements.forEach { engagement ->
+            val daysAgo = maxOf(0.0, (now - engagement.lastPlayedTimestamp) / (1000.0 * 60 * 60 * 24))
+            val decayWeight = kotlin.math.exp(-decayLambda * daysAgo)
+
+            // Effective score considers plays (+), completions (+), skips (-), and likes/dislikes
+            val effectiveScore = ((engagement.playCount * 1.0) + (engagement.completionCount * 1.5) - (engagement.skipCount * 2.0) + (engagement.likeStatus * 5.0)) * decayWeight
+            val positiveWeight = maxOf(0.0, effectiveScore)
+
             val metadata = metadataMap[engagement.songId]
             if (metadata != null) {
                 metadata.artist?.split(",")?.map { it.trim() }?.forEach { artistName ->
                     if (artistName.isNotBlank() && !artistName.equals("unknown", ignoreCase = true)) {
-                        artistScores[artistName.lowercase()] = (artistScores[artistName.lowercase()] ?: 0) + engagement.playCount
+                        val key = artistName.lowercase()
+                        artistScores[key] = (artistScores[key] ?: 0.0) + positiveWeight
                     }
                 }
                 metadata.album?.let { albumName ->
                     if (albumName.isNotBlank() && !albumName.equals("unknown album", ignoreCase = true)) {
-                        albumScores[albumName.lowercase()] = (albumScores[albumName.lowercase()] ?: 0) + engagement.playCount
+                        val key = albumName.lowercase()
+                        albumScores[key] = (albumScores[key] ?: 0.0) + positiveWeight
                     }
                 }
                 metadata.genres.forEach { genreName ->
                     if (genreName.isNotBlank()) {
-                        genreScores[genreName.lowercase()] = (genreScores[genreName.lowercase()] ?: 0) + engagement.playCount
+                        val key = genreName.lowercase()
+                        genreScores[key] = (genreScores[key] ?: 0.0) + positiveWeight
                     }
                 }
             }
         }
 
-        fun getTrackScore(track: Track): Int {
+        fun getTrackScore(track: Track): Double {
             val syntheticId = "extension:$extensionId:track:${track.id}"
-            val directScore = (trackScores[syntheticId] ?: 0) * 15
+            val engagement = engagementMap[syntheticId]
 
-            var connectionScore = 0
+            var directScore = 0.0
+            if (engagement != null) {
+                val daysAgo = maxOf(0.0, (now - engagement.lastPlayedTimestamp) / (1000.0 * 60 * 60 * 24))
+                val decayWeight = kotlin.math.exp(-decayLambda * daysAgo)
+                
+                // Heavy penalty if song is frequently skipped
+                val totalInteractions = engagement.playCount + engagement.skipCount
+                val skipRate = if (totalInteractions > 0) engagement.skipCount.toDouble() / totalInteractions else 0.0
+                
+                if (skipRate > 0.7 && engagement.skipCount >= 3) {
+                    return -1000.0 // Suppress heavily skipped tracks
+                }
+
+                directScore = ((engagement.playCount * 15.0) + (engagement.completionCount * 20.0) - (engagement.skipCount * 25.0) + (engagement.likeStatus * 50.0)) * decayWeight
+            }
+
+            var connectionScore = 0.0
             track.artists.forEach { artist ->
                 val artistNameNormalized = artist.name.lowercase()
-                val score = artistScores[artistNameNormalized] ?: 0
+                val score = artistScores[artistNameNormalized] ?: 0.0
                 if (score > 0) {
-                    connectionScore += score * 5
+                    connectionScore += score * 5.0
                 }
             }
             track.album?.title?.lowercase()?.let { albumTitle ->
-                val score = albumScores[albumTitle] ?: 0
+                val score = albumScores[albumTitle] ?: 0.0
                 if (score > 0) {
-                    connectionScore += score * 3
+                    connectionScore += score * 3.0
                 }
             }
             track.genres.forEach { genreName ->
                 val genreNormalized = genreName.lowercase()
-                val score = genreScores[genreNormalized] ?: 0
+                val score = genreScores[genreNormalized] ?: 0.0
                 if (score > 0) {
-                    connectionScore += score * 2
+                    connectionScore += score * 2.0
                 }
             }
             return directScore + connectionScore

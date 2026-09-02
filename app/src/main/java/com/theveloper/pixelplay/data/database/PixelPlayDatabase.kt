@@ -36,7 +36,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExtensionTrackCacheEntity::class,
         dev.brahmkshatriya.echo.extension.loader.db.models.ExtensionEntity::class,
         dev.brahmkshatriya.echo.extension.loader.db.models.UserEntity::class,
-        dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser::class
+        dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser::class,
+        PlaylistInteractionEntity::class
     ],
     version = 48,
     exportSchema = true
@@ -60,6 +61,7 @@ abstract class PixelPlayDatabase : RoomDatabase() {
     abstract fun aiUsageDao(): AiUsageDao
     abstract fun downloadDao(): DownloadDao
     abstract fun extensionTrackCacheDao(): ExtensionTrackCacheDao
+    abstract fun playlistInteractionDao(): PlaylistInteractionDao
     abstract fun extensionDao(): dev.brahmkshatriya.echo.extension.loader.db.ExtensionDao
     abstract fun extensionUserDao(): dev.brahmkshatriya.echo.extension.loader.db.UserDao
 

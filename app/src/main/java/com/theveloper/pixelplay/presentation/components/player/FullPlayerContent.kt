@@ -2823,10 +2823,9 @@ private fun BottomToggleRow(
                 contentDesc = "Repetir"
             )
 
-            // TODO: update if a local extension ID constant exists (none found, so using extensionId == null)
-            val isLocal = song.extensionId == null
+            val sourceInfo = song.sourceInfo
             val isDownloaded = completedDownloads.contains(song.id)
-            val isLocalOrDownloaded = isLocal || isDownloaded
+            val isLocalOrDownloaded = sourceInfo.isLocal || isDownloaded
 
             if (isLocalOrDownloaded) {
                 val isFavorite = isFavoriteProvider()

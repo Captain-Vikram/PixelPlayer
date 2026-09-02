@@ -14,6 +14,7 @@ class AiPlaylistGenerator @Inject constructor(
     private val aiOrchestrator: AiOrchestrator,
     private val digestGenerator: UserProfileDigestGenerator,
     private val preferencesRepo: AiPreferencesRepository,
+    private val engagementDao: com.theveloper.pixelplay.data.database.EngagementDao,
     private val json: Json
 ) {
 
@@ -26,42 +27,70 @@ class AiPlaylistGenerator @Inject constructor(
         type: AiSystemPromptType = AiSystemPromptType.PLAYLIST
     ): Result<List<Song>> {
         return try {
+            val isExplicitDiscovery = userPrompt.contains("discovery", ignoreCase = true) || 
+                                     userPrompt.contains("new", ignoreCase = true) || 
+                                     userPrompt.contains("surprise", ignoreCase = true)
 
-            // Get offline scored candidates to pass to LLM (much smaller context window than the whole library)
-            val samplingPool = when {
-                candidateSongs.isNullOrEmpty().not() -> candidateSongs
-                else -> {
-                    val rankedForPrompt = dailyMixManager.getTopCandidatesForAi(
-                        allSongs = allSongs,
-                        favoriteSongIds = emptySet(),
-                        limit = 100
-                    )
-                    if (rankedForPrompt.isNotEmpty()) rankedForPrompt else allSongs
+            val minScoreThreshold = if (isExplicitDiscovery) 0.05 else 0.20
+            val engagements = runCatching { engagementDao.getAllEngagements() }.getOrDefault(emptyList()).associateBy { it.songId }
+            val now = System.currentTimeMillis()
+            val decayLambda = 0.04951
+
+            // Pre-filter candidate songs using PersonalizationMLModel
+            val scoredCandidates = (candidateSongs ?: allSongs).mapNotNull { song ->
+                val engagement = engagements[song.id]
+                val playCount = engagement?.playCount ?: 0
+                val skipCount = engagement?.skipCount ?: 0
+                val completionCount = engagement?.completionCount ?: 0
+                val likeStatus = engagement?.likeStatus ?: 0
+                val totalInteractions = playCount + skipCount
+                val skipRate = if (totalInteractions > 0) skipCount.toDouble() / totalInteractions else 0.0
+
+                // Exclude heavily skipped tracks unless explicitly requested
+                if (!isExplicitDiscovery && skipRate > 0.7 && skipCount >= 3) {
+                    return@mapNotNull null
                 }
-            }
 
-            // Token Optimization: Reduce sample size based on safe mode
-            val isSafe = preferencesRepo.isSafeTokenLimitEnabled.first()
-            val sampleCap = if (isSafe) 40 else 80
-            val sampleSize = max(minLength, sampleCap).coerceAtMost(sampleCap)
-            val songSample = samplingPool.take(sampleSize)
-            
-            // Token Optimization: Compact JSON format — only essential fields
+                val lastPlayed = engagement?.lastPlayedTimestamp ?: 0L
+                val daysAgo = if (lastPlayed > 0) maxOf(0.0, (now - lastPlayed) / (1000.0 * 60 * 60 * 24)) else 30.0
+                val decayWeight = kotlin.math.exp(-decayLambda * daysAgo)
+
+                val features = doubleArrayOf(
+                    playCount * decayWeight,
+                    0.5, // artist_affinity
+                    0.5, // album_affinity
+                    0.5, // genre_affinity
+                    skipRate,
+                    if (playCount > 0) completionCount.toDouble() / playCount else 0.0,
+                    likeStatus.toDouble(),
+                    daysAgo,
+                    0.5  // remote_rank_index
+                )
+
+                val score = PersonalizationMLModel.predictEngagementProbability(features)
+                if (score >= minScoreThreshold || isExplicitDiscovery) {
+                    Triple(song, score, features)
+                } else null
+            }.sortedByDescending { it.second }.take(50) // Strictly cap pool to 50 tracks
+
+            val candidatePool = if (scoredCandidates.isNotEmpty()) scoredCandidates else allSongs.take(50).map { Triple(it, 0.5, doubleArrayOf()) }
+
+            // Token Optimization: Compact JSON format with normalized "s" field (0.00 - 1.00)
             val availableSongsJson = buildString {
-                songSample.forEachIndexed { index, song ->
-                    val score = dailyMixManager.getScore(song.id)
+                candidatePool.forEachIndexed { index, (song, score, _) ->
+                    val formattedScore = "%.2f".format(score)
                     val title = song.title.replace("\"", "'").take(40)
                     val artist = song.displayArtist.replace("\"", "'").take(25)
                     val genre = song.genre?.replace("\"", "'")?.take(15) ?: "?"
                     if (index > 0) append(",\n")
-                    append("""{"id":"${song.id}","t":"$title","a":"$artist","g":"$genre","s":$score}""")
+                    append("""{"id":"${song.id}","t":"$title","a":"$artist","g":"$genre","s":$formattedScore}""")
                 }
             }
 
             // Bring in the telemetry digest
+            val isSafe = preferencesRepo.isSafeTokenLimitEnabled.first()
             val userDigest = digestGenerator.generateDigest(allSongs, isSafe)
 
-            // Token Optimization: Compact prompt structure with XML data boundaries
             val fullPrompt = """
             $userDigest
             <request>
@@ -78,12 +107,29 @@ class AiPlaylistGenerator @Inject constructor(
             val songIds = extractPlaylistSongIds(responseText)
 
             val songMap = allSongs.associateBy { it.id }
-            val generatedPlaylist = songIds.mapNotNull { songMap[it] }
+            val candidateScoreMap = candidatePool.associate { it.first.id to it.second }
 
-            if (generatedPlaylist.isEmpty()) {
+            val rawGeneratedPlaylist = songIds.mapNotNull { songId ->
+                songMap[songId] 
+                    ?: allSongs.find { song -> 
+                        song.id.endsWith(songId, ignoreCase = true) || 
+                        song.id.contains(songId, ignoreCase = true) ||
+                        (songId.contains(":") && song.id.substringAfterLast(":") == songId.substringAfterLast(":"))
+                    }
+            }
+
+            if (rawGeneratedPlaylist.isEmpty()) {
                 Result.failure(IllegalArgumentException("AI returned song IDs that don't match your library. Try again or adjust your prompt."))
             } else {
-                Result.success(generatedPlaylist)
+                // Re-rank LLM Output using blended score: 0.7 * localScore + 0.3 * (1 / (llmIndex + 1))
+                val rerankedPlaylist = rawGeneratedPlaylist.mapIndexed { index, song ->
+                    val localScore = candidateScoreMap[song.id] ?: 0.5
+                    val llmRankScore = 1.0 / (index + 1)
+                    val finalBlendedScore = (0.7 * localScore) + (0.3 * llmRankScore)
+                    song to finalBlendedScore
+                }.sortedByDescending { it.second }.map { it.first }
+
+                Result.success(rerankedPlaylist)
             }
 
         } catch (e: IllegalArgumentException) {

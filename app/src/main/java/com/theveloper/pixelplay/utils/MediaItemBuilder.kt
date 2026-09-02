@@ -97,6 +97,11 @@ object MediaItemBuilder {
     const val EXTERNAL_EXTRA_SAMPLE_RATE = EXTERNAL_EXTRA_PREFIX + "SAMPLE_RATE"
     const val EXTERNAL_EXTRA_FILE_PATH = EXTERNAL_EXTRA_PREFIX + "FILE_PATH"
     const val EXTERNAL_EXTRA_NAVIDROME_ID = EXTERNAL_EXTRA_PREFIX + "NAVIDROME_ID"
+    const val EXTERNAL_EXTRA_EXTENSION_ID = EXTERNAL_EXTRA_PREFIX + "EXTENSION_ID"
+    const val EXTERNAL_EXTRA_GDRIVE_ID = EXTERNAL_EXTRA_PREFIX + "GDRIVE_ID"
+    const val EXTERNAL_EXTRA_JELLYFIN_ID = EXTERNAL_EXTRA_PREFIX + "JELLYFIN_ID"
+    const val EXTERNAL_EXTRA_NETEASE_ID = EXTERNAL_EXTRA_PREFIX + "NETEASE_ID"
+    const val EXTERNAL_EXTRA_QQMUSIC_MID = EXTERNAL_EXTRA_PREFIX + "QQMUSIC_MID"
 
     fun build(song: Song): MediaItem {
         return MediaItem.Builder()
@@ -305,6 +310,11 @@ object MediaItemBuilder {
             putInt(EXTERNAL_EXTRA_SAMPLE_RATE, song.sampleRate ?: 0)
             putString(EXTERNAL_EXTRA_FILE_PATH, song.path)
             song.navidromeId?.let { putString(EXTERNAL_EXTRA_NAVIDROME_ID, it) }
+            song.extensionId?.let { putString(EXTERNAL_EXTRA_EXTENSION_ID, it) }
+            song.gdriveFileId?.let { putString(EXTERNAL_EXTRA_GDRIVE_ID, it) }
+            song.jellyfinId?.let { putString(EXTERNAL_EXTRA_JELLYFIN_ID, it) }
+            song.neteaseId?.let { putLong(EXTERNAL_EXTRA_NETEASE_ID, it) }
+            song.qqMusicMid?.let { putString(EXTERNAL_EXTRA_QQMUSIC_MID, it) }
         }
 
         metadataBuilder.setExtras(extras)

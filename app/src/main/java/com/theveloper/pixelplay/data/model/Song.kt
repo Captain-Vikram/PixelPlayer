@@ -69,6 +69,21 @@ data class Song(
             ?: artists.firstOrNull()
             ?: ArtistRef(id = artistId, name = artist, isPrimary = true)
 
+    val sourceInfo: SongSourceInfo
+        get() {
+            val extId = extensionId ?: if (id.startsWith("extension:")) id.split(":").getOrNull(1) else null
+            return when {
+                extId != null -> SongSourceInfo(SourceType.EXTENSION, extId, isLocal = false, isExtension = true, isCloud = true)
+                gdriveFileId != null || id.startsWith("gdrive:") -> SongSourceInfo(SourceType.GDRIVE, gdriveFileId, isLocal = false, isExtension = false, isCloud = true)
+                jellyfinId != null || id.startsWith("jellyfin:") -> SongSourceInfo(SourceType.JELLYFIN, jellyfinId, isLocal = false, isExtension = false, isCloud = true)
+                navidromeId != null || id.startsWith("navidrome:") -> SongSourceInfo(SourceType.NAVIDROME, navidromeId, isLocal = false, isExtension = false, isCloud = true)
+                neteaseId != null || id.startsWith("netease:") -> SongSourceInfo(SourceType.NETEASE, neteaseId?.toString(), isLocal = false, isExtension = false, isCloud = true)
+                qqMusicMid != null || id.startsWith("qqmusic:") -> SongSourceInfo(SourceType.QQMUSIC, qqMusicMid, isLocal = false, isExtension = false, isCloud = true)
+                path.startsWith("http://") || path.startsWith("https://") || contentUriString.startsWith("http") -> SongSourceInfo(SourceType.UNKNOWN, null, isLocal = false, isExtension = false, isCloud = true)
+                else -> SongSourceInfo(SourceType.LOCAL, null, isLocal = true, isExtension = false, isCloud = false)
+            }
+        }
+
     companion object {
         fun emptySong(): Song {
             return Song(
@@ -109,3 +124,22 @@ data class Song(
         }
     }
 }
+
+enum class SourceType {
+    LOCAL,
+    EXTENSION,
+    GDRIVE,
+    JELLYFIN,
+    NAVIDROME,
+    NETEASE,
+    QQMUSIC,
+    UNKNOWN
+}
+
+data class SongSourceInfo(
+    val type: SourceType,
+    val sourceId: String?,
+    val isLocal: Boolean,
+    val isExtension: Boolean,
+    val isCloud: Boolean
+)
