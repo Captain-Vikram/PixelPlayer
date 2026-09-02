@@ -200,8 +200,23 @@ class SettingsViewModel @Inject constructor(
     private val lyricsRepository: LyricsRepository,
     private val musicRepository: MusicRepository,
     private val backupManager: BackupManager,
+    private val appUpdateManager: com.theveloper.pixelplay.data.update.AppUpdateManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    val updateState: StateFlow<com.theveloper.pixelplay.data.update.UpdateCheckState> = appUpdateManager.updateState
+
+    fun checkForUpdates() {
+        viewModelScope.launch {
+            appUpdateManager.checkForUpdates()
+        }
+    }
+
+    fun downloadAndInstallApk(downloadUrl: String) {
+        viewModelScope.launch {
+            appUpdateManager.downloadAndInstallApk(downloadUrl)
+        }
+    }
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
