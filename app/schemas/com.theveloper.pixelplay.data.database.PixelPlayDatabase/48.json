@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 48,
-    "identityHash": "736883fc24344ca49c0300555aeb7626",
+    "identityHash": "9b9162ede3d99dde6e01355347313ff1",
     "entities": [
       {
         "tableName": "album_art_themes",
@@ -1367,7 +1367,7 @@
       },
       {
         "tableName": "song_engagements",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`song_id` TEXT NOT NULL, `play_count` INTEGER NOT NULL, `total_play_duration_ms` INTEGER NOT NULL, `last_played_timestamp` INTEGER NOT NULL, PRIMARY KEY(`song_id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`song_id` TEXT NOT NULL, `play_count` INTEGER NOT NULL, `total_play_duration_ms` INTEGER NOT NULL, `last_played_timestamp` INTEGER NOT NULL, `skip_count` INTEGER NOT NULL, `completion_count` INTEGER NOT NULL, `like_status` INTEGER NOT NULL, PRIMARY KEY(`song_id`))",
         "fields": [
           {
             "fieldPath": "songId",
@@ -1390,6 +1390,24 @@
           {
             "fieldPath": "lastPlayedTimestamp",
             "columnName": "last_played_timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skipCount",
+            "columnName": "skip_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completionCount",
+            "columnName": "completion_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "likeStatus",
+            "columnName": "like_status",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -2846,11 +2864,73 @@
             "extId"
           ]
         }
+      },
+      {
+        "tableName": "playlist_interaction_logs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `playlist_id` TEXT NOT NULL, `track_id` TEXT NOT NULL, `action` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "playlistId",
+            "columnName": "playlist_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trackId",
+            "columnName": "track_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "action",
+            "columnName": "action",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_playlist_interaction_logs_playlist_id",
+            "unique": false,
+            "columnNames": [
+              "playlist_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playlist_interaction_logs_playlist_id` ON `${TABLE_NAME}` (`playlist_id`)"
+          },
+          {
+            "name": "index_playlist_interaction_logs_timestamp",
+            "unique": false,
+            "columnNames": [
+              "timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playlist_interaction_logs_timestamp` ON `${TABLE_NAME}` (`timestamp`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '736883fc24344ca49c0300555aeb7626')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9b9162ede3d99dde6e01355347313ff1')"
     ]
   }
 }

@@ -109,12 +109,29 @@ private fun WebViewContainer(
         doneState.value = false
         interceptedRequests.clear()
         
+        val isLoginRequest = request.showWebView || 
+                request.reason.contains("login", ignoreCase = true) || 
+                request.request.initialUrl.url.contains("login", ignoreCase = true) || 
+                request.request.initialUrl.url.contains("auth", ignoreCase = true) ||
+                request.request.initialUrl.url.contains("accounts.google", ignoreCase = true)
+
+        val isGoogleOrYoutube = request.request.initialUrl.url.contains("google", ignoreCase = true) ||
+                request.request.initialUrl.url.contains("youtube", ignoreCase = true) ||
+                request.reason.contains("google", ignoreCase = true) ||
+                request.reason.contains("youtube", ignoreCase = true)
+
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.databaseEnabled = true
         webView.settings.setSupportMultipleWindows(true)
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+        
+        val desktopUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        if (isLoginRequest || isGoogleOrYoutube) {
+            webView.settings.userAgentString = desktopUserAgent
+        } else {
+            webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+        }
         
         val cookieManager = CookieManager.getInstance()
         if (request.request.dontCache) {
@@ -138,12 +155,6 @@ private fun WebViewContainer(
         } else {
             null
         }
-
-        val isLoginRequest = request.showWebView || 
-                request.reason.contains("login", ignoreCase = true) || 
-                request.request.initialUrl.url.contains("login", ignoreCase = true) || 
-                request.request.initialUrl.url.contains("auth", ignoreCase = true) ||
-                request.request.initialUrl.url.contains("accounts.google", ignoreCase = true)
 
         val timeout = if (isLoginRequest) {
             request.request.maxTimeout.coerceAtLeast(300_000L)
@@ -172,6 +183,26 @@ private fun WebViewContainer(
                 }
             }
             if (stopRegex.containsMatchIn(networkRequest.url)) {
+                val isYoutubeOrGoogleRequest = networkRequest.url.contains("youtube", ignoreCase = true) ||
+                        networkRequest.url.contains("google", ignoreCase = true) ||
+                        request.request.initialUrl.url.contains("youtube", ignoreCase = true) ||
+                        request.request.initialUrl.url.contains("google", ignoreCase = true)
+
+                if (isYoutubeOrGoogleRequest && isLoginRequest) {
+                    val cm = CookieManager.getInstance()
+                    cm.flush()
+                    val cookies = cm.getCookie(networkRequest.url) ?: ""
+                    val hasAuthCookie = cookies.contains("SAPISID") ||
+                            cookies.contains("LOGIN_INFO") ||
+                            cookies.contains("SID") ||
+                            cookies.contains("SSID") ||
+                            cookies.contains("__Secure-3PAPISID") ||
+                            cookies.contains("__Secure-1PAPISID")
+                    if (!hasAuthCookie) {
+                        Timber.d("ExtensionWebView: Match found for stopRegex on ${networkRequest.url}, but auth cookies are missing. Continuing login...")
+                        return
+                    }
+                }
                 timeoutJob.cancel()
                 triggerStop(webView, networkRequest.url, request, this, bridge, interceptedRequests, doneState)
             }
@@ -253,7 +284,15 @@ private fun WebViewContainer(
             ): Boolean {
                 val transport = resultMsg?.obj as? WebView.WebViewTransport
                 if (transport != null) {
-                    val tempWebView = WebView(view!!.context)
+                    val tempWebView = WebView(view!!.context).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.databaseEnabled = true
+                        settings.userAgentString = webView.settings.userAgentString
+                        val cm = CookieManager.getInstance()
+                        cm.setAcceptCookie(true)
+                        cm.setAcceptThirdPartyCookies(this, true)
+                    }
                     tempWebView.webViewClient = object : WebViewClient() {
                         @Deprecated("Deprecated in Java")
                         override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
@@ -387,6 +426,34 @@ private fun <T> triggerStop(
                         "https://accounts.spotify.com",
                         "https://spotify.com",
                         "https://.spotify.com",
+                        url
+                    )
+                    for (d in domains) {
+                        val cStr = cookieManager.getCookie(d) ?: continue
+                        cStr.split(";").forEach { pair ->
+                            val parts = pair.split("=", limit = 2)
+                            if (parts.size == 2) {
+                                val key = parts[0].trim()
+                                val value = parts[1].trim()
+                                if (key.isNotEmpty() && value.isNotEmpty()) {
+                                    merged[key] = value
+                                }
+                            }
+                        }
+                    }
+                    if (merged.isNotEmpty()) {
+                        cookies = merged.map { "${it.key}=${it.value}" }.joinToString("; ")
+                    }
+                } else if (url.contains("youtube") || url.contains("google") || target.request.initialUrl.url.contains("youtube") || target.request.initialUrl.url.contains("google")) {
+                    val merged = mutableMapOf<String, String>()
+                    val domains = listOf(
+                        "https://music.youtube.com",
+                        "https://youtube.com",
+                        "https://www.youtube.com",
+                        "https://.youtube.com",
+                        "https://accounts.google.com",
+                        "https://google.com",
+                        "https://.google.com",
                         url
                     )
                     for (d in domains) {

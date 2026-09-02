@@ -31,6 +31,10 @@ class AiOrchestrator @Inject constructor(
     private val providerCooldowns = mutableMapOf<AiProvider, Long>()
     private val COOLDOWN_DURATION_MS = 1000L * 60 * 5 // 5 minutes
 
+    fun clearCooldowns() {
+        providerCooldowns.clear()
+    }
+
     // Cache TTL: 30 minutes — prevents stale results from being served indefinitely
     private val CACHE_TTL_MS = 1000L * 60 * 30
 

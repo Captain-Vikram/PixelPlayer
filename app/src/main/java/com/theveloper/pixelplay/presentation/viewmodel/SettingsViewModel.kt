@@ -195,6 +195,7 @@ class SettingsViewModel @Inject constructor(
     private val syncManager: SyncManager,
     private val aiClientFactory: AiClientFactory,
     private val geminiModelService: com.theveloper.pixelplay.data.ai.GeminiModelService,
+    private val aiOrchestrator: com.theveloper.pixelplay.data.ai.AiOrchestrator,
     private val aiUsageDao: AiUsageDao,
     private val lyricsRepository: LyricsRepository,
     private val musicRepository: MusicRepository,
@@ -337,6 +338,7 @@ class SettingsViewModel @Inject constructor(
             val providerStr = aiProvider.value
             val provider = AiProvider.fromString(providerStr)
             aiPreferencesRepository.setApiKey(provider, apiKey)
+            aiOrchestrator.clearCooldowns()
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, providerStr)
             else clearModelsState(providerStr)
         }
@@ -346,6 +348,7 @@ class SettingsViewModel @Inject constructor(
     fun onGeminiApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             aiPreferencesRepository.setApiKey(AiProvider.GEMINI, apiKey)
+            aiOrchestrator.clearCooldowns()
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GEMINI")
             else clearModelsState("GEMINI")
         }

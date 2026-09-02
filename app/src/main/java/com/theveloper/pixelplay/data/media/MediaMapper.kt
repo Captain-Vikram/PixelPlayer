@@ -45,8 +45,14 @@ class MediaMapper @Inject constructor(
                 .orEmpty()
         val id = mediaItem.mediaId
 
-        // Note: This creates a partial Song object. 
-        // Some fields like path, genre, year might be missing if not in extras.
+        val extensionId = extras?.getString(MediaItemBuilder.EXTERNAL_EXTRA_EXTENSION_ID)
+            ?: if (id.startsWith("extension:")) id.split(":").getOrNull(1) else null
+        val gdriveFileId = extras?.getString(MediaItemBuilder.EXTERNAL_EXTRA_GDRIVE_ID)
+        val jellyfinId = extras?.getString(MediaItemBuilder.EXTERNAL_EXTRA_JELLYFIN_ID)
+        val navidromeId = extras?.getString(MediaItemBuilder.EXTERNAL_EXTRA_NAVIDROME_ID)
+        val neteaseId = if (extras?.containsKey(MediaItemBuilder.EXTERNAL_EXTRA_NETEASE_ID) == true) extras.getLong(MediaItemBuilder.EXTERNAL_EXTRA_NETEASE_ID) else null
+        val qqMusicMid = extras?.getString(MediaItemBuilder.EXTERNAL_EXTRA_QQMUSIC_MID)
+
         return Song(
             id = id,
             title = title,
@@ -61,7 +67,13 @@ class MediaMapper @Inject constructor(
             dateAdded = dateAdded,
             mimeType = null, 
             bitrate = null,
-            sampleRate = null
+            sampleRate = null,
+            extensionId = extensionId,
+            gdriveFileId = gdriveFileId,
+            jellyfinId = jellyfinId,
+            navidromeId = navidromeId,
+            neteaseId = neteaseId,
+            qqMusicMid = qqMusicMid
         )
     }
 }

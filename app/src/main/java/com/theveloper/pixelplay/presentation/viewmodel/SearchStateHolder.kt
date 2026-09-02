@@ -137,19 +137,20 @@ class SearchStateHolder @Inject constructor(
         }
         
         scope?.launch(Dispatchers.IO) {
-            val client = extension.instance.value().getOrNull()
-            if (client is SearchFeedClient) {
-                _isLoadingSearchFeed.value = true
-                try {
+            try {
+                extension.instance.awaitNamedInjection("user")
+                val client = extension.instance.value().getOrNull()
+                if (client is SearchFeedClient) {
+                    _isLoadingSearchFeed.value = true
                     val feed = client.loadSearchFeed("")
                     _searchFeedShelves.value = feed.getPagedData(feed.tabs.firstOrNull()).pagedData.loadPage(null).data
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                } finally {
-                    _isLoadingSearchFeed.value = false
+                } else {
+                    _searchFeedShelves.value = emptyList()
                 }
-            } else {
-                _searchFeedShelves.value = emptyList()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isLoadingSearchFeed.value = false
             }
         }
     }
@@ -181,16 +182,16 @@ class SearchStateHolder @Inject constructor(
                             else -> extensionRepository.currentMusicExtension.value
                         }
                         
-                        val localSearchFlow = if (sourceScope == com.theveloper.pixelplay.data.model.SourceScope.Local) {
+                        val localSearchFlow = if (sourceScope == com.theveloper.pixelplay.data.model.SourceScope.Local || activeExtension == null) {
                             musicRepository.searchAll(normalizedQuery, currentFilter)
                         } else {
-                            kotlinx.coroutines.flow.flowOf(emptyList())
+                            musicRepository.searchAll(normalizedQuery, currentFilter)
                         }
 
-                        val extensionSearchFlow = if (activeExtension != null && 
-                             sourceScope is com.theveloper.pixelplay.data.model.SourceScope.Extension) {
+                        val extensionSearchFlow = if (activeExtension != null) {
                             kotlinx.coroutines.flow.flow {
                                 try {
+                                    activeExtension.instance.awaitNamedInjection("user")
                                     val client = activeExtension.instance.value().getOrNull()
                                     if (client is SearchFeedClient) {
                                         val feed = client.loadSearchFeed(normalizedQuery)

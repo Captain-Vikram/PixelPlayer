@@ -75,11 +75,13 @@ class ExtensionLoginViewModel @Inject constructor(
         val deadlineMs = System.currentTimeMillis() + 10_000L
 
         while (System.currentTimeMillis() < deadlineMs) {
-            when (val instance = extension.instance.value().getOrNull()) {
-                is LoginClient -> return instance
-                null -> delay(200L)
-                else -> return null
+            val rawInstance = runCatching { extension.instance.awaitNamedInjection("user") }.getOrNull()
+                ?: extension.instance.getOrNull()
+
+            if (rawInstance is LoginClient) {
+                return rawInstance
             }
+            delay(200L)
         }
 
         return null

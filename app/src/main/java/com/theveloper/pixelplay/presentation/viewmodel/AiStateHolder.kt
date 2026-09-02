@@ -22,6 +22,8 @@ import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
+
 /**
  * Manages AI-powered features: AI Playlist Generation and AI Metadata Generation.
  * Extracted from PlayerViewModel.
@@ -35,7 +37,8 @@ class AiStateHolder @Inject constructor(
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
     private val dailyMixStateHolder: DailyMixStateHolder,
     private val notificationManager: AiNotificationManager,
-    private val aiOrchestrator: com.theveloper.pixelplay.data.ai.AiOrchestrator
+    private val aiOrchestrator: com.theveloper.pixelplay.data.ai.AiOrchestrator,
+    private val extensionRepository: ExtensionRepository
 ) {
     // State
     // AI State Management: Observables for tracking background generation progress
@@ -168,13 +171,25 @@ class AiStateHolder @Inject constructor(
                     .filter { it.isNotEmpty() }
                     .toSet()
 
-                // Generate candidate pool using DailyMixManager logic
+                // Generate candidate pool using active extension tracks or local DailyMixManager logic
                 _aiStatus.value = "Selecting best candidates..."
-                val candidatePool = dailyMixManager.generateDailyMix(
-                    allSongs = allSongs,
-                    favoriteSongIds = favoriteIds,
-                    limit = 120
-                )
+                val currentExt = extensionRepository.currentMusicExtension.value
+                val loggedInIds = extensionRepository.loggedInExtensionIds.value
+                val isExtLoggedIn = currentExt?.let { loggedInIds.contains(it.metadata.id) } == true
+
+                val extDaily = extensionRepository.dailyMixSongsFromExtension.value
+                val extYour = extensionRepository.yourMixSongsFromExtension.value
+                val combinedExt = (extDaily + extYour).distinctBy { it.id }
+
+                val candidatePool = if (currentExt != null && isExtLoggedIn && combinedExt.isNotEmpty()) {
+                    combinedExt
+                } else {
+                    dailyMixManager.generateDailyMix(
+                        allSongs = allSongs,
+                        favoriteSongIds = favoriteIds,
+                        limit = 120
+                    )
+                }
 
                 // Step 2: Invoke AI Generation Engine
                 _aiStatus.value = "Consulting the Daily Mix guide..."
@@ -182,7 +197,7 @@ class AiStateHolder @Inject constructor(
                 
                 val result = aiPlaylistGenerator.generate(
                     userPrompt = prompt,
-                    allSongs = allSongs,
+                    allSongs = if (currentExt != null && isExtLoggedIn && combinedExt.isNotEmpty()) combinedExt else allSongs,
                     minLength = minLength,
                     maxLength = maxLength,
                     candidateSongs = candidatePool
@@ -269,16 +284,28 @@ class AiStateHolder @Inject constructor(
                 val maxLength = desiredSize.coerceAtLeast(20)
                 
                 _aiStatus.value = "Scanning for vibes..."
-                val candidatePool = dailyMixManager.generateDailyMix(
-                    allSongs = allSongs,
-                    favoriteSongIds = favoriteIds,
-                    limit = 100
-                )
+                val currentExt = extensionRepository.currentMusicExtension.value
+                val loggedInIds = extensionRepository.loggedInExtensionIds.value
+                val isExtLoggedIn = currentExt?.let { loggedInIds.contains(it.metadata.id) } == true
+
+                val extDaily = extensionRepository.dailyMixSongsFromExtension.value
+                val extYour = extensionRepository.yourMixSongsFromExtension.value
+                val combinedExt = (extDaily + extYour).distinctBy { it.id }
+
+                val candidatePool = if (currentExt != null && isExtLoggedIn && combinedExt.isNotEmpty()) {
+                    combinedExt
+                } else {
+                    dailyMixManager.generateDailyMix(
+                        allSongs = allSongs,
+                        favoriteSongIds = favoriteIds,
+                        limit = 100
+                    )
+                }
 
                 _aiStatus.value = "Applying AI filters..."
                 val result = aiPlaylistGenerator.generate(
                     userPrompt = prompt,
-                    allSongs = allSongs,
+                    allSongs = if (currentExt != null && isExtLoggedIn && combinedExt.isNotEmpty()) combinedExt else allSongs,
                     minLength = minLength,
                     maxLength = maxLength,
                     candidateSongs = candidatePool, type = AiSystemPromptType.DAILY_MIX

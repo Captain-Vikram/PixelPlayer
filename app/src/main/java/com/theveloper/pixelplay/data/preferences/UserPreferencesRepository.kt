@@ -1252,6 +1252,23 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.edit { it[PreferencesKeys.PREFERRED_QUALITY_CELLULAR] = quality.name }
     }
 
+    fun getExtensionQualityFlow(extensionId: String): Flow<StreamingQuality?> =
+        pref { preferences ->
+            preferences[androidx.datastore.preferences.core.stringPreferencesKey("pref_quality_ext_$extensionId")]
+                ?.let { runCatching { StreamingQuality.valueOf(it) }.getOrNull() }
+        }
+
+    suspend fun setExtensionQuality(extensionId: String, quality: StreamingQuality?) {
+        dataStore.edit { preferences ->
+            val key = androidx.datastore.preferences.core.stringPreferencesKey("pref_quality_ext_$extensionId")
+            if (quality == null) {
+                preferences.remove(key)
+            } else {
+                preferences[key] = quality.name
+            }
+        }
+    }
+
     // ─── Backup / restore ─────────────────────────────────────────────────────
 
     val advancedPerformanceDiagnosticsSettingsFlow: Flow<AdvancedPerformanceDiagnosticsSettings> =
