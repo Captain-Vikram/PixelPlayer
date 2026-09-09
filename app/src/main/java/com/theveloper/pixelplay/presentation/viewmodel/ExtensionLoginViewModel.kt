@@ -50,7 +50,13 @@ class ExtensionLoginViewModel @Inject constructor(
 
     private suspend fun loadClient() {
         _state.value = ExtensionLoginState.Loading
-        val ext = extensionLoader.all.value.find { it.metadata.id == extensionId }
+        var ext: Extension<*>? = extensionLoader.all.value.find { it.metadata.id == extensionId }
+        val deadline = System.currentTimeMillis() + 5000L
+        while (ext == null && System.currentTimeMillis() < deadline) {
+            delay(150L)
+            ext = extensionLoader.all.value.find { it.metadata.id == extensionId }
+        }
+
         if (ext == null) {
             _state.value = ExtensionLoginState.Error("Extension not found")
             return
@@ -72,11 +78,11 @@ class ExtensionLoginViewModel @Inject constructor(
     }
 
     private suspend fun waitForLoginClient(extension: Extension<*>): LoginClient? {
-        val deadlineMs = System.currentTimeMillis() + 5_000L
+        val deadlineMs = System.currentTimeMillis() + 8_000L
 
         while (System.currentTimeMillis() < deadlineMs) {
             val rawInstance = extension.instance.value().getOrNull()
-                ?: runCatching { withTimeoutOrNull(400) { extension.instance.awaitNamedInjection("user") } }.getOrNull()
+                ?: runCatching { withTimeoutOrNull(500) { extension.instance.awaitNamedInjection("user") } }.getOrNull()
 
             if (rawInstance is LoginClient) {
                 return rawInstance
