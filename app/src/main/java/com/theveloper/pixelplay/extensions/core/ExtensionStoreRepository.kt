@@ -150,23 +150,46 @@ class ExtensionStoreRepository @Inject constructor(
 
     suspend fun deleteExtension(id: String) = withContext(Dispatchers.IO) {
         val dir = File(context.filesDir, "extensions")
-        var deleted = false
-        listOf(".apk", ".eapk").forEach { ext ->
-            val file = File(dir, "$id$ext")
-            if (file.exists()) {
-                file.setWritable(true)
-                if (file.delete()) {
-                    deleted = true
-                }
+        var fileToDelete: File? = null
+
+        // Find which extension file exists
+        for (ext in listOf(".apk", ".eapk")) {
+            val candidate = File(dir, "$id$ext")
+            if (candidate.exists()) {
+                fileToDelete = candidate
+                break
             }
         }
-        if (deleted) {
-            updateItemStatus(id, ExtensionStatus.AVAILABLE, 0f)
-            _storeItems.value = _storeItems.value.map {
-                if (it.remote.id == id) it.copy(status = ExtensionStatus.AVAILABLE, localVersion = null) else it
-            }
+
+        if (fileToDelete == null) {
+            // File already gone — just refresh the loader
             extensionEngine.fileIgnoreFlow.emit(null)
-        } else {
+            return@withContext
+        }
+
+        // Emit the file into fileIgnoreFlow FIRST so the loader skips it
+        // during the immediate reload triggered below, before we physically delete it.
+        extensionEngine.fileIgnoreFlow.emit(fileToDelete)
+
+        // Android: deleting a file requires the PARENT DIRECTORY to be writable.
+        // FileRepository.loadAllApks() calls folder.setReadOnly() on every scan,
+        // so we must re-enable write on the directory before calling delete().
+        dir.setWritable(true)
+        fileToDelete.setWritable(true)
+        val deleted = fileToDelete.delete()
+        // Restore directory to read-only (matches FileRepository expectations)
+        dir.setReadOnly()
+
+        android.util.Log.d("ExtensionStore", "deleteExtension($id): deleted=$deleted path=${fileToDelete.absolutePath}")
+
+        // Update store state regardless — the loader has already been told to ignore the file
+        updateItemStatus(id, ExtensionStatus.AVAILABLE, 0f)
+        _storeItems.value = _storeItems.value.map {
+            if (it.remote.id == id) it.copy(status = ExtensionStatus.AVAILABLE, localVersion = null) else it
+        }
+
+        // Final reload with null to pick up the now-deleted file cleanly
+        if (deleted) {
             extensionEngine.fileIgnoreFlow.emit(null)
         }
     }
