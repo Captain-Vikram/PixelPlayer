@@ -59,11 +59,8 @@ import com.theveloper.pixelplay.presentation.viewmodel.LyricsSearchUiState
 import com.theveloper.pixelplay.utils.ProviderText
 import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
 
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.ui.graphics.Color
 
 @Composable
 fun FetchLyricsDialog(
@@ -334,20 +331,10 @@ private fun PickResultContent(
             val rawIndex = if (selectedId == null) 0 else (extensions.indexOfFirst { it.metadata.id == selectedId }.takeIf { it >= 0 }?.plus(1) ?: 0)
             val selectedTabIndex = rawIndex.coerceIn(0, extensions.size)
 
-            ScrollableTabRow(
+            PrimaryScrollableTabRow(
                 selectedTabIndex = selectedTabIndex,
-                containerColor = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.primary,
                 edgePadding = 0.dp,
                 divider = {},
-                indicator = { tabPositions ->
-                    if (selectedTabIndex < tabPositions.size) {
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
             ) {
                 Tab(
                     selected = selectedId == null,
