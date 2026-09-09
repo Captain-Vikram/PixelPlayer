@@ -332,8 +332,9 @@ class LyricsStateHolder @Inject constructor(
         loadingJob?.cancel()
         loadingJob = scope?.launch {
             val dedicatedLyrics = extensionLoader.lyrics.value
+            // Use the non-suspend `value` property (not the suspend `value()` function) for filtering
             val musicWithLyrics = extensionLoader.music.value.filter { ext ->
-                ext.instance.value().getOrNull() is dev.brahmkshatriya.echo.common.clients.LyricsClient
+                ext.instance.value is dev.brahmkshatriya.echo.common.clients.LyricsClient
             }
             val availableExtensions = (dedicatedLyrics + musicWithLyrics).distinctBy { it.metadata.id }
 
@@ -368,9 +369,20 @@ class LyricsStateHolder @Inject constructor(
             } else {
                 try {
                     val extension = availableExtensions.find { it.metadata.id == extensionId } ?: return@launch
-                    val instance = runCatching { extension.instance.awaitNamedInjection("user") }.getOrNull()
-                        ?: extension.instance.value().getOrNull()
-                    val client = instance as? dev.brahmkshatriya.echo.common.clients.LyricsClient ?: return@launch
+                    // awaitNamedInjection returns Unit — it only signals that the user injection completed.
+                    // After waiting, call value() to actually retrieve the client instance.
+                    runCatching { extension.instance.awaitNamedInjection("user") }
+                    val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.LyricsClient
+                        ?: run {
+                            _searchUiState.value = LyricsSearchUiState.PickResult(
+                                query = song.title,
+                                results = emptyList(),
+                                availableExtensions = availableExtensions,
+                                selectedExtensionId = extensionId,
+                                isLoading = false
+                            )
+                            return@launch
+                        }
 
                     val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(song.id)
                     val originClientId = decoded?.extensionId ?: song.extensionId ?: ""
@@ -383,15 +395,24 @@ class LyricsStateHolder @Inject constructor(
                         album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album)
                     )
 
-                    // 1. Try searchTrackLyrics with originClientId
-                    val feed = runCatching { client.searchTrackLyrics(originClientId, echoTrack) }.getOrNull()
-                    var rawCandidates = feed?.loadAll().orEmpty()
+                    // 1. Try searchTrackLyrics with the origin client id (works for streaming extension songs)
+                    var rawCandidates = runCatching { client.searchTrackLyrics(originClientId, echoTrack).loadAll() }.getOrNull().orEmpty()
 
-                    // 2. If empty and extension implements LyricsSearchClient, try searchLyrics with query
-                    if (rawCandidates.isEmpty() && client is dev.brahmkshatriya.echo.common.clients.LyricsSearchClient) {
+                    // 2. If empty, try with the extension's own id as client (dedicated lyrics extensions)
+                    if (rawCandidates.isEmpty() && originClientId != extensionId) {
+                        rawCandidates = runCatching { client.searchTrackLyrics(extensionId, echoTrack).loadAll() }.getOrNull().orEmpty()
+                    }
+
+                    // 3. If still empty, use text search (works for local files and LyricsSearchClient extensions)
+                    if (rawCandidates.isEmpty()) {
                         val query = "${song.title} ${song.displayArtist}".trim()
-                        val searchFeed = runCatching { client.searchLyrics(query) }.getOrNull()
-                        rawCandidates = searchFeed?.loadAll().orEmpty()
+                        if (client is dev.brahmkshatriya.echo.common.clients.LyricsSearchClient) {
+                            rawCandidates = runCatching { client.searchLyrics(query).loadAll() }.getOrNull().orEmpty()
+                        } else {
+                            // Last resort: searchTrackLyrics with empty clientId and title-only track id
+                            val titleOnlyTrack = echoTrack.copy(id = song.title)
+                            rawCandidates = runCatching { client.searchTrackLyrics("", titleOnlyTrack).loadAll() }.getOrNull().orEmpty()
+                        }
                     }
 
                     val results = rawCandidates.mapNotNull { echoLyrics ->
