@@ -175,15 +175,31 @@ private fun WebViewContainer(
             }
         }
 
-        fun intercept(networkRequest: NetworkRequest) {
+        fun recordHeaderIfMatching(networkRequest: NetworkRequest) {
             if (request.request is WebViewRequest.Headers) {
                 if (interceptRegex == null || interceptRegex.containsMatchIn(networkRequest.url)) {
                     interceptedRequests.add(networkRequest)
                 }
             }
-            if (stopRegex.containsMatchIn(networkRequest.url)) {
+        }
+
+        fun checkStopCondition(url: String) {
+            if (doneState.value) return
+            if (stopRegex.containsMatchIn(url)) {
+                // In login flows, don't trigger stop on the initial login entry form URL before the user enters credentials
+                if (isLoginRequest) {
+                    val initialUrl = request.request.initialUrl.url
+                    val initialClean = initialUrl.substringBefore("?").trimEnd('/')
+                    val currentClean = url.substringBefore("?").trimEnd('/')
+                    if (currentClean.equals(initialClean, ignoreCase = true) && 
+                        (currentClean.contains("login", ignoreCase = true) || currentClean.contains("signin", ignoreCase = true))) {
+                        Timber.d("ExtensionWebView: Match on initial login entry page $url, waiting for user auth submission...")
+                        return
+                    }
+                }
+                Timber.d("ExtensionWebView: Stop condition matched on $url. Triggering completion...")
                 timeoutJob.cancel()
-                triggerStop(webView, networkRequest.url, request, this, bridge, interceptedRequests, doneState)
+                triggerStop(webView, url, request, this, bridge, interceptedRequests, doneState)
             }
         }
 
@@ -196,21 +212,26 @@ private fun WebViewContainer(
                 evaluateReq?.javascriptToEvaluateOnPageStart?.let { js ->
                     view?.evaluateJavascript(js, null)
                 }
+
+                if (url != null) {
+                    checkStopCondition(url)
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 Timber.d("ExtensionWebView: Page finished: $url")
                 if (url != null) {
-                    val headers = emptyMap<String, String>()
-                    intercept(NetworkRequest(NetworkRequest.Method.GET, url, headers))
+                    recordHeaderIfMatching(NetworkRequest(NetworkRequest.Method.GET, url))
+                    checkStopCondition(url)
                 }
             }
             
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                 if (url != null) {
-                    intercept(NetworkRequest(NetworkRequest.Method.GET, url))
+                    recordHeaderIfMatching(NetworkRequest(NetworkRequest.Method.GET, url))
+                    checkStopCondition(url)
                 }
                 return false
             }
@@ -219,7 +240,10 @@ private fun WebViewContainer(
                 if (request != null) {
                     val url = request.url.toString()
                     val headers = request.requestHeaders ?: emptyMap()
-                    intercept(NetworkRequest(NetworkRequest.Method.GET, url, headers))
+                    recordHeaderIfMatching(NetworkRequest(NetworkRequest.Method.GET, url, headers))
+                    if (request.isForMainFrame) {
+                        checkStopCondition(url)
+                    }
                 }
                 return false
             }
@@ -248,7 +272,8 @@ private fun WebViewContainer(
                         headers = headers,
                         body = null
                     )
-                    intercept(networkRequest)
+                    // Sub-resources only record headers for WebViewRequest.Headers, never trigger stop
+                    recordHeaderIfMatching(networkRequest)
                 }
                 return super.shouldInterceptRequest(view, webResourceRequest)
             }
@@ -412,15 +437,27 @@ private fun <T> triggerStop(
                 fun buildDomainVariants(rawUrl: String): List<String> {
                     val uri = android.net.Uri.parse(rawUrl)
                     val scheme = uri.scheme ?: "https"
-                    val host = uri.host ?: return emptyList()
+                    val host = uri.host ?: return listOf(rawUrl)
                     val apex = host.lowercase().removePrefix("www.")
-                    return listOf(
+                    val list = mutableListOf(
+                        rawUrl,
                         "$scheme://$host",
-                        "$scheme://www.$apex",
                         "$scheme://$apex",
-                        "$scheme://.$apex",
-                        rawUrl
-                    ).distinct()
+                        "$scheme://www.$apex"
+                    )
+                    if (host.contains("spotify")) {
+                        list.add("https://open.spotify.com")
+                        list.add("https://accounts.spotify.com")
+                    } else if (host.contains("youtube") || host.contains("google")) {
+                        list.add("https://music.youtube.com")
+                        list.add("https://accounts.google.com")
+                        list.add("https://www.youtube.com")
+                    } else if (host.contains("deezer")) {
+                        list.add("https://www.deezer.com")
+                    } else if (host.contains("soundcloud")) {
+                        list.add("https://soundcloud.com")
+                    }
+                    return list.distinct()
                 }
 
                 val domains = (buildDomainVariants(url) +

@@ -340,31 +340,25 @@ class ExtensionRepository @Inject constructor(
     }
 
     suspend fun applyLoginSession(extensionId: String, user: User) {
-        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId } ?: return
+        val extension = extensionEngine.all.value.find { it.metadata.id == extensionId }
+            ?: extensionEngine.music.value.find { it.metadata.id == extensionId }
+            ?: return
         val userEntity = user.toEntity(extension.metadata.type, extension.metadata.id)
 
-        val currentUser = extensionEngine.extensionUserDao.getCurrentUsers().find { it.extId == extensionId }
-        val isSameUser = currentUser?.userId == user.id
-
-        if (isSameUser) {
-            val instance = runCatching { extension.instance.awaitNamedInjection("user") }.getOrNull()
-                ?: extension.instance.value().getOrNull()
-            val client = instance as? LoginClient
-            try {
-                client?.setLoginUser(user)
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to set login user synchronously")
-            }
-        } else {
-            extension.instance.rearmNamedInjection("user")
+        // Directly set login user on the active instance
+        val instance = runCatching { extension.instance.awaitNamedInjection("user") }.getOrNull()
+            ?: extension.instance.value().getOrNull()
+        val client = instance as? LoginClient
+        try {
+            client?.setLoginUser(user)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set login user on client instance")
         }
 
         extensionEngine.extensionUserDao.insertUser(userEntity)
         extensionEngine.extensionUserDao.setCurrentUser(userEntity.toCurrentUser())
 
-        if (isSameUser) {
-            extension.instance.setNamedInjectionComplete("user")
-        }
+        extension.instance.setNamedInjectionComplete("user")
 
         clearCache(extensionId)
 
