@@ -46,6 +46,10 @@ fun Track.toSong(
     val artistSyntheticId = artists.firstOrNull()?.let { normaliseExtensionId(it.id, extensionId, "artist") }
     val mediaId = normaliseExtensionId(id, extensionId, "track")
 
+    // Cache original Echo Track with all its streamables intact for seamless resolution
+    ExtensionTrackStore.put(mediaId, this)
+    ExtensionTrackStore.put(id, this)
+
     // Extract video loops (Background) and synced lyrics (Subtitle) if provided directly
     val backgroundStream = backgrounds.firstOrNull()
     val subtitleStream = subtitles.firstOrNull()
@@ -71,13 +75,14 @@ fun Track.toSong(
         albumArtUriString = (cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
             ?: (resolvedAlbum?.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url,
         duration = duration ?: 0L,
-        mimeType = "audio/mpeg",
+        mimeType = null,
         bitrate = 0,
         sampleRate = 0,
         extensionId = extensionId,
         backgroundUriString = backgroundStream?.id,
         subtitleUriString = subtitleStream?.id,
-        albumMediaId = albumSyntheticId
+        albumMediaId = albumSyntheticId,
+        trackType = type.name
     )
 }
 
@@ -122,7 +127,7 @@ fun Playlist.toAppPlaylist(extensionId: String): AppPlaylist {
     )
 }
 
-fun EchoLyrics.toAppLyrics(sourceExtId: String): AppLyrics {
+fun EchoLyrics.toAppLyrics(sourceExtId: String, sourceName: String? = null): AppLyrics {
     val lyric = this.lyrics
     return when (lyric) {
         null -> AppLyrics(
@@ -131,7 +136,8 @@ fun EchoLyrics.toAppLyrics(sourceExtId: String): AppLyrics {
             areFromRemote = true,
             extensionTitle = this.title,
             extensionSubtitle = this.subtitle,
-            sourceExtensionId = sourceExtId
+            sourceExtensionId = sourceExtId,
+            sourceName = sourceName
         )
         is EchoLyrics.Simple -> {
             val lines = lyric.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
@@ -141,7 +147,8 @@ fun EchoLyrics.toAppLyrics(sourceExtId: String): AppLyrics {
                 areFromRemote = true,
                 extensionTitle = this.title,
                 extensionSubtitle = this.subtitle,
-                sourceExtensionId = sourceExtId
+                sourceExtensionId = sourceExtId,
+                sourceName = sourceName
             )
         }
         is EchoLyrics.Timed -> {
@@ -161,7 +168,8 @@ fun EchoLyrics.toAppLyrics(sourceExtId: String): AppLyrics {
                 areFromRemote = true,
                 extensionTitle = this.title,
                 extensionSubtitle = this.subtitle,
-                sourceExtensionId = sourceExtId
+                sourceExtensionId = sourceExtId,
+                sourceName = sourceName
             )
         }
         is EchoLyrics.WordByWord -> {
@@ -191,7 +199,8 @@ fun EchoLyrics.toAppLyrics(sourceExtId: String): AppLyrics {
                 areFromRemote = true,
                 extensionTitle = this.title,
                 extensionSubtitle = this.subtitle,
-                sourceExtensionId = sourceExtId
+                sourceExtensionId = sourceExtId,
+                sourceName = sourceName
             )
         }
         else -> AppLyrics(
@@ -200,7 +209,8 @@ fun EchoLyrics.toAppLyrics(sourceExtId: String): AppLyrics {
             areFromRemote = true,
             extensionTitle = this.title,
             extensionSubtitle = this.subtitle,
-            sourceExtensionId = sourceExtId
+            sourceExtensionId = sourceExtId,
+            sourceName = sourceName
         )
     }
 }

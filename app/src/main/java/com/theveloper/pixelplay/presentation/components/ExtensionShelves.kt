@@ -8,10 +8,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import timber.log.Timber
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -158,7 +166,7 @@ fun ExtensionShelvesSection(
         }
 
         regularShelves.forEach { shelf ->
-            if (shelf.title.isNotBlank()) {
+            if (shelf.title.isNotBlank() || shelf is dev.brahmkshatriya.echo.common.models.Shelf.Lists<*>) {
                 ExtensionShelf(
                     shelf = shelf,
                     onItemClick = onItemClick
@@ -256,45 +264,65 @@ fun ExtensionShelf(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        if (shelf.title.isNotBlank()) {
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                if (shelfIcon != null) {
-                    Icon(
-                        imageVector = shelfIcon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(24.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (shelfIcon != null) {
+                        Icon(
+                            imageVector = shelfIcon,
+                            contentDescription = null,
+                            tint = iconTint,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Text(
+                        text = shelf.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.5).sp
                     )
                 }
-                Text(
-                    text = shelf.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.5).sp
-                )
-            }
-            
-            if (isTrending) {
-                PlayingEqIcon(
-                    modifier = Modifier.size(16.dp),
-                    color = iconTint,
-                    isPlaying = true
-                )
+
+                if (isTrending) {
+                    PlayingEqIcon(
+                        modifier = Modifier.size(16.dp),
+                        color = iconTint,
+                        isPlaying = true
+                    )
+                }
             }
         }
 
         when (shelf) {
+            is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Categories -> {
+                ExtensionCategoriesContent(
+                    categories = shelf.list,
+                    onItemClick = onItemClick
+                )
+            }
+            is dev.brahmkshatriya.echo.common.models.Shelf.Category -> {
+                ExtensionCategoriesContent(
+                    categories = listOf(shelf),
+                    onItemClick = onItemClick
+                )
+            }
             is Shelf.Lists<*> -> {
-                if (shelf.type == Shelf.Lists.Type.Grid) {
+                if (shelf.list.firstOrNull() is dev.brahmkshatriya.echo.common.models.Shelf.Category) {
+                    val catList = shelf.list.filterIsInstance<dev.brahmkshatriya.echo.common.models.Shelf.Category>()
+                    ExtensionCategoriesContent(
+                        categories = catList,
+                        onItemClick = onItemClick
+                    )
+                } else if (shelf.type == Shelf.Lists.Type.Grid) {
                     val gridItems = shelf.list.filterIsInstance<EchoMediaItem>()
                     val rows = gridItems.chunked(2)
                     Column(
@@ -379,6 +407,266 @@ fun ExtensionShelf(
                 }
             }
             else -> {}
+        }
+    }
+}
+
+@Composable
+fun ExtensionCategoriesContent(
+    categories: List<dev.brahmkshatriya.echo.common.models.Shelf.Category>,
+    onItemClick: (EchoMediaItem) -> Unit
+) {
+    if (categories.isEmpty()) return
+
+    var selectedCategory by remember(categories) {
+        mutableStateOf(categories.firstOrNull())
+    }
+
+    var loadedShelves by remember(selectedCategory?.id) {
+        mutableStateOf<List<Shelf>?>(null)
+    }
+    var isLoading by remember(selectedCategory?.id) {
+        mutableStateOf(false)
+    }
+    var errorMessage by remember(selectedCategory?.id) {
+        mutableStateOf<String?>(null)
+    }
+
+    LaunchedEffect(selectedCategory?.id) {
+        val currentCategory = selectedCategory
+        val feed = currentCategory?.feed
+        if (feed == null) {
+            loadedShelves = emptyList()
+            return@LaunchedEffect
+        }
+        isLoading = true
+        errorMessage = null
+        try {
+            val result = withContext(Dispatchers.IO) {
+                val feedData = feed.getPagedData(null)
+                feedData.pagedData.loadPage(null).data
+            }
+            loadedShelves = result
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to load category feed for ${currentCategory.title}")
+            errorMessage = e.message ?: "Failed to load category"
+        } finally {
+            isLoading = false
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Horizontal row of category chips
+        if (categories.size > 1 || (categories.size == 1 && categories[0].feed != null)) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(categories, key = { it.id }) { category ->
+                    val isSelected = selectedCategory?.id == category.id
+                    val imageUrl = (category.image as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
+                        ?: (category.image as? dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder)?.uri?.toString()
+
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { selectedCategory = category },
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        },
+                        contentColor = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        tonalElevation = if (isSelected) 4.dp else 0.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (imageUrl != null) {
+                                SmartImage(
+                                    model = imageUrl,
+                                    contentDescription = category.title,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                )
+                            }
+                            Text(
+                                text = category.title,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sub-feed rendering
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        strokeWidth = 2.5.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            errorMessage != null -> {
+                Text(
+                    text = errorMessage ?: "Error loading items",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                )
+            }
+            loadedShelves != null -> {
+                val shelves = loadedShelves!!
+                if (shelves.isEmpty()) {
+                    Text(
+                        text = "No items available in this category",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                    )
+                } else {
+                    RenderLoadedShelves(
+                        shelves = shelves,
+                        onItemClick = onItemClick
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RenderLoadedShelves(
+    shelves: List<Shelf>,
+    onItemClick: (EchoMediaItem) -> Unit
+) {
+    if (shelves.all { it is dev.brahmkshatriya.echo.common.models.Shelf.Item }) {
+        MediaItemsGrid(
+            items = shelves.filterIsInstance<dev.brahmkshatriya.echo.common.models.Shelf.Item>().map { it.media },
+            onItemClick = onItemClick
+        )
+    } else {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            val pendingItems = mutableListOf<EchoMediaItem>()
+
+            shelves.forEach { shelf ->
+                if (shelf is dev.brahmkshatriya.echo.common.models.Shelf.Item) {
+                    pendingItems.add(shelf.media)
+                } else {
+                    if (pendingItems.isNotEmpty()) {
+                        MediaItemsGrid(
+                            items = pendingItems.toList(),
+                            onItemClick = onItemClick
+                        )
+                        pendingItems.clear()
+                    }
+                    ExtensionShelf(
+                        shelf = shelf,
+                        onItemClick = onItemClick
+                    )
+                }
+            }
+
+            if (pendingItems.isNotEmpty()) {
+                MediaItemsGrid(
+                    items = pendingItems.toList(),
+                    onItemClick = onItemClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MediaItemsGrid(
+    items: List<EchoMediaItem>,
+    onItemClick: (EchoMediaItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var displayLimit by remember(items) { mutableStateOf(30) }
+    val visibleItems = items.take(displayLimit)
+    val rows = visibleItems.chunked(2)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        rows.forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                rowItems.forEach { item ->
+                    val imageUrl = (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
+                        ?: (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder)?.uri?.toString()
+                    val isCircle = getShelfMediaType(item).isCircleShape
+                    MediaShelfCard(
+                        title = item.title,
+                        subtitle = item.subtitleWithOutE,
+                        imageUrl = imageUrl,
+                        isCircle = isCircle,
+                        layout = ShelfCardLayout.Horizontal,
+                        size = ShelfCardSize.Row,
+                        alignment = ShelfCardAlignment.Start,
+                        onClick = { onItemClick(item) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (rowItems.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+
+        if (items.size > displayLimit) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { displayLimit += 30 },
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text(
+                        text = "Show more (${items.size - displayLimit} remaining)",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                    )
+                }
+            }
         }
     }
 }

@@ -643,6 +643,10 @@ class PlayerViewModel @Inject constructor(
     val currentMusicExtension: StateFlow<dev.brahmkshatriya.echo.common.MusicExtension?> = extensionRepository.currentMusicExtension
     val extensionCapabilities = extensionRepository.extensionCapabilities
 
+    fun isQualitySelectionSupported(extensionId: String?): Boolean {
+        return extensionRepository.isQualitySelectionSupported(extensionId)
+    }
+
     val favoriteSongIds: StateFlow<Set<String>> = musicRepository
         .getFavoriteSongIdsFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
@@ -1627,6 +1631,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     private var mediaController: MediaController? = null
+    val activeMediaController: MediaController?
+        get() = mediaController
     private val _isMediaControllerReady = MutableStateFlow(false)
     val isMediaControllerReady: StateFlow<Boolean> = _isMediaControllerReady.asStateFlow()
     // SessionToken injected via constructor
@@ -1910,15 +1916,19 @@ class PlayerViewModel @Inject constructor(
     // Favorites now use paginated flow from LibraryStateHolder (DB-level sort & filter)
     val favoritesPagingFlow = libraryStateHolder.favoritesPagingFlow
 
-    // Daily mix state is now managed by DailyMixStateHolder, dynamically switching to active extension mixes if logged in
+    // Daily mix state is now managed by DailyMixStateHolder, dynamically switching to active extension mixes if logged in or login not needed
     val dailyMixSongs: StateFlow<ImmutableList<Song>> = combine(
         dailyMixStateHolder.dailyMixSongs,
         extensionRepository.currentMusicExtension,
         extensionRepository.loggedInExtensionIds,
-        extensionRepository.dailyMixSongsFromExtension
-    ) { localMix, currentExt, loggedInIds, extMix ->
-        val isExtLoggedIn = currentExt?.let { loggedInIds.contains(it.metadata.id) } == true
-        if (currentExt != null && isExtLoggedIn) {
+        extensionRepository.dailyMixSongsFromExtension,
+        extensionRepository.extensionCapabilities
+    ) { localMix, currentExt, loggedInIds, extMix, capsMap ->
+        val caps = currentExt?.let { capsMap[it.metadata.id] }
+        val isExtAvailable = if (currentExt == null) false
+            else if (caps != null && !caps.isLoginNeeded) true
+            else loggedInIds.contains(currentExt.metadata.id)
+        if (currentExt != null && isExtAvailable && extMix.isNotEmpty()) {
             extMix.toImmutableList()
         } else {
             localMix
@@ -1933,10 +1943,14 @@ class PlayerViewModel @Inject constructor(
         dailyMixStateHolder.yourMixSongs,
         extensionRepository.currentMusicExtension,
         extensionRepository.loggedInExtensionIds,
-        extensionRepository.yourMixSongsFromExtension
-    ) { localMix, currentExt, loggedInIds, extMix ->
-        val isExtLoggedIn = currentExt?.let { loggedInIds.contains(it.metadata.id) } == true
-        if (currentExt != null && isExtLoggedIn) {
+        extensionRepository.yourMixSongsFromExtension,
+        extensionRepository.extensionCapabilities
+    ) { localMix, currentExt, loggedInIds, extMix, capsMap ->
+        val caps = currentExt?.let { capsMap[it.metadata.id] }
+        val isExtAvailable = if (currentExt == null) false
+            else if (caps != null && !caps.isLoginNeeded) true
+            else loggedInIds.contains(currentExt.metadata.id)
+        if (currentExt != null && isExtAvailable && extMix.isNotEmpty()) {
             extMix.toImmutableList()
         } else {
             localMix
@@ -2804,6 +2818,9 @@ class PlayerViewModel @Inject constructor(
     val currentTrackSources = dualPlayerEngine.currentTrackSources
     val currentSelectedSource = dualPlayerEngine.currentSelectedSource
     val currentTracks = dualPlayerEngine.currentTracks
+    val currentBackgroundUri = dualPlayerEngine.currentBackgroundUri
+    val masterExoPlayer: androidx.media3.exoplayer.ExoPlayer?
+        get() = dualPlayerEngine.masterExoPlayer
 
     fun setTemporaryQualityOverride(quality: StreamingQuality?) {
         dualPlayerEngine.setTemporaryQualityOverride(quality)

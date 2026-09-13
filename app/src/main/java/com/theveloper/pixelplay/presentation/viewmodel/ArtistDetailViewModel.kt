@@ -81,7 +81,8 @@ class ArtistDetailViewModel @Inject constructor(
 
     init {
         savedStateHandle.getStateFlow<String?>("artistId", null)
-            .onEach { idString ->
+            .onEach { rawIdString ->
+                val idString = rawIdString?.let { android.net.Uri.decode(it) }
                 if (idString != null) {
                     if (idString.startsWith("extension:")) {
                         loadExtensionArtist(idString)

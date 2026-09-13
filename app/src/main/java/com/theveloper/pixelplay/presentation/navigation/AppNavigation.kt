@@ -324,7 +324,8 @@ fun AppNavigation(
                 route = Screen.PlaylistDetail.route,
                 arguments = listOf(navArgument("playlistId") { type = NavType.StringType }),
             ) { backStackEntry ->
-                val playlistId = backStackEntry.arguments?.getString("playlistId")
+                val rawPlaylistId = backStackEntry.arguments?.getString("playlistId")
+                val playlistId = rawPlaylistId?.let { android.net.Uri.decode(it) }
                 val playlistViewModel: PlaylistViewModel = hiltViewModel()
                 if (playlistId != null) {
                     ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
@@ -351,7 +352,8 @@ fun AppNavigation(
                 route = Screen.GenreDetail.route,
                 arguments = listOf(navArgument("genreId") { type = NavType.StringType }),
             ) { backStackEntry ->
-                val genreId = backStackEntry.arguments?.getString("genreId")
+                val rawGenreId = backStackEntry.arguments?.getString("genreId")
+                val genreId = rawGenreId?.let { android.net.Uri.decode(it) }
                 if (genreId != null) {
                     ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                         GenreDetailScreen(
@@ -368,7 +370,8 @@ fun AppNavigation(
                 route = Screen.AlbumDetail.route,
                 arguments = listOf(navArgument("albumId") { type = NavType.StringType }),
             ) { backStackEntry ->
-                val albumId = backStackEntry.arguments?.getString("albumId")
+                val rawAlbumId = backStackEntry.arguments?.getString("albumId")
+                val albumId = rawAlbumId?.let { android.net.Uri.decode(it) }
                 if (albumId != null) {
                     ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                         AlbumDetailScreen(
@@ -383,7 +386,8 @@ fun AppNavigation(
                 route = Screen.ArtistDetail.route,
                 arguments = listOf(navArgument("artistId") { type = NavType.StringType }),
             ) { backStackEntry ->
-                val artistId = backStackEntry.arguments?.getString("artistId")
+                val rawArtistId = backStackEntry.arguments?.getString("artistId")
+                val artistId = rawArtistId?.let { android.net.Uri.decode(it) }
                 if (artistId != null) {
                     ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                         ArtistDetailScreen(

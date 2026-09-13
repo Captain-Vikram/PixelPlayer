@@ -16,7 +16,8 @@ data class Lyrics(
     val areFromRemote: Boolean = false,
     val extensionTitle: String? = null,
     val extensionSubtitle: String? = null,
-    val sourceExtensionId: String? = null
+    val sourceExtensionId: String? = null,
+    val sourceName: String? = null
 )
 
 @Serializable

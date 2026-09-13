@@ -206,7 +206,31 @@ private fun VideoLoopCanvas(
 
     val context = LocalContext.current
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
+        val renderersFactory = object : androidx.media3.exoplayer.DefaultRenderersFactory(context) {
+            override fun buildAudioRenderers(
+                context: android.content.Context,
+                extensionRendererMode: Int,
+                mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector,
+                enableDecoderFallback: Boolean,
+                audioSink: androidx.media3.exoplayer.audio.AudioSink,
+                eventHandler: android.os.Handler,
+                eventListener: androidx.media3.exoplayer.audio.AudioRendererEventListener,
+                out: java.util.ArrayList<androidx.media3.exoplayer.Renderer>
+            ) {
+                // Video-only canvas: skip audio renderers to avoid allocating audio decoder threads and sinks
+            }
+
+            override fun buildTextRenderers(
+                context: android.content.Context,
+                output: androidx.media3.exoplayer.text.TextOutput,
+                outputLooper: android.os.Looper,
+                extensionRendererMode: Int,
+                out: java.util.ArrayList<androidx.media3.exoplayer.Renderer>
+            ) {
+                // Video-only canvas: skip text renderers
+            }
+        }
+        ExoPlayer.Builder(context, renderersFactory).build().apply {
             repeatMode = Player.REPEAT_MODE_ALL
             volume = 0f
         }
@@ -337,6 +361,9 @@ fun FullPlayerContent(
 
     val allExtensions by playerViewModel.allExtensions.collectAsStateWithLifecycle()
     val extensionCapabilities by playerViewModel.extensionCapabilities.collectAsStateWithLifecycle()
+    val isQualitySelectionSupported = remember(song.extensionId, extensionCapabilities) {
+        playerViewModel.isQualitySelectionSupported(song.extensionId)
+    }
     val lyricsExtensions = remember(allExtensions, extensionCapabilities) {
         allExtensions.filter { extension ->
             extensionCapabilities[extension.metadata.id]?.canLyrics == true
@@ -631,6 +658,7 @@ fun FullPlayerContent(
                 val targetId = albumSong.albumMediaId ?: albumSong.albumId.toString()
                 playerViewModel.triggerAlbumNavigationFromPlayer(targetId)
             },
+            playerViewModel = playerViewModel,
             modifier = modifier
         )
     }
@@ -684,6 +712,7 @@ fun FullPlayerContent(
             onFavoriteToggle = onFavoriteToggle,
             onDownloadClick = onDownloadClick,
             temporaryQualityOverride = temporaryQualityOverride,
+            isQualitySelectionSupported = isQualitySelectionSupported,
             onQualityClick = { showQualityOverrideSheet = true }
         )
     }
@@ -1033,9 +1062,11 @@ fun FullPlayerContent(
                 .graphicsLayer { alpha = contentAlpha }
         ) {
             // Animated video canvas / video loop playback (e.g. Spotify Canvas, YouTube video loops)
-            if (!song.backgroundUriString.isNullOrBlank()) {
+            val dynamicBackgroundUri by playerViewModel.currentBackgroundUri.collectAsStateWithLifecycle()
+            val effectiveBackgroundUri = song.backgroundUriString ?: dynamicBackgroundUri
+            if (!effectiveBackgroundUri.isNullOrBlank()) {
                 VideoLoopCanvas(
-                    videoUri = song.backgroundUriString,
+                    videoUri = effectiveBackgroundUri,
                     isPlaying = isPlayingProvider(),
                     expansionFraction = expansionFractionProvider(),
                     modifier = Modifier.fillMaxSize()
@@ -1177,6 +1208,7 @@ private fun FullPlayerAlbumCoverSection(
     requestedScrollIndex: Int?,
     onSongSelected: (Song, Int) -> Unit,
     onAlbumClick: (Song) -> Unit,
+    playerViewModel: PlayerViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delayAlbumCarousel
@@ -1240,27 +1272,44 @@ private fun FullPlayerAlbumCoverSection(
                 }
             }
         ) {
-            AlbumCarouselSection(
-                currentSong = song,
-                queue = currentPlaybackQueue,
-                expansionFraction = 1f,
-                currentMediaItemIndex = currentMediaItemIndex,
-                requestedScrollIndex = requestedScrollIndex,
-                onSongSelected = { newSong, index ->
-                    if (newSong.id != song.id || index != currentMediaItemIndex) {
-                        onSongSelected(newSong, index)
-                    }
-                },
-                onAlbumClick = onAlbumClick,
-                carouselStyle = carouselStyle,
-                modifier = Modifier
-                    .height(carouselHeight)
-                    .graphicsLayer {
-                        scaleX = albumArtScale
-                        scaleY = albumArtScale
+            val activeController = playerViewModel?.activeMediaController
+            val targetPlayer = playerViewModel?.masterExoPlayer ?: activeController
+            val playerTracks by playerViewModel?.currentTracks?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(androidx.media3.common.Tracks.EMPTY) }
+            val isVideoTrack = song.isVideo || playerTracks.groups.any { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }
+
+            if (isVideoTrack && targetPlayer != null) {
+                PixelPlayerVideoSurface(
+                    song = song,
+                    player = targetPlayer,
+                    playerViewModel = playerViewModel,
+                    modifier = Modifier
+                        .height(carouselHeight)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+            } else {
+                AlbumCarouselSection(
+                    currentSong = song,
+                    queue = currentPlaybackQueue,
+                    expansionFraction = 1f,
+                    currentMediaItemIndex = currentMediaItemIndex,
+                    requestedScrollIndex = requestedScrollIndex,
+                    onSongSelected = { newSong, index ->
+                        if (newSong.id != song.id || index != currentMediaItemIndex) {
+                            onSongSelected(newSong, index)
+                        }
                     },
-                albumArtQuality = albumArtQuality
-            )
+                    onAlbumClick = onAlbumClick,
+                    carouselStyle = carouselStyle,
+                    modifier = Modifier
+                        .height(carouselHeight)
+                        .graphicsLayer {
+                            scaleX = albumArtScale
+                            scaleY = albumArtScale
+                        },
+                    albumArtQuality = albumArtQuality
+                )
+            }
         }
     }
 }
@@ -1288,6 +1337,7 @@ private fun FullPlayerControlsSection(
     downloadProgress: Int? = null,
     completedDownloads: Set<String> = emptySet(),
     temporaryQualityOverride: StreamingQuality? = null,
+    isQualitySelectionSupported: Boolean = true,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
@@ -1358,6 +1408,7 @@ private fun FullPlayerControlsSection(
                 downloadProgress = downloadProgress,
                 completedDownloads = completedDownloads,
                 temporaryQualityOverride = temporaryQualityOverride,
+                isQualitySelectionSupported = isQualitySelectionSupported,
                 onShuffleToggle = onShuffleToggle,
                 onRepeatToggle = onRepeatToggle,
                 onFavoriteToggle = onFavoriteToggle,
@@ -2778,6 +2829,7 @@ private fun BottomToggleRow(
     downloadProgress: Int? = null,
     completedDownloads: Set<String> = emptySet(),
     temporaryQualityOverride: StreamingQuality? = null,
+    isQualitySelectionSupported: Boolean = true,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
@@ -2909,7 +2961,7 @@ private fun BottomToggleRow(
                 }
             }
 
-            if (!isLocalOrDownloaded && song.extensionId != null) {
+            if (!isLocalOrDownloaded && song.extensionId != null && isQualitySelectionSupported) {
                 val hasOverride = temporaryQualityOverride != null
                 ToggleSegmentButton(
                     modifier = commonModifier,

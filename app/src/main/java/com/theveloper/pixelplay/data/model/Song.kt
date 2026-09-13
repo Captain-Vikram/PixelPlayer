@@ -46,7 +46,11 @@ data class Song(
     val backgroundUriString: String? = null, // URL for video loop/canvas background
     val subtitleUriString: String? = null, // URL for synchronized subtitles
     val albumMediaId: String? = null,
+    val trackType: String? = null, // Track.Type: Song, Podcast, VideoSong, Video, HorizontalVideo
 ) : Parcelable {
+    val isVideo: Boolean
+        get() = trackType == "Video" || trackType == "VideoSong" || trackType == "HorizontalVideo"
+
     /**
      * Returns the display string for artists.
      * If multiple artists exist (populated during sync), joins them with ", ".

@@ -109,6 +109,28 @@ object MediaItemBuilder {
             .setUri(playbackUri(song))
             .setMimeType(playbackMimeType(song))
             .setMediaMetadata(buildMediaMetadataForSong(song))
+            .apply {
+                if (!song.subtitleUriString.isNullOrBlank()) {
+                    val subUri = runCatching { Uri.parse(song.subtitleUriString) }.getOrNull()
+                    if (subUri != null) {
+                        val subMime = when {
+                            song.subtitleUriString.endsWith(".vtt", ignoreCase = true) -> androidx.media3.common.MimeTypes.TEXT_VTT
+                            song.subtitleUriString.endsWith(".srt", ignoreCase = true) -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
+                            song.subtitleUriString.endsWith(".ssa", ignoreCase = true) || song.subtitleUriString.endsWith(".ass", ignoreCase = true) -> androidx.media3.common.MimeTypes.TEXT_SSA
+                            else -> androidx.media3.common.MimeTypes.TEXT_VTT
+                        }
+                        setSubtitleConfigurations(
+                            listOf(
+                                MediaItem.SubtitleConfiguration.Builder(subUri)
+                                    .setMimeType(subMime)
+                                    .setLanguage("und")
+                                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                                    .build()
+                            )
+                        )
+                    }
+                }
+            }
             .build()
     }
 

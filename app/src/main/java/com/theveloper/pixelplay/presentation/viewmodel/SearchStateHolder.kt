@@ -219,17 +219,56 @@ class SearchStateHolder @Inject constructor(
                             val localShelves = resultsToShelves(localResults)
                             
                             val extensionName = activeExtension?.metadata?.name ?: "Extension"
-                            val attributedExtShelves = extShelves.map { shelf ->
-                                when (shelf) {
-                                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> 
-                                        shelf.copy(title = "${shelf.title} ($extensionName)")
-                                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items ->
-                                        shelf.copy(title = "${shelf.title} ($extensionName)")
-                                    is dev.brahmkshatriya.echo.common.models.Shelf.Item ->
-                                        shelf
-                                    else -> shelf
+                            val attributedExtShelves = mutableListOf<dev.brahmkshatriya.echo.common.models.Shelf>()
+                            val contiguousItems = mutableListOf<EchoMediaItem>()
+
+                            fun flushContiguous() {
+                                if (contiguousItems.isNotEmpty()) {
+                                    if (contiguousItems.all { it is dev.brahmkshatriya.echo.common.models.Track }) {
+                                        attributedExtShelves.add(
+                                            dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks(
+                                                id = "ext_tracks_${contiguousItems.first().id}",
+                                                title = "Tracks ($extensionName)",
+                                                list = contiguousItems.filterIsInstance<dev.brahmkshatriya.echo.common.models.Track>()
+                                            )
+                                        )
+                                    } else {
+                                        attributedExtShelves.add(
+                                            dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items(
+                                                id = "ext_items_${contiguousItems.first().id}",
+                                                title = "Results ($extensionName)",
+                                                list = contiguousItems.toList()
+                                            )
+                                        )
+                                    }
+                                    contiguousItems.clear()
                                 }
                             }
+
+                            extShelves.forEach { shelf ->
+                                when (shelf) {
+                                    is dev.brahmkshatriya.echo.common.models.Shelf.Item -> {
+                                        contiguousItems.add(shelf.media)
+                                    }
+                                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Tracks -> {
+                                        flushContiguous()
+                                        attributedExtShelves.add(shelf.copy(title = "${shelf.title} ($extensionName)"))
+                                    }
+                                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Items -> {
+                                        flushContiguous()
+                                        attributedExtShelves.add(shelf.copy(title = "${shelf.title} ($extensionName)"))
+                                    }
+                                    is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Categories -> {
+                                        flushContiguous()
+                                        attributedExtShelves.add(shelf.copy(title = "${shelf.title} ($extensionName)"))
+                                    }
+                                    else -> {
+                                        flushContiguous()
+                                        attributedExtShelves.add(shelf)
+                                    }
+                                }
+                            }
+                            flushContiguous()
                             
                             val attributedLocalShelves = localShelves.map { shelf ->
                                 when (shelf) {

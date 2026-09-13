@@ -96,7 +96,11 @@ data class ResolvedMedia(
     val headers: Map<String, String> = emptyMap(),
     val rawSource: dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw? = null,
     val mimeType: String? = null,
-    val isLive: Boolean = false
+    val isLive: Boolean = false,
+    val backgroundUri: String? = null,
+    val subtitleUri: String? = null,
+    val subtitleMimeType: String? = null,
+    val drmConfiguration: MediaItem.DrmConfiguration? = null
 )
 
 internal fun shouldResumeAfterTransientAudioFocusLoss(
@@ -268,7 +272,7 @@ class DualPlayerEngine @Inject constructor(
         private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive", "extension", "raw")
         // Subset of REMOTE_MEDIA_SCHEMES: schemes that need proxy resolution.
         // http/https resolve directly and must NOT enter the resolvedUriCache lookup path.
-        private val CLOUD_PROXY_SCHEMES = setOf("netease", "qqmusic", "navidrome", "jellyfin", "gdrive", "extension", "raw")
+        internal val CLOUD_PROXY_SCHEMES = setOf("netease", "qqmusic", "navidrome", "jellyfin", "gdrive", "extension", "raw")
 
         @JvmStatic
         fun shouldSwapViaSecondaryPlayer(transitionRunning: Boolean): Boolean {
@@ -347,9 +351,7 @@ class DualPlayerEngine @Inject constructor(
                         if (!isActive) return@launch
                         // Persist headers so ResolvingDataSource applies them when
                         // OkHttp opens the resolved HTTPS URL.
-                        if (resolved.headers.isNotEmpty()) {
-                            resolvedHeadersCache.put(resolved.uri.toString(), resolved.headers)
-                        }
+                        cacheResolvedHeaders(resolved.uri, resolved.headers)
                         val resolvedMediaItem = currentMediaItem.buildUpon()
                             .setUri(resolved.uri)
                             .setMimeType(resolved.mimeType)
@@ -381,11 +383,19 @@ class DualPlayerEngine @Inject constructor(
 
     fun changeTrackSelection(trackGroup: androidx.media3.common.TrackGroup, index: Int) {
         if (::playerA.isInitialized) {
-            playerA.trackSelectionParameters = playerA.trackSelectionParameters
-                .buildUpon()
-                .clearOverride(trackGroup)
-                .addOverride(androidx.media3.common.TrackSelectionOverride(trackGroup, index))
-                .build()
+            val builder = playerA.trackSelectionParameters.buildUpon()
+            if (index >= 0) {
+                playerA.trackSelectionParameters = builder
+                    .clearOverride(trackGroup)
+                    .setTrackTypeDisabled(trackGroup.type, false)
+                    .addOverride(androidx.media3.common.TrackSelectionOverride(trackGroup, index))
+                    .build()
+            } else {
+                playerA.trackSelectionParameters = builder
+                    .clearOverride(trackGroup)
+                    .setTrackTypeDisabled(trackGroup.type, true)
+                    .build()
+            }
         }
     }
 
@@ -412,9 +422,7 @@ class DualPlayerEngine @Inject constructor(
                         val resolved = resolveCloudUri(extensionUri)
                         // Persist headers so ResolvingDataSource applies them when
                         // OkHttp opens the resolved HTTPS URL.
-                        if (resolved.headers.isNotEmpty()) {
-                            resolvedHeadersCache.put(resolved.uri.toString(), resolved.headers)
-                        }
+                        cacheResolvedHeaders(resolved.uri, resolved.headers)
                         val resolvedMediaItem = currentMediaItem.buildUpon()
                             .setUri(resolved.uri)
                             .setMimeType(resolved.mimeType)
@@ -945,6 +953,9 @@ class DualPlayerEngine @Inject constructor(
             return playerA
         }
 
+    val masterExoPlayer: ExoPlayer?
+        get() = if (::playerA.isInitialized) playerA else null
+
     fun isTransitionRunning(): Boolean = transitionRunning
 
     fun isUsingWindowedQueue(): Boolean = activePlayerUsesWindowedQueue
@@ -1007,7 +1018,21 @@ class DualPlayerEngine @Inject constructor(
     // Keyed by the resolved HTTPS/HTTP URI string; entries are evicted together
     // with the corresponding resolvedUriCache entry on playback error.
     private val resolvedHeadersCache = LruCache<String, Map<String, String>>(50)
+    @Volatile
+    private var currentPlayingHeaders: Map<String, String> = emptyMap()
+
+    private fun cacheResolvedHeaders(uri: Uri, headers: Map<String, String>) {
+        if (headers.isNotEmpty()) {
+            resolvedHeadersCache.put(uri.toString(), headers)
+            uri.host?.let { host ->
+                resolvedHeadersCache.put("host:$host", headers)
+            }
+            currentPlayingHeaders = headers
+        }
+    }
     private val rawSourceMap = LruCache<String, dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw>(20)
+    private val _currentBackgroundUri = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val currentBackgroundUri: kotlinx.coroutines.flow.StateFlow<String?> = _currentBackgroundUri.asStateFlow()
     
     private data class ObservedTiers(
         val tiers: Set<StreamingQuality>,
@@ -1324,7 +1349,16 @@ class DualPlayerEngine @Inject constructor(
                 allowedVideoJoiningTimeMs: Long,
                 out: ArrayList<Renderer>
             ) {
-                // Audio-only player: skip video renderers to save memory and "renderers" count.
+                super.buildVideoRenderers(
+                    context,
+                    extensionRendererMode,
+                    mediaCodecSelector,
+                    enableDecoderFallback,
+                    eventHandler,
+                    eventListener,
+                    allowedVideoJoiningTimeMs,
+                    out
+                )
             }
 
             override fun buildTextRenderers(
@@ -1334,7 +1368,7 @@ class DualPlayerEngine @Inject constructor(
                 extensionRendererMode: Int,
                 out: ArrayList<Renderer>
             ) {
-                // Audio-only player: skip text renderers.
+                super.buildTextRenderers(context, eventListener, outputLooper, extensionRendererMode, out)
             }
 
             override fun buildCameraMotionRenderers(
@@ -1361,12 +1395,17 @@ class DualPlayerEngine @Inject constructor(
                 val originalUri = uri.toString()
 
                 // For extension-resolved HTTP/HTTPS streams that went through a quality
-                // override: headers were stored in resolvedHeadersCache under this URI.
+                // override: headers were stored in resolvedHeadersCache under this URI or host.
                 if (scheme == "https" || scheme == "http") {
                     val cachedHeaders = resolvedHeadersCache.get(originalUri)
+                        ?: uri.host?.let { resolvedHeadersCache.get("host:$it") }
+                        ?: if (currentPlayingHeaders.isNotEmpty()) currentPlayingHeaders else null
+
                     if (!cachedHeaders.isNullOrEmpty()) {
+                        val merged = dataSpec.httpRequestHeaders.toMutableMap()
+                        cachedHeaders.forEach { (k, v) -> merged.putIfAbsent(k, v) }
                         return dataSpec.buildUpon()
-                            .setHttpRequestHeaders(cachedHeaders)
+                            .setHttpRequestHeaders(merged)
                             .build()
                     }
                 }
@@ -1605,6 +1644,7 @@ class DualPlayerEngine @Inject constructor(
                     "jellyfin" -> resolveJellyfinUriAsync(uriString)?.let { ResolvedMedia(it) }
                     "gdrive" -> resolveGDriveUriAsync(uriString)?.let { ResolvedMedia(it) }
                     "extension" -> resolveExtensionUriAsync(uri, uriString)
+                    "raw" -> rawSourceMap.get(uriString)?.let { ResolvedMedia(uri, rawSource = it) }
                     else -> null
                 }
                 val finalResolved = resolved ?: ResolvedMedia(uri)
@@ -1620,7 +1660,16 @@ class DualPlayerEngine @Inject constructor(
         }
     }
 
-    private fun getQualityTierForInt(quality: Int): StreamingQuality {
+    private fun getQualityTierForInt(quality: Int, isVideo: Boolean = false): StreamingQuality {
+        if (isVideo || quality >= 240) {
+            return when {
+                quality <= 0 -> StreamingQuality.STANDARD // Auto adaptive master playlist
+                quality <= 480 -> StreamingQuality.DATA_SAVER
+                quality <= 720 -> StreamingQuality.STANDARD
+                quality <= 1080 -> StreamingQuality.HIGH
+                else -> StreamingQuality.LOSSLESS
+            }
+        }
         return when {
             quality <= 0 || quality <= 96 -> StreamingQuality.DATA_SAVER
             quality == 1 || (quality in 97..160) -> StreamingQuality.STANDARD
@@ -1806,14 +1855,65 @@ class DualPlayerEngine @Inject constructor(
         return@withContext try {
             extension.instance.awaitNamedInjection("user")
             val client = extension.instance.value().getOrNull() as? dev.brahmkshatriya.echo.common.clients.TrackClient ?: return@withContext null
-            val echoTrack = dev.brahmkshatriya.echo.common.models.Track(itemId, "")
+            
+            // Look up cached Track to preserve any streamables provided by feeds / playlists (e.g. Radio stations)
+            val cachedTrack = com.theveloper.pixelplay.extensions.core.ExtensionTrackStore.get(uriString)
+                ?: com.theveloper.pixelplay.extensions.core.ExtensionTrackStore.get(itemId)
+            val echoTrack = cachedTrack ?: dev.brahmkshatriya.echo.common.models.Track(itemId, "")
             val loadedTrack = client.loadTrack(echoTrack, false)
+
+            var backgroundUrl: String? = null
+            val bgStreamable = (loadedTrack.backgrounds.ifEmpty { echoTrack.backgrounds }).firstOrNull()
+            if (bgStreamable != null) {
+                if (bgStreamable.id.startsWith("http://") || bgStreamable.id.startsWith("https://")) {
+                    backgroundUrl = bgStreamable.id
+                } else {
+                    try {
+                        val bgMedia = client.loadStreamableMedia(bgStreamable, false)
+                        if (bgMedia is dev.brahmkshatriya.echo.common.models.Streamable.Media.Background) {
+                            backgroundUrl = bgMedia.request.url
+                        }
+                    } catch (e: Exception) {
+                        Timber.tag("DualPlayerEngine").w(e, "Failed to load background streamable %s", bgStreamable.id)
+                    }
+                }
+            }
+            _currentBackgroundUri.value = backgroundUrl
+
+            var subtitleUrl: String? = null
+            var subtitleMimeType: String? = null
+            val subStreamable = (loadedTrack.subtitles.ifEmpty { echoTrack.subtitles }).firstOrNull()
+            if (subStreamable != null) {
+                if (subStreamable.id.startsWith("http://") || subStreamable.id.startsWith("https://")) {
+                    subtitleUrl = subStreamable.id
+                    subtitleMimeType = when {
+                        subStreamable.id.endsWith(".vtt", ignoreCase = true) -> androidx.media3.common.MimeTypes.TEXT_VTT
+                        subStreamable.id.endsWith(".srt", ignoreCase = true) -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
+                        subStreamable.id.endsWith(".ssa", ignoreCase = true) || subStreamable.id.endsWith(".ass", ignoreCase = true) -> androidx.media3.common.MimeTypes.TEXT_SSA
+                        else -> androidx.media3.common.MimeTypes.TEXT_VTT
+                    }
+                } else {
+                    try {
+                        val subMedia = client.loadStreamableMedia(subStreamable, false)
+                        if (subMedia is dev.brahmkshatriya.echo.common.models.Streamable.Media.Subtitle) {
+                            subtitleUrl = subMedia.url
+                            subtitleMimeType = when (subMedia.type) {
+                                dev.brahmkshatriya.echo.common.models.Streamable.SubtitleType.VTT -> androidx.media3.common.MimeTypes.TEXT_VTT
+                                dev.brahmkshatriya.echo.common.models.Streamable.SubtitleType.SRT -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
+                                dev.brahmkshatriya.echo.common.models.Streamable.SubtitleType.ASS -> androidx.media3.common.MimeTypes.TEXT_SSA
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.tag("DualPlayerEngine").w(e, "Failed to load subtitle streamable %s", subStreamable.id)
+                    }
+                }
+            }
             
             val targetTier = resolveTargetStreamingQuality(extensionId, itemId)
             Timber.tag("DualPlayerEngine").d("Resolving stream with target quality tier: %s", targetTier)
 
             val potentialSources = mutableListOf<Pair<dev.brahmkshatriya.echo.common.models.Streamable.Source, dev.brahmkshatriya.echo.common.models.Streamable>>()
-            val allStreamables = (loadedTrack.servers.ifEmpty { loadedTrack.streamables })
+            val allStreamables = (loadedTrack.servers.ifEmpty { loadedTrack.streamables.ifEmpty { echoTrack.servers.ifEmpty { echoTrack.streamables } } })
 
             // Order streamables based on target quality tier (Highest / Balanced / Fastest)
             val orderedStreamables = when (targetTier) {
@@ -1903,11 +2003,13 @@ class DualPlayerEngine @Inject constructor(
             potentialSources.sortWith(
                 compareBy<Pair<dev.brahmkshatriya.echo.common.models.Streamable.Source, dev.brahmkshatriya.echo.common.models.Streamable>> { pair ->
                     val maxQual = maxOf(pair.first.quality, pair.second.quality)
-                    val tier = getQualityTierForInt(maxQual)
+                    val isVid = pair.first.isVideo || maxQual >= 240
+                    val tier = getQualityTierForInt(maxQual, isVid)
                     abs(tier.rank - targetTier.rank)
                 }.thenBy { pair ->
                     val maxQual = maxOf(pair.first.quality, pair.second.quality)
-                    val tier = getQualityTierForInt(maxQual)
+                    val isVid = pair.first.isVideo || maxQual >= 240
+                    val tier = getQualityTierForInt(maxQual, isVid)
                     tier.rank - targetTier.rank // Negative diff first
                 }.thenByDescending { pair ->
                     maxOf(pair.first.quality, pair.second.quality)
@@ -1917,7 +2019,7 @@ class DualPlayerEngine @Inject constructor(
             // Dynamic tracking
             val allSources = potentialSources.map { it.first }
             val mappedTiers = allSources.map { source ->
-                getQualityTierForInt(source.quality)
+                getQualityTierForInt(source.quality, source.isVideo || source.quality >= 240)
             }.toSet()
             if (mappedTiers.isNotEmpty()) {
                 observedTiersCache[extensionId] = ObservedTiers(mappedTiers, System.currentTimeMillis())
@@ -1936,23 +2038,40 @@ class DualPlayerEngine @Inject constructor(
             
             if (activeSource != null) {
                 if (activeSource is dev.brahmkshatriya.echo.common.models.Streamable.Source.Http) {
-                    val mimeType = when (activeSource.type) {
-                        dev.brahmkshatriya.echo.common.models.Streamable.SourceType.HLS -> androidx.media3.common.MimeTypes.APPLICATION_M3U8
-                        dev.brahmkshatriya.echo.common.models.Streamable.SourceType.DASH -> androidx.media3.common.MimeTypes.APPLICATION_MPD
+                    val mimeType = when {
+                        activeSource.type == dev.brahmkshatriya.echo.common.models.Streamable.SourceType.HLS ||
+                            activeSource.id.contains(".m3u8", ignoreCase = true) -> androidx.media3.common.MimeTypes.APPLICATION_M3U8
+                        activeSource.type == dev.brahmkshatriya.echo.common.models.Streamable.SourceType.DASH ||
+                            activeSource.id.contains(".mpd", ignoreCase = true) -> androidx.media3.common.MimeTypes.APPLICATION_MPD
                         else -> null
                     }
+                    val drmConfig = (activeSource.decryption as? dev.brahmkshatriya.echo.common.models.Streamable.Decryption.Widevine)?.let { widevine ->
+                        MediaItem.DrmConfiguration.Builder(androidx.media3.common.C.WIDEVINE_UUID)
+                            .setLicenseUri(widevine.license.url)
+                            .setLicenseRequestHeaders(widevine.license.headers)
+                            .setMultiSession(widevine.isMultiSession)
+                            .build()
+                    }
+                    cacheResolvedHeaders(Uri.parse(activeSource.id), activeSource.request.headers)
                     return@withContext ResolvedMedia(
                         uri = Uri.parse(activeSource.id),
                         headers = activeSource.request.headers,
                         mimeType = mimeType,
-                        isLive = activeSource.isLive
+                        isLive = activeSource.isLive,
+                        backgroundUri = backgroundUrl,
+                        subtitleUri = subtitleUrl,
+                        subtitleMimeType = subtitleMimeType,
+                        drmConfiguration = drmConfig
                     )
                 } else if (activeSource is dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw) {
                     val rawUri = "raw://${activeSource.id.hashCode()}"
                     rawSourceMap.put(rawUri, activeSource)
                     return@withContext ResolvedMedia(
                         uri = Uri.parse(rawUri),
-                        rawSource = activeSource
+                        rawSource = activeSource,
+                        backgroundUri = backgroundUrl,
+                        subtitleUri = subtitleUrl,
+                        subtitleMimeType = subtitleMimeType
                     )
                 }
             }
@@ -2006,8 +2125,24 @@ class DualPlayerEngine @Inject constructor(
 
         val resolved = resolveCloudUri(uri)
         return mediaItem.buildUpon()
-            .setUri(if (scheme == "extension") uri else resolved.uri)
+            .setUri(resolved.uri)
             .setMimeType(resolved.mimeType)
+            .apply {
+                if (!resolved.subtitleUri.isNullOrBlank()) {
+                    setSubtitleConfigurations(
+                        listOf(
+                            MediaItem.SubtitleConfiguration.Builder(Uri.parse(resolved.subtitleUri))
+                                .setMimeType(resolved.subtitleMimeType ?: androidx.media3.common.MimeTypes.TEXT_VTT)
+                                .setLanguage("und")
+                                .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                                .build()
+                        )
+                    )
+                }
+                if (resolved.drmConfiguration != null) {
+                    setDrmConfiguration(resolved.drmConfiguration)
+                }
+            }
             .build()
     }
 

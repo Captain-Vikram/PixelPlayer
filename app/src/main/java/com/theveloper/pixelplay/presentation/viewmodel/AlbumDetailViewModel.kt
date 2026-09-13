@@ -39,7 +39,8 @@ class AlbumDetailViewModel @Inject constructor(
     val uiState: StateFlow<AlbumDetailUiState> = _uiState.asStateFlow()
 
     init {
-        val albumId: String? = savedStateHandle["albumId"]
+        val rawAlbumId: String? = savedStateHandle["albumId"]
+        val albumId = rawAlbumId?.let { android.net.Uri.decode(it) }
         if (albumId != null) {
             if (albumId.startsWith("extension:")) {
                 loadExtensionAlbum(albumId)

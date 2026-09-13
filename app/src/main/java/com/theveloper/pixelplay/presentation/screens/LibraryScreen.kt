@@ -1831,10 +1831,9 @@ fun LibraryScreen(
                                                          onNavigateBack = { playerViewModel.navigateBackFolder() },
                                                          onFolderClick = { folderPath -> playerViewModel.navigateToFolder(folderPath) },
                                                          onFolderAsPlaylistClick = { folder ->
-                                                             val encodedPath = Uri.encode(folder.path)
                                                              navController.navigateSafelyReplacing(
                                                                  route = Screen.PlaylistDetail.createRoute(
-                                                                     "${PlaylistViewModel.FOLDER_PLAYLIST_PREFIX}$encodedPath"
+                                                                     "${PlaylistViewModel.FOLDER_PLAYLIST_PREFIX}${folder.path}"
                                                                  ),
                                                                  patternToPop = Screen.PlaylistDetail.route
                                                              )

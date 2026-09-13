@@ -10,5 +10,6 @@ data class ExtensionCapabilities(
     val canTracks: Boolean = false,
     val canAlbums: Boolean = false,
     val canArtists: Boolean = false,
-    val canPlaylists: Boolean = false
+    val canPlaylists: Boolean = false,
+    val supportsQualitySelection: Boolean = true
 )
