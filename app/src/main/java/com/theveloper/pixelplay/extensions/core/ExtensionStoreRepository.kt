@@ -24,7 +24,14 @@ class ExtensionStoreRepository @Inject constructor(
     private val extensionEngine: dev.brahmkshatriya.echo.extension.loader.ExtensionLoader,
     private val userPreferences: com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 ) {
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .header("User-Agent", "PixelPlayer/1.0 (Android; ExtensionStore)")
+                .build()
+            chain.proceed(request)
+        }
+        .build()
     private val json = Json { ignoreUnknownKeys = true }
     
     private val _storeItems = MutableStateFlow<List<ExtensionStoreItem>>(emptyList())
