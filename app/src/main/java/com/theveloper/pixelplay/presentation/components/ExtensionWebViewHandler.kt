@@ -124,18 +124,18 @@ private fun WebViewContainer(
             webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
         
-        // Use a desktop User-Agent for login/auth flows. OAuth providers (including Google)
-        // present better flows to desktop UAs without blocking embedded webviews.
-        val useDesktopUserAgent = isLoginRequest
-        val desktopUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        if (useDesktopUserAgent) {
-            webView.settings.userAgentString = desktopUserAgent
-        } else {
-            webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-        }
+        // Use Echo's proven User-Agent that bypasses Google's "browser might not be safe" embedded webview block
+        // (Google blocks standard Chrome webview user agents and certain desktop strings on mobile architectures).
+        val echoUserAgent = "Mozilla/5.0 (Linux; Android 2; Jeff Bezos) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.158 Mobile Safari/537.36"
+        webView.settings.userAgentString = echoUserAgent
         
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            webView.settings.isAlgorithmicDarkeningAllowed = true
+        }
+
         val cookieManager = CookieManager.getInstance()
         if (request.request.dontCache) {
+            android.webkit.WebStorage.getInstance().deleteAllData()
             cookieManager.removeAllCookies(null)
             cookieManager.flush()
             webView.clearCache(true)
