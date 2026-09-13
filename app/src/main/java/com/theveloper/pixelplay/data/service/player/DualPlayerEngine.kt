@@ -95,7 +95,8 @@ data class ResolvedMedia(
     val uri: Uri,
     val headers: Map<String, String> = emptyMap(),
     val rawSource: dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw? = null,
-    val mimeType: String? = null
+    val mimeType: String? = null,
+    val isLive: Boolean = false
 )
 
 internal fun shouldResumeAfterTransientAudioFocusLoss(
@@ -1413,6 +1414,10 @@ class DualPlayerEngine @Inject constructor(
                             builder.setCustomData(resolved.rawSource)
                         }
                         
+                        if (resolved.isLive) {
+                            builder.setFlags(dataSpec.flags or DataSpec.FLAG_DONT_CACHE_IF_LENGTH_UNKNOWN)
+                        }
+                        
                         return builder.build()
                     }
                     
@@ -1425,6 +1430,8 @@ class DualPlayerEngine @Inject constructor(
         val playerOkHttpClient = okHttpClient.newBuilder()
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
             .build()
         val okhttpFactory = OkHttpDataSource.Factory(playerOkHttpClient)
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
@@ -1474,7 +1481,37 @@ class DualPlayerEngine @Inject constructor(
                 androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_FOR_UNSET_LENGTH_REQUESTS
             )
 
-        val resolvingFactory = ResolvingDataSource.Factory(cacheDataSourceFactory, resolver)
+        // Bypass CacheDataSource for live streams to prevent cache stalls and eviction issues
+        val liveAwareDataSourceFactory = androidx.media3.datasource.DataSource.Factory {
+            object : androidx.media3.datasource.DataSource {
+                private var currentSource: androidx.media3.datasource.DataSource? = null
+
+                override fun addTransferListener(transferListener: androidx.media3.datasource.TransferListener) {
+                    // Delegated internally if needed
+                }
+
+                override fun open(dataSpec: DataSpec): Long {
+                    val isLiveStream = (dataSpec.flags and DataSpec.FLAG_DONT_CACHE_IF_LENGTH_UNKNOWN != 0)
+                    val delegateFactory = if (isLiveStream) baseDataSourceFactory else cacheDataSourceFactory
+                    val newSource = delegateFactory.createDataSource()
+                    currentSource = newSource
+                    return newSource.open(dataSpec)
+                }
+
+                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                    return currentSource?.read(buffer, offset, length) ?: androidx.media3.common.C.RESULT_END_OF_INPUT
+                }
+
+                override fun getUri(): Uri? = currentSource?.uri
+
+                override fun close() {
+                    currentSource?.close()
+                    currentSource = null
+                }
+            }
+        }
+
+        val resolvingFactory = ResolvingDataSource.Factory(liveAwareDataSourceFactory, resolver)
         val extractorsFactory = DefaultExtractorsFactory()
             // FLAG_WORKAROUND_IGNORE_EDIT_LISTS intentionally removed: it breaks Opus files
             // by discarding the edit list that encodes the pre-skip (encoder delay), causing
@@ -1907,7 +1944,8 @@ class DualPlayerEngine @Inject constructor(
                     return@withContext ResolvedMedia(
                         uri = Uri.parse(activeSource.id),
                         headers = activeSource.request.headers,
-                        mimeType = mimeType
+                        mimeType = mimeType,
+                        isLive = activeSource.isLive
                     )
                 } else if (activeSource is dev.brahmkshatriya.echo.common.models.Streamable.Source.Raw) {
                     val rawUri = "raw://${activeSource.id.hashCode()}"
