@@ -659,6 +659,40 @@ private fun SearchShelf(
     navController: NavHostController,
     activeExtensionId: String?
 ) {
+    when (shelf) {
+        is dev.brahmkshatriya.echo.common.models.Shelf.Lists.Categories -> {
+            ExtensionCategoriesContent(
+                categories = shelf.list,
+                onItemClick = { item ->
+                    handleEchoItemClick(item, playerViewModel, navController, activeExtensionId)
+                }
+            )
+            return
+        }
+        is dev.brahmkshatriya.echo.common.models.Shelf.Category -> {
+            ExtensionCategoriesContent(
+                categories = listOf(shelf),
+                onItemClick = { item ->
+                    handleEchoItemClick(item, playerViewModel, navController, activeExtensionId)
+                }
+            )
+            return
+        }
+        is Shelf.Lists<*> -> {
+            if (shelf.list.firstOrNull() is dev.brahmkshatriya.echo.common.models.Shelf.Category) {
+                val catList = shelf.list.filterIsInstance<dev.brahmkshatriya.echo.common.models.Shelf.Category>()
+                ExtensionCategoriesContent(
+                    categories = catList,
+                    onItemClick = { item ->
+                        handleEchoItemClick(item, playerViewModel, navController, activeExtensionId)
+                    }
+                )
+                return
+            }
+        }
+        else -> {}
+    }
+
     val items = when (shelf) {
         is Shelf.Lists<*> -> shelf.list.filterIsInstance<EchoMediaItem>()
         is Shelf.Item -> listOf(shelf.media)
@@ -702,18 +736,21 @@ private fun SearchShelf(
             }
         }
 
-        // Special handling for Track lists to use EnhancedSongListItem
+        // Special handling for Track lists to use EnhancedSongListItem with pagination limit
         if (items.all { it is dev.brahmkshatriya.echo.common.models.Track }) {
+            var displayLimit by remember(items) { mutableStateOf(25) }
+            val visibleTracks = items.take(displayLimit)
+
             Column(
                 modifier = Modifier.padding(horizontal = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items.forEach { item ->
+                visibleTracks.forEach { item ->
                     val track = item as dev.brahmkshatriya.echo.common.models.Track
                     val idParts = track.id.split(":")
                     val isExtensionItem = idParts.getOrNull(0) == "extension"
                     val extensionId = if (isExtensionItem) idParts.getOrNull(1) else activeExtensionId
-                    
+
                     track.toSong(extensionId ?: "")?.let { song ->
                         LibraryPlaybackAwareSongItem(
                             song = song,
@@ -723,9 +760,72 @@ private fun SearchShelf(
                         )
                     }
                 }
+
+                if (items.size > displayLimit) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .clickable { displayLimit += 25 },
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Text(
+                                text = "Show more (${items.size - displayLimit} remaining)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        } else if (shelf is Shelf.Lists<*> && shelf.type == Shelf.Lists.Type.Grid) {
+            // 2-Column Grid Layout matching Home screen for Grid shelves
+            val rows = items.chunked(2)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                rows.forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        rowItems.forEach { item ->
+                            val imageUrl = (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder)?.request?.url
+                                ?: (item.cover as? dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder)?.uri?.toString()
+                            val typeBadge = getShelfMediaType(item)
+                            val isCircle = typeBadge.isCircleShape
+                            MediaShelfCard(
+                                title = item.title,
+                                subtitle = item.subtitleWithOutE,
+                                imageUrl = imageUrl,
+                                isCircle = isCircle,
+                                layout = ShelfCardLayout.Horizontal,
+                                size = ShelfCardSize.Row,
+                                alignment = ShelfCardAlignment.Start,
+                                onClick = { handleEchoItemClick(item, playerViewModel, navController, activeExtensionId) },
+                                modifier = Modifier.weight(1f),
+                                typeBadge = typeBadge
+                            )
+                        }
+                        if (rowItems.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
             }
         } else {
-            // Horizontal scroll for other types (Albums, Artists, Playlists)
+            // Horizontal scroll for Linear shelves (Albums, Artists, Playlists)
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -748,45 +848,6 @@ private fun SearchShelf(
                     )
                 }
             }
-        }
-    }
-}
-
-@androidx.annotation.OptIn(UnstableApi::class)
-private fun handleEchoItemClick(
-    item: EchoMediaItem,
-    playerViewModel: PlayerViewModel,
-    navController: NavHostController,
-    activeExtensionId: String?
-) {
-    val idParts = item.id.split(":")
-    val isExtension = idParts.getOrNull(0) == "extension"
-    val extensionId = if (idParts.getOrNull(0) == "extension") idParts.getOrNull(1) else activeExtensionId
-
-    when (item) {
-        is dev.brahmkshatriya.echo.common.models.Track -> {
-            val song = if (extensionId != null) {
-                item.toSong(extensionId)
-            } else {
-                // Local resolve
-                playerViewModel.allSongsFlow.value.find { it.id == item.id }
-            }
-            song?.let { playerViewModel.showAndPlaySong(it, listOf(it), "Search Result") }
-        }
-        is dev.brahmkshatriya.echo.common.models.Album -> {
-            val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:album:${item.id}"
-            navController.navigateSafely(Screen.AlbumDetail.createRoute(mediaId))
-        }
-        is dev.brahmkshatriya.echo.common.models.Artist -> {
-            val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:artist:${item.id}"
-            navController.navigateSafely(Screen.ArtistDetail.createRoute(mediaId))
-        }
-        is dev.brahmkshatriya.echo.common.models.Playlist -> {
-            val mediaId = if (isExtension || extensionId == null) item.id else "extension:$extensionId:playlist:${item.id}"
-            navController.navigateSafely(Screen.PlaylistDetail.createRoute(mediaId))
-        }
-        is dev.brahmkshatriya.echo.common.models.Radio -> {
-            // Handle Radio
         }
     }
 }

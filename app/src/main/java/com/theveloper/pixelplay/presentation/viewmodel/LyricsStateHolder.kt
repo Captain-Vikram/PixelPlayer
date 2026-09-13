@@ -182,7 +182,7 @@ class LyricsStateHolder @Inject constructor(
         loadingJob = scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Loading
 
-            val availableExtensions = extensionLoader.lyrics.value
+            val availableExtensions = getAvailableLyricsExtensions()
 
             if (!forcePickResults) {
                 val storedLyrics = withContext(Dispatchers.IO) {
@@ -241,7 +241,7 @@ class LyricsStateHolder @Inject constructor(
                         )
                     }
                     .onFailure { error ->
-                        handleError(error, availableExtensions)
+                        handleError(error, availableExtensions, song.title)
                     }
             } else {
                 musicRepository.getLyricsFromRemote(song)
@@ -262,9 +262,9 @@ class LyricsStateHolder @Inject constructor(
                                         selectedExtensionId = null
                                     )
                                 }
-                                .onFailure { searchError -> handleError(searchError, availableExtensions) }
+                                .onFailure { searchError -> handleError(searchError, availableExtensions, song.title) }
                         } else {
-                            handleError(error, availableExtensions)
+                            handleError(error, availableExtensions, song.title)
                         }
                     }
             }
@@ -277,7 +277,7 @@ class LyricsStateHolder @Inject constructor(
         loadingJob = scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Loading
 
-            val availableExtensions = extensionLoader.lyrics.value
+            val availableExtensions = getAvailableLyricsExtensions()
 
             musicRepository.searchRemoteLyricsByQuery(title, artist)
                 .onSuccess { (q, results) ->
@@ -288,7 +288,7 @@ class LyricsStateHolder @Inject constructor(
                         selectedExtensionId = null
                     )
                 }
-                .onFailure { error -> handleError(error, availableExtensions) }
+                .onFailure { error -> handleError(error, availableExtensions, title) }
         }
     }
 
@@ -331,12 +331,7 @@ class LyricsStateHolder @Inject constructor(
     fun selectLyricsSource(song: Song, extensionId: String?) {
         loadingJob?.cancel()
         loadingJob = scope?.launch {
-            val dedicatedLyrics = extensionLoader.lyrics.value
-            // Use the non-suspend `value` property (not the suspend `value()` function) for filtering
-            val musicWithLyrics = extensionLoader.music.value.filter { ext ->
-                ext.instance.value is dev.brahmkshatriya.echo.common.clients.LyricsClient
-            }
-            val availableExtensions = (dedicatedLyrics + musicWithLyrics).distinctBy { it.metadata.id }
+            val availableExtensions = getAvailableLyricsExtensions()
 
             _searchUiState.value = LyricsSearchUiState.PickResult(
                 query = "${song.title} - ${song.displayArtist}",
@@ -417,7 +412,7 @@ class LyricsStateHolder @Inject constructor(
 
                     val results = rawCandidates.mapNotNull { echoLyrics ->
                         val loaded = runCatching { client.loadLyrics(echoLyrics) }.getOrNull() ?: return@mapNotNull null
-                        val appLyrics = loaded.toAppLyrics(extensionId)
+                        val appLyrics = loaded.toAppLyrics(extensionId, extension.metadata.name)
                         val raw = LyricsUtils.toLrcString(appLyrics)
                         LyricsSearchResult(
                             record = com.theveloper.pixelplay.data.network.lyrics.LrcLibResponse(
@@ -527,7 +522,19 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    private fun handleError(error: Throwable, availableExtensions: List<dev.brahmkshatriya.echo.common.Extension<*>>) {
+    fun getAvailableLyricsExtensions(): List<dev.brahmkshatriya.echo.common.Extension<*>> {
+        val dedicatedLyrics = extensionLoader.lyrics.value
+        val musicWithLyrics = extensionLoader.music.value.filter { ext ->
+            ext.instance.value is dev.brahmkshatriya.echo.common.clients.LyricsClient
+        }
+        return (dedicatedLyrics + musicWithLyrics).distinctBy { it.metadata.id }
+    }
+
+    private fun handleError(
+        error: Throwable,
+        availableExtensions: List<dev.brahmkshatriya.echo.common.Extension<*>>,
+        songTitle: String = ""
+    ) {
         _searchUiState.value = if (error is NoLyricsFoundException) {
             LyricsSearchUiState.NotFound("Lyrics not found")
         } else {
@@ -536,7 +543,7 @@ class LyricsStateHolder @Inject constructor(
         
         if (_searchUiState.value is LyricsSearchUiState.NotFound && availableExtensions.isNotEmpty()) {
              _searchUiState.value = LyricsSearchUiState.PickResult(
-                 query = "",
+                 query = songTitle,
                  results = emptyList(),
                  availableExtensions = availableExtensions,
                  selectedExtensionId = null

@@ -195,4 +195,10 @@
     <string name="lyrics_artist_album_line">%1$s • %2$s</string>
     <string name="lyrics_provided_by">Lyrics provided by</string>
     <string name="lyrics_lrclib_uri">https://lrclib.net/</string>
+    <string name="lyrics_source_lrclib">LRCLIB</string>
+    <string name="lyrics_source_loading">Fetching from %1$s…</string>
+    <string name="lyrics_no_results_from_provider">No lyrics found from this provider.</string>
+    <string name="lyrics_change_source">Change source</string>
+    <string name="lyrics_source_embedded">Embedded</string>
+    <string name="lyrics_source_local_file">Local .lrc</string>
 </resources>

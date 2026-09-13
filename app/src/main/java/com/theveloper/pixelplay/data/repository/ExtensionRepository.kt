@@ -168,6 +168,20 @@ class ExtensionRepository @Inject constructor(
                     combine(extensions.map { ext ->
                         ext.instance.instanceFlow.map { instanceResult ->
                             val instance = instanceResult?.getOrNull()
+                            val extId = ext.metadata.id.lowercase()
+                            val isRadioStationProvider = (instance is RadioClient && instance !is dev.brahmkshatriya.echo.common.clients.AlbumClient && instance !is dev.brahmkshatriya.echo.common.clients.TrackChapterClient) ||
+                                extId.contains("radio") || ext.metadata.name.contains("radio", ignoreCase = true)
+
+                            val isVideoProvider = instance is dev.brahmkshatriya.echo.common.clients.TrackChapterClient ||
+                                extId.contains("anikoto") ||
+                                ext.metadata.description.contains("video", ignoreCase = true) ||
+                                ext.metadata.description.contains("anime", ignoreCase = true)
+
+                            val isMusicProvider = ext.metadata.type == dev.brahmkshatriya.echo.common.models.ExtensionType.MUSIC ||
+                                (instance is dev.brahmkshatriya.echo.common.clients.TrackClient && (instance is dev.brahmkshatriya.echo.common.clients.AlbumClient || instance is dev.brahmkshatriya.echo.common.clients.ArtistClient || instance is dev.brahmkshatriya.echo.common.clients.PlaylistClient))
+
+                            val supportsQuality = !isRadioStationProvider && (isVideoProvider || isMusicProvider)
+
                             ext.metadata.id to ExtensionCapabilities(
                                 isLoginNeeded = instance is LoginClient,
                                 canHomeFeed = instance is HomeFeedClient,
@@ -178,7 +192,8 @@ class ExtensionRepository @Inject constructor(
                                 canTracks = instance is dev.brahmkshatriya.echo.common.clients.TrackClient,
                                 canAlbums = instance is dev.brahmkshatriya.echo.common.clients.AlbumClient,
                                 canArtists = instance is dev.brahmkshatriya.echo.common.clients.ArtistClient,
-                                canPlaylists = instance is dev.brahmkshatriya.echo.common.clients.PlaylistClient
+                                canPlaylists = instance is dev.brahmkshatriya.echo.common.clients.PlaylistClient,
+                                supportsQualitySelection = supportsQuality
                             )
                         }
                     }) { capabilitiesList ->
@@ -218,6 +233,15 @@ class ExtensionRepository @Inject constructor(
                 storeRepository.fetchExtensions(query)
             }
         }
+    }
+
+    fun isQualitySelectionSupported(extensionId: String?): Boolean {
+        if (extensionId == null) return false
+        val caps = _extensionCapabilities.value[extensionId]
+        if (caps != null) return caps.supportsQualitySelection
+        val lowerId = extensionId.lowercase()
+        if (lowerId.contains("radio")) return false
+        return true
     }
 
     fun fetchStoreExtensions() {
@@ -693,7 +717,7 @@ class ExtensionRepository @Inject constructor(
                         val tracks = extension.getAs<AlbumClient, Feed<Track>?> {
                             loadTracks(album)
                         }.getOrNull()?.loadAll() ?: emptyList()
-                        fetchedSongs.addAll(tracks.map { it.toSong(extensionId) })
+                        fetchedSongs.addAll(tracks.map { it.toSong(extensionId, albumContext = album) })
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }

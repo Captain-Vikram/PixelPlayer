@@ -145,7 +145,7 @@ fun HomeScreen(
     }
 
     val dailyMixSongs = remember(currentMusicExtension, isExtensionAvailable, dailyMixSongsFromExtension, localDailyMixSongs) {
-        if (isExtensionAvailable) {
+        if (isExtensionAvailable && dailyMixSongsFromExtension.isNotEmpty()) {
             dailyMixSongsFromExtension
         } else {
             localDailyMixSongs
@@ -161,7 +161,7 @@ fun HomeScreen(
     }
 
     val yourMixSongs = remember(currentMusicExtension, isExtensionAvailable, yourMixSongsFromExtension, curatedYourMixSongs, localDailyMixSongs, homeMixPreviewSongs) {
-        if (isExtensionAvailable) {
+        if (isExtensionAvailable && yourMixSongsFromExtension.isNotEmpty()) {
             yourMixSongsFromExtension
         } else {
             when {

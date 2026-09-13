@@ -39,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,6 +56,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.repository.LyricsSearchResult
+import com.theveloper.pixelplay.presentation.components.SmartImage
 import com.theveloper.pixelplay.presentation.viewmodel.LyricsSearchUiState
 import com.theveloper.pixelplay.utils.ProviderText
 import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
@@ -339,12 +341,27 @@ private fun PickResultContent(
                 Tab(
                     selected = selectedId == null,
                     onClick = { onSelectSource(null) },
-                    text = { Text("Search") }
+                    text = { Text(stringResource(R.string.lyrics_source_lrclib)) }
                 )
                 extensions.forEach { ext ->
+                    val iconUri = when (val icon = ext.metadata.icon) {
+                        is dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder -> icon.request.url
+                        is dev.brahmkshatriya.echo.common.models.ImageHolder.ResourceUriImageHolder -> icon.uri.toString()
+                        else -> null
+                    }
                     Tab(
                         selected = selectedId == ext.metadata.id,
                         onClick = { onSelectSource(ext.metadata.id) },
+                        icon = if (iconUri != null) {
+                            {
+                                SmartImage(
+                                    model = iconUri,
+                                    shape = CircleShape,
+                                    contentDescription = ext.metadata.name,
+                                    modifier = Modifier.size(16.dp).clip(CircleShape)
+                                )
+                            }
+                        } else null,
                         text = { Text(ext.metadata.name) }
                     )
                 }
@@ -360,8 +377,8 @@ private fun PickResultContent(
             ) {
                 CircularWavyProgressIndicator(modifier = Modifier.size(40.dp))
                 Spacer(modifier = Modifier.height(16.dp))
-                val providerName = extensions.find { it.metadata.id == selectedId }?.metadata?.name ?: "LRCLIB"
-                Text("Fetching from $providerName...")
+                val providerName = extensions.find { it.metadata.id == selectedId }?.metadata?.name ?: stringResource(R.string.lyrics_source_lrclib)
+                Text(stringResource(R.string.lyrics_source_loading, providerName))
             }
         } else if (results.isEmpty()) {
             Column(
@@ -370,7 +387,7 @@ private fun PickResultContent(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "No lyrics found from this provider.",
+                    text = stringResource(R.string.lyrics_no_results_from_provider),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -487,6 +504,36 @@ private fun ResultItemCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                val previewLyrics = remember(result.lyrics, result.rawLyrics) {
+                    val syncedPreview = result.lyrics.synced
+                        ?.map { it.line.trim() }
+                        ?.filter { it.isNotBlank() }
+                        ?.take(2)
+                    if (!syncedPreview.isNullOrEmpty()) {
+                        syncedPreview.joinToString(" • ")
+                    } else {
+                        val plainPreview = result.lyrics.plain
+                            ?.map { it.trim() }
+                            ?.filter { it.isNotBlank() }
+                            ?.take(2)
+                        if (!plainPreview.isNullOrEmpty()) {
+                            plainPreview.joinToString(" • ")
+                        } else null
+                    }
+                }
+
+                if (!previewLyrics.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "\"$previewLyrics\"",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
+                }
             }
         }
     }

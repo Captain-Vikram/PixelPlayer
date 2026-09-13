@@ -900,28 +900,31 @@ class PlaybackDispatchStateHolder @Inject constructor(
         val mediaItem = MediaItemBuilder.build(song)
         val originalUri = mediaItem.localConfiguration?.uri ?: return mediaItem
         val scheme = originalUri.scheme
-        if (
-            scheme != "netease" &&
-            scheme != "qqmusic" &&
-            scheme != "navidrome" &&
-            scheme != "jellyfin" &&
-            scheme != "gdrive" &&
-            scheme != "extension"
-        ) {
+        if (scheme !in DualPlayerEngine.CLOUD_PROXY_SCHEMES) {
             return mediaItem
         }
 
         val resolvedMedia = dualPlayerEngine.resolveCloudUri(originalUri)
-        return if (resolvedMedia.uri == originalUri) {
-            mediaItem
-        } else {
-            mediaItem.buildUpon()
-                .setUri(resolvedMedia.uri)
-                .apply {
-                    resolvedMedia.mimeType?.let { setMimeType(it) }
+        return mediaItem.buildUpon()
+            .setUri(resolvedMedia.uri)
+            .apply {
+                resolvedMedia.mimeType?.let { setMimeType(it) }
+                if (!resolvedMedia.subtitleUri.isNullOrBlank()) {
+                    setSubtitleConfigurations(
+                        listOf(
+                            MediaItem.SubtitleConfiguration.Builder(Uri.parse(resolvedMedia.subtitleUri))
+                                .setMimeType(resolvedMedia.subtitleMimeType ?: androidx.media3.common.MimeTypes.TEXT_VTT)
+                                .setLanguage("und")
+                                .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
+                                .build()
+                        )
+                    )
                 }
-                .build()
-        }
+                if (resolvedMedia.drmConfiguration != null) {
+                    setDrmConfiguration(resolvedMedia.drmConfiguration)
+                }
+            }
+            .build()
     }
 
     fun loadAndPlaySong(song: Song) {

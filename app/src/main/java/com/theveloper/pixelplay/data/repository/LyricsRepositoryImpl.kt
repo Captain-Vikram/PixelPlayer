@@ -426,50 +426,49 @@ class LyricsRepositoryImpl @Inject constructor(
         }
 
         // Try sources in order based on preference (Extensions take precedence when active)
-        val sourceFetchers = when (sourcePreference) {
-            LyricsSourcePreference.API_FIRST -> listOf(fetchFromExtensions, fetchFromAPI, fetchFromEmbedded, fetchFromLocal)
-            LyricsSourcePreference.EMBEDDED_FIRST -> listOf(fetchFromEmbedded, fetchFromExtensions, fetchFromAPI, fetchFromLocal)
-            LyricsSourcePreference.LOCAL_FIRST -> listOf(fetchFromLocal, fetchFromEmbedded, fetchFromExtensions, fetchFromAPI)
+        val sourceFetchers: List<Pair<String, suspend () -> Lyrics?>> = when (sourcePreference) {
+            LyricsSourcePreference.API_FIRST -> listOf(
+                "Extensions" to fetchFromExtensions,
+                "LRCLIB" to fetchFromAPI,
+                "Embedded" to fetchFromEmbedded,
+                "Local .lrc" to fetchFromLocal
+            )
+            LyricsSourcePreference.EMBEDDED_FIRST -> listOf(
+                "Embedded" to fetchFromEmbedded,
+                "Extensions" to fetchFromExtensions,
+                "LRCLIB" to fetchFromAPI,
+                "Local .lrc" to fetchFromLocal
+            )
+            LyricsSourcePreference.LOCAL_FIRST -> listOf(
+                "Local .lrc" to fetchFromLocal,
+                "Embedded" to fetchFromEmbedded,
+                "Extensions" to fetchFromExtensions,
+                "LRCLIB" to fetchFromAPI
+            )
         }
 
         // Try each source in order until we find lyrics (early return on success)
-        for ((index, fetcher) in sourceFetchers.withIndex()) {
+        for ((sourceName, fetcher) in sourceFetchers) {
             try {
                 val lyrics = fetcher()
                 if (lyrics != null && lyrics.isValid()) {
-                    val sourceName = when (index) {
-                        0 -> when (sourcePreference) {
-                            LyricsSourcePreference.API_FIRST -> "API"
-                            LyricsSourcePreference.EMBEDDED_FIRST -> "Embedded"
-                            LyricsSourcePreference.LOCAL_FIRST -> "Local"
-                        }
-                        1 -> when (sourcePreference) {
-                            LyricsSourcePreference.API_FIRST -> "Embedded"
-                            LyricsSourcePreference.EMBEDDED_FIRST -> "API"
-                            LyricsSourcePreference.LOCAL_FIRST -> "Embedded"
-                        }
-                        else -> when (sourcePreference) {
-                            LyricsSourcePreference.API_FIRST -> "Local"
-                            LyricsSourcePreference.EMBEDDED_FIRST -> "Local"
-                            LyricsSourcePreference.LOCAL_FIRST -> "API"
-                        }
-                    }
-                    Log.d(TAG, "Found lyrics from $sourceName for: ${song.displayArtist} - ${song.title}")
+                    val resolvedLyrics = lyrics.copy(sourceName = lyrics.sourceName ?: sourceName)
+                    Log.d(TAG, "Found lyrics from ${resolvedLyrics.sourceName} for: ${song.displayArtist} - ${song.title}")
                     
                     // Cache the result
-                    lyricsCache.put(cacheKey, lyrics)
+                    lyricsCache.put(cacheKey, resolvedLyrics)
                     
-                    // Save to JSON disk cache if from API
-                    if (sourceName == "API") {
-                        saveLocalLyricsJson(song, lyrics)
+                    // Save to JSON disk cache if from API or Extensions
+                    if (sourceName == "LRCLIB" || sourceName == "Extensions") {
+                        saveLocalLyricsJson(song, resolvedLyrics)
                     }
                     
-                    _lyricsFetchState.value = LyricsFetchState.Success(lyrics)
-                    return@withContext lyrics
+                    _lyricsFetchState.value = LyricsFetchState.Success(resolvedLyrics)
+                    return@withContext resolvedLyrics
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Error fetching from source ${index + 1}: ${e.message}")
-                _lyricsFetchState.value = LyricsFetchState.Error("Error fetching from source ${index + 1}: ${e.message}")
+                Log.w(TAG, "Error fetching from source $sourceName: ${e.message}")
+                _lyricsFetchState.value = LyricsFetchState.Error("Error fetching from source $sourceName: ${e.message}")
                 // Continue to next source
             }
         }
@@ -602,7 +601,7 @@ class LyricsRepositoryImpl @Inject constructor(
             if (bestMatch != null) {
                 val rawLyrics = bestMatch.syncedLyrics ?: bestMatch.plainLyrics
                 if (!rawLyrics.isNullOrBlank()) {
-                    val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics).copy(areFromRemote = true)
+                    val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics).copy(areFromRemote = true, sourceName = "LRCLIB")
                     if (parsedLyrics.isValid()) {
                         Log.d(TAG, "LRCLIB lyrics found - Synced: ${!bestMatch.syncedLyrics.isNullOrBlank()}, Plain: ${!bestMatch.plainLyrics.isNullOrBlank()}")
                         
@@ -724,7 +723,7 @@ class LyricsRepositoryImpl @Inject constructor(
                             if (items.isNotEmpty()) {
                                 for (candidate in items) {
                                     val loaded = runCatching { client.loadLyrics(candidate) }.getOrNull() ?: continue
-                                    val converted = loaded.toAppLyrics(ext.metadata.id)
+                                    val converted = loaded.toAppLyrics(ext.metadata.id, ext.metadata.name)
                                     if (converted.isValid() && isRealLyrics(converted) && isPlausibleMatch(song, converted.extensionTitle)) {
                                         candidateLyrics = converted
                                         break
@@ -1164,7 +1163,7 @@ class LyricsRepositoryImpl @Inject constructor(
                     val validated = readValidatedLocalLyrics(lyricsFile)
                     if (validated != null) {
                         Log.d(TAG, "===== FOUND LOCAL LYRICS FILE: ${lyricsFile.name} =====")
-                        return@withContext validated.parsedLyrics
+                        return@withContext validated.parsedLyrics.copy(sourceName = "Local .lrc")
                     }
                 }
 
@@ -1178,7 +1177,7 @@ class LyricsRepositoryImpl @Inject constructor(
                     val validated = readValidatedLocalLyrics(alternativeLyricsFile)
                     if (validated != null) {
                         Log.d(TAG, "===== FOUND LOCAL LYRICS FILE (alt pattern): ${alternativeLyricsFile.name} =====")
-                        return@withContext validated.parsedLyrics
+                        return@withContext validated.parsedLyrics.copy(sourceName = "Local .lrc")
                     }
                 }
             }
@@ -1332,7 +1331,7 @@ class LyricsRepositoryImpl @Inject constructor(
 
                     if (parsedLyrics != null) {
                         Log.d(TAG, "===== FOUND EMBEDDED LYRICS =====")
-                        parsedLyrics
+                        parsedLyrics.copy(sourceName = "Embedded")
                     } else {
                         null
                     }

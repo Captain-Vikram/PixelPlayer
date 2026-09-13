@@ -68,6 +68,9 @@ fun QualityOverrideBottomSheet(
     val videoTrackGroups = remember(currentTracks) {
         currentTracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
     }
+    val subtitleTrackGroups = remember(currentTracks) {
+        currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+    }
 
     val allOptions = listOf(
         Triple(StreamingQuality.DATA_SAVER, stringResource(R.string.settings_quality_data_saver), "Fastest start • Low bandwidth"),
@@ -130,24 +133,40 @@ fun QualityOverrideBottomSheet(
                     item {
                         SectionHeader(title = "VIDEO RESOLUTION", color = MaterialTheme.colorScheme.primary)
                     }
-                    items(videoTrackGroups) { group ->
+                    videoTrackGroups.forEach { group ->
                         val trackGroup = group.mediaTrackGroup
                         for (i in 0 until group.length) {
                             val format = group.getTrackFormat(i)
                             val isSelected = group.isTrackSelected(i)
                             val height = if (format.height > 0) "${format.height}p" else "Video Track"
+                            val resolutionLabel = when (format.height) {
+                                2160 -> "4K Ultra HD (2160p)"
+                                1440 -> "2K Quad HD (1440p)"
+                                1080 -> "Full HD (1080p)"
+                                720 -> "HD (720p)"
+                                480 -> "Standard (480p)"
+                                360 -> "Low (360p)"
+                                240 -> "Very Low (240p)"
+                                else -> height
+                            }
                             val fps = if (format.frameRate > 0) " • ${format.frameRate.toInt()} fps" else ""
-                            val bitrate = if (format.bitrate > 0) " • ${format.bitrate / 1000} kbps" else ""
-                            QualityItem(
-                                label = "$height$fps",
-                                subtitle = "Bitrate: ${bitrate.removePrefix(" • ")}",
-                                icon = { Icon(Icons.Rounded.Videocam, null, tint = MaterialTheme.colorScheme.primary) },
-                                selected = isSelected,
-                                onClick = {
-                                    onTrackGroupSelected(trackGroup, i)
-                                    onDismiss()
-                                }
-                            )
+                            val bitrateText = when {
+                                format.bitrate >= 1_000_000 -> String.format(java.util.Locale.US, "Bitrate: %.1f Mbps", format.bitrate / 1_000_000f)
+                                format.bitrate > 0 -> "Bitrate: ${format.bitrate / 1000} kbps"
+                                else -> "Adaptive Bitrate"
+                            }
+                            item(key = "video_${trackGroup.id}_$i") {
+                                QualityItem(
+                                    label = "$resolutionLabel$fps",
+                                    subtitle = bitrateText,
+                                    icon = { Icon(Icons.Rounded.Videocam, null, tint = MaterialTheme.colorScheme.primary) },
+                                    selected = isSelected,
+                                    onClick = {
+                                        onTrackGroupSelected(trackGroup, i)
+                                        onDismiss()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -157,7 +176,7 @@ fun QualityOverrideBottomSheet(
                     item {
                         SectionHeader(title = "AUDIO BITRATE & FORMAT", color = MaterialTheme.colorScheme.primary)
                     }
-                    items(audioTrackGroups) { group ->
+                    audioTrackGroups.forEach { group ->
                         val trackGroup = group.mediaTrackGroup
                         for (i in 0 until group.length) {
                             val format = group.getTrackFormat(i)
@@ -166,21 +185,66 @@ fun QualityOverrideBottomSheet(
                             val kbps = if (format.bitrate > 0) " • ${format.bitrate / 1000} kbps" else ""
                             val hz = if (format.sampleRate > 0) " • ${format.sampleRate} Hz" else ""
                             val ch = if (format.channelCount > 0) " • ${format.channelCount}ch" else ""
-                            QualityItem(
-                                label = "$mime$kbps",
-                                subtitle = "Specs:$hz$ch",
-                                icon = { Icon(Icons.Rounded.Audiotrack, null, tint = MaterialTheme.colorScheme.primary) },
-                                selected = isSelected,
-                                onClick = {
-                                    onTrackGroupSelected(trackGroup, i)
-                                    onDismiss()
-                                }
-                            )
+                            item(key = "audio_${trackGroup.id}_$i") {
+                                QualityItem(
+                                    label = "$mime$kbps",
+                                    subtitle = "Specs:$hz$ch",
+                                    icon = { Icon(Icons.Rounded.Audiotrack, null, tint = MaterialTheme.colorScheme.primary) },
+                                    selected = isSelected,
+                                    onClick = {
+                                        onTrackGroupSelected(trackGroup, i)
+                                        onDismiss()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
 
-                // 3. EXTENSION SOURCES (If extension returned multiple audio servers/sources)
+                // 3. LIVE SUBTITLE TRACKS (From ExoPlayer container/HLS/DASH)
+                if (subtitleTrackGroups.isNotEmpty()) {
+                    item {
+                        SectionHeader(title = "SUBTITLES", color = MaterialTheme.colorScheme.primary)
+                    }
+                    val isAnySubSelected = subtitleTrackGroups.any { it.isSelected }
+                    item(key = "sub_off") {
+                        QualityItem(
+                            label = "Subtitles Off",
+                            subtitle = "Disable subtitles",
+                            icon = { Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.primary) },
+                            selected = !isAnySubSelected,
+                            onClick = {
+                                subtitleTrackGroups.forEach { group ->
+                                    onTrackGroupSelected(group.mediaTrackGroup, -1)
+                                }
+                                onDismiss()
+                            }
+                        )
+                    }
+                    subtitleTrackGroups.forEach { group ->
+                        val trackGroup = group.mediaTrackGroup
+                        for (i in 0 until group.length) {
+                            val format = group.getTrackFormat(i)
+                            val isSelected = group.isTrackSelected(i)
+                            val lang = format.language?.uppercase() ?: "SUB"
+                            val label = format.label ?: "$lang Subtitle"
+                            item(key = "sub_${trackGroup.id}_$i") {
+                                QualityItem(
+                                    label = label,
+                                    subtitle = "Language: ${format.language ?: "Default"}",
+                                    icon = { Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.primary) },
+                                    selected = isSelected,
+                                    onClick = {
+                                        onTrackGroupSelected(trackGroup, i)
+                                        onDismiss()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 4. EXTENSION SOURCES (If extension returned multiple audio/video servers/sources)
                 if (availableSources.isNotEmpty()) {
                     item {
                         SectionHeader(title = "AVAILABLE EXTENSION SOURCES", color = MaterialTheme.colorScheme.primary)
@@ -189,7 +253,10 @@ fun QualityOverrideBottomSheet(
                     items(availableSources.size) { index ->
                         val source = availableSources[index]
                         val isSelected = selectedSource?.id == source.id
-                        val label = source.title ?: when (source.quality) {
+                        val isVideo = source.isVideo || source.quality in listOf(144, 240, 360, 480, 720, 1080, 1440, 2160)
+                        val label = source.title ?: if (isVideo) {
+                            if (source.quality > 0) "${source.quality}p" else "Auto Resolution"
+                        } else when (source.quality) {
                             0 -> "Low Quality"
                             1 -> "Standard Quality (Balanced)"
                             2 -> "High Quality"
@@ -210,7 +277,13 @@ fun QualityOverrideBottomSheet(
                         QualityItem(
                             label = label,
                             subtitle = "Format: $mimeType",
-                            icon = { Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.primary) },
+                            icon = {
+                                Icon(
+                                    if (isVideo) Icons.Rounded.Videocam else Icons.Rounded.Tune,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
                             selected = isSelected,
                             onClick = {
                                 onSourceSelected(source)

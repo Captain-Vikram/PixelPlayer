@@ -461,9 +461,26 @@ fun LyricsSheet(
             if (!wasResetTriggered) {
                 showFetchLyricsDialog = true
             }
-        } else if (lyrics != null || isLoadingLyrics) {
+        } else if (lyrics != null && lyricsSearchUiState !is LyricsSearchUiState.PickResult && lyricsSearchUiState !is LyricsSearchUiState.Loading) {
             showFetchLyricsDialog = false
             wasResetTriggered = false // Reset the flag when lyrics are loaded
+        }
+    }
+
+    LaunchedEffect(lyricsSearchUiState) {
+        when (lyricsSearchUiState) {
+            is LyricsSearchUiState.PickResult,
+            is LyricsSearchUiState.NotFound,
+            is LyricsSearchUiState.Error -> {
+                showFetchLyricsDialog = true
+            }
+            is LyricsSearchUiState.Success -> {
+                showFetchLyricsDialog = false
+            }
+            is LyricsSearchUiState.Idle,
+            is LyricsSearchUiState.Loading -> {
+                // Keep existing dialog state
+            }
         }
     }
 
@@ -676,7 +693,12 @@ fun LyricsSheet(
                             .animateContentSize(), // Animate width changes
                         backgroundColor = backgroundColor, // Distinct solid background
                         contentColor = onBackgroundColor,
-                        isPlaying = isPlaying
+                        isPlaying = isPlaying,
+                        sourceName = lyrics?.sourceName ?: if (lyrics?.areFromRemote == true) stringResource(R.string.lyrics_source_lrclib) else null,
+                        onSourceClick = {
+                            showFetchLyricsDialog = true
+                            onSearchLyrics(true)
+                        }
                     )
                 }
 
@@ -948,7 +970,10 @@ fun LyricsSheet(
                         onBackClick()
                     },
                     onMoreClick = { showMoreSheet = true },
-                    onSearchLyricsClick = { onSearchLyrics(true) },
+                    onSearchLyricsClick = {
+                        showFetchLyricsDialog = true
+                        onSearchLyrics(true)
+                    },
                     backgroundColor = backgroundColor,
                     onBackgroundColor = onBackgroundColor,
                     accentColor = accentColor,
@@ -1940,7 +1965,9 @@ private fun LyricsTrackInfo(
     modifier: Modifier = Modifier,
     backgroundColor: Color,
     contentColor: Color,
-    isPlaying: Boolean
+    isPlaying: Boolean,
+    sourceName: String? = null,
+    onSourceClick: (() -> Unit)? = null
 ) {
     if (song == null) return
 
@@ -2014,15 +2041,46 @@ private fun LyricsTrackInfo(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = song.displayArtist,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = contentColor.copy(alpha = 0.7f),
-                    //textGeometricTransform = TextGeometricTransform(scaleX = (0.9f)),
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = song.displayArtist,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = contentColor.copy(alpha = 0.7f),
+                        //textGeometricTransform = TextGeometricTransform(scaleX = (0.9f)),
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
+                if (!sourceName.isNullOrBlank()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(contentColor.copy(alpha = 0.12f))
+                            .then(
+                                if (onSourceClick != null) {
+                                    Modifier.clickable { onSourceClick() }
+                                } else Modifier
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = sourceName,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = contentColor.copy(alpha = 0.9f),
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
         }
 
         PlayingEqIcon(

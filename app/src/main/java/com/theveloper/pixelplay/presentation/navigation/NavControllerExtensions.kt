@@ -14,10 +14,13 @@ private fun NavController.isReadyForNavigation(): Boolean {
 
 fun NavController.navigateSafely(route: String): Boolean {
     if (!isReadyForNavigation()) return false
-    navigate(route) {
-        launchSingleTop = true
-    }
-    return true
+    return runCatching {
+        navigate(route) {
+            launchSingleTop = true
+        }
+    }.onFailure {
+        timber.log.Timber.e(it, "navigateSafely failed for route: %s", route)
+    }.isSuccess
 }
 
 fun NavController.navigateSafely(
@@ -25,11 +28,14 @@ fun NavController.navigateSafely(
     builder: NavOptionsBuilder.() -> Unit
 ): Boolean {
     if (!isReadyForNavigation()) return false
-    navigate(route) {
-        launchSingleTop = true
-        builder()
-    }
-    return true
+    return runCatching {
+        navigate(route) {
+            launchSingleTop = true
+            builder()
+        }
+    }.onFailure {
+        timber.log.Timber.e(it, "navigateSafely failed for route: %s", route)
+    }.isSuccess
 }
 
 fun NavController.navigateSafelyReplacing(
@@ -38,14 +44,17 @@ fun NavController.navigateSafelyReplacing(
     builder: NavOptionsBuilder.() -> Unit = {}
 ): Boolean {
     if (!isReadyForNavigation()) return false
-    navigate(route) {
-        launchSingleTop = false
-        popUpTo(patternToPop) {
-            inclusive = true
+    return runCatching {
+        navigate(route) {
+            launchSingleTop = false
+            popUpTo(patternToPop) {
+                inclusive = true
+            }
+            builder()
         }
-        builder()
-    }
-    return true
+    }.onFailure {
+        timber.log.Timber.e(it, "navigateSafelyReplacing failed for route: %s", route)
+    }.isSuccess
 }
 
 fun NavController.navigateToTopLevelSafely(route: String): Boolean {
