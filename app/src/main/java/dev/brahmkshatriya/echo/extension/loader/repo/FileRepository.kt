@@ -33,11 +33,16 @@ class FileRepository(
         }
     }.flowOn(Dispatchers.IO)
 
-    private fun loadAllApks() = folder.run {
-        setReadOnly()
-        listFiles()!!.filter {
+    private fun loadAllApks(): List<File> {
+        if (!folder.exists()) {
+            folder.mkdirs()
+        }
+        val files = folder.listFiles() ?: return emptyList()
+        return files.filter {
             it != toIgnoreFile && (it.extension == "apk" || it.extension == "eapk")
-        }.onEach { it.setWritable(false) }
+        }.onEach {
+            it.setWritable(false)
+        }
     }
 
     override suspend fun loadExtensions() = mutex.withLock {

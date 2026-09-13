@@ -126,7 +126,6 @@ class ExtensionStoreRepository @Inject constructor(
                 }
                 
                 file.setWritable(false)
-                dir.setReadOnly()
                 
                 android.util.Log.d("ExtensionStore", "Successfully downloaded ${item.remote.id} to ${file.absolutePath}")
                 
@@ -177,8 +176,6 @@ class ExtensionStoreRepository @Inject constructor(
         dir.setWritable(true)
         fileToDelete.setWritable(true)
         val deleted = fileToDelete.delete()
-        // Restore directory to read-only (matches FileRepository expectations)
-        dir.setReadOnly()
 
         android.util.Log.d("ExtensionStore", "deleteExtension($id): deleted=$deleted path=${fileToDelete.absolutePath}")
 
