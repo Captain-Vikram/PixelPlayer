@@ -182,11 +182,8 @@ object AppModule {
         )
             .addCallback(PixelPlayDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+            .fallbackToDestructiveMigration(dropAllTables = false)
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
-
-        if (BuildConfig.DEBUG) {
-            builder.fallbackToDestructiveMigration(dropAllTables = true)
-        }
 
         return builder.build()
     }
