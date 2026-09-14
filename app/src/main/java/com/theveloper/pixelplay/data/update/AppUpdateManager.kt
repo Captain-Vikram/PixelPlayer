@@ -207,20 +207,62 @@ class AppUpdateManager @Inject constructor(
     }
 
     private fun isVersionNewer(latestTag: String, currentVersionName: String): Boolean {
-        val cleanLatest = latestTag.trim().removePrefix("v").removePrefix("V")
-        val cleanCurrent = currentVersionName.trim().removePrefix("v").removePrefix("V")
+        val cleanLatest = latestTag.trim()
+            .removePrefix("v")
+            .removePrefix("V")
+            .removePrefix("fork-")
+            .removePrefix("release-")
+        val cleanCurrent = currentVersionName.trim()
+            .removePrefix("v")
+            .removePrefix("V")
+            .removePrefix("fork-")
+            .removePrefix("release-")
 
-        if (cleanLatest.isBlank() || cleanCurrent.isBlank()) return false
+        if (cleanLatest.isBlank()) return false
 
-        val latestParts = cleanLatest.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
-        val currentParts = cleanCurrent.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
+        // 1. Try standard semver comparison (e.g., 1.2.0 vs 1.1.0)
+        val latestSemver = cleanLatest.split("-", "_").firstOrNull() ?: cleanLatest
+        val currentSemver = cleanCurrent.split("-", "_").firstOrNull() ?: cleanCurrent
 
-        val maxIndex = maxOf(latestParts.size, currentParts.size)
-        for (i in 0 until maxIndex) {
-            val latestPart = latestParts.getOrElse(i) { 0 }
-            val currentPart = currentParts.getOrElse(i) { 0 }
-            if (latestPart > currentPart) return true
-            if (latestPart < currentPart) return false
+        val latestParts = latestSemver.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
+        val currentParts = currentSemver.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
+
+        if (latestParts.isNotEmpty() && currentParts.isNotEmpty()) {
+            val maxIndex = minOf(latestParts.size, currentParts.size)
+            for (i in 0 until maxIndex) {
+                if (latestParts[i] > currentParts[i]) return true
+                if (latestParts[i] < currentParts[i]) return false
+            }
+            if (latestParts.size > currentParts.size && latestParts.drop(maxIndex).any { it > 0 }) return true
+        }
+
+        // 2. Check 8-digit date timestamps in tags (e.g. 20260914 vs 20260813)
+        val dateRegex = Regex("""\b(20\d{6})\b""")
+        val latestDateMatch = dateRegex.find(latestTag)?.value?.toLongOrNull()
+        val currentDateMatch = dateRegex.find(currentVersionName)?.value?.toLongOrNull()
+
+        if (latestDateMatch != null && currentDateMatch != null) {
+            return latestDateMatch > currentDateMatch
+        }
+
+        // 3. Compare latest release tag date against installed app update time
+        if (latestDateMatch != null) {
+            try {
+                val format = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US)
+                format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                val releaseTimeMs = format.parse(latestDateMatch.toString())?.time ?: 0L
+                val lastUpdateTime = runCatching {
+                    context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
+                }.getOrDefault(0L)
+                if (releaseTimeMs > 0L && lastUpdateTime > 0L) {
+                    val oneDayMs = 24 * 60 * 60 * 1000L
+                    if (releaseTimeMs > lastUpdateTime + oneDayMs) {
+                        return true
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore parse errors
+            }
         }
 
         return false

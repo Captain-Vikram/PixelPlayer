@@ -166,6 +166,12 @@ import com.theveloper.pixelplay.presentation.components.LocalMaterialTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
+import com.theveloper.pixelplay.presentation.components.UpdateBottomSheet
+import com.theveloper.pixelplay.presentation.components.UpdatePillBanner
+import com.theveloper.pixelplay.data.update.UpdateCheckState
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.zIndex
+
 @androidx.compose.runtime.Immutable
 data class BottomNavItem(
     val label: String,
@@ -196,6 +202,8 @@ class MainActivity : ComponentActivity() {
     lateinit var syncManager: SyncManager
     @Inject
     lateinit var extensionWebViewManager: com.theveloper.pixelplay.extensions.webview.ExtensionWebViewManager
+    @Inject
+    lateinit var appUpdateManager: com.theveloper.pixelplay.data.update.AppUpdateManager
 
     private val _pendingPlaylistNavigation = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
@@ -252,6 +260,9 @@ class MainActivity : ComponentActivity() {
             }
             val isSetupComplete by mainViewModel.isSetupComplete.collectAsStateWithLifecycle()
             
+            val updateState by appUpdateManager.updateState.collectAsStateWithLifecycle()
+            var showUpdateSheet by remember { mutableStateOf(false) }
+
             var showCrashReportDialog by remember { mutableStateOf(false) }
             var crashLogDataState by remember { mutableStateOf<CrashLogData?>(null) }
             
@@ -280,6 +291,10 @@ class MainActivity : ComponentActivity() {
                 if (!isBenchmarkMode && CrashHandler.hasCrashLog()) {
                     crashLogDataState = CrashHandler.getCrashLog()
                     showCrashReportDialog = true
+                }
+                if (!isBenchmarkMode) {
+                    delay(3000)
+                    appUpdateManager.checkForUpdates()
                 }
             }
 
@@ -338,6 +353,37 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             }
+                        }
+
+                        if (updateState is UpdateCheckState.UpdateAvailable && !showUpdateSheet) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding()
+                                    .padding(top = 8.dp)
+                                    .zIndex(50f),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                UpdatePillBanner(
+                                    updateState = updateState,
+                                    onViewUpdate = { showUpdateSheet = true }
+                                )
+                            }
+                        }
+
+                        if (showUpdateSheet) {
+                            UpdateBottomSheet(
+                                updateState = updateState,
+                                onDismiss = { showUpdateSheet = false },
+                                onDownloadClick = { url ->
+                                    lifecycleScope.launch {
+                                        appUpdateManager.downloadAndInstallApk(url)
+                                    }
+                                },
+                                onInstallClick = { file ->
+                                    appUpdateManager.promptInstallApk(file)
+                                }
+                            )
                         }
 
                         ExtensionWebViewHandler(extensionWebViewManager)
