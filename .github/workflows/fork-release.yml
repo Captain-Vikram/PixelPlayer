@@ -128,38 +128,34 @@ jobs:
             fi
           done
 
-      # ─── 9. Rename APKs with short SHA ────────────────────────────────────────
-      - name: Rename APKs
-        id: rename
+      # ─── 9. Determine release tag & Rename APKs ──────────────────────────────
+      - name: Determine release tag & Rename APKs
+        id: release_meta
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            DATE="$(date -u +%Y%m%d)"
+            TAG="v1.0.0-${DATE}-${SHORT_SHA}"
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
           ARM64_SRC="app/build/outputs/apk/release/app-arm64-v8a-release.apk"
           ARM32_SRC="app/build/outputs/apk/release/app-armeabi-v7a-release.apk"
-          ARM64_DST="PixelPlayer-fork-arm64-${SHORT_SHA}.apk"
-          ARM32_DST="PixelPlayer-fork-arm32-${SHORT_SHA}.apk"
+          ARM64_DST="PixelPlayer-${TAG}-arm64-v8a.apk"
+          ARM32_DST="PixelPlayer-${TAG}-armeabi-v7a.apk"
 
           cp "$ARM64_SRC" "$ARM64_DST"
           cp "$ARM32_SRC" "$ARM32_DST"
 
           echo "arm64_apk=$ARM64_DST" >> "$GITHUB_OUTPUT"
           echo "arm32_apk=$ARM32_DST" >> "$GITHUB_OUTPUT"
-
-      # ─── 10. Determine release tag ────────────────────────────────────────────
-      - name: Determine release tag
-        id: tag
-        run: |
-          if [ -n "${{ github.event.inputs.tag }}" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          else
-            DATE="$(date -u +%Y%m%d)"
-            TAG="fork-${DATE}-${{ steps.rename.outputs.short_sha }}"
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Using release tag: $TAG"
 
-      # ─── 11. Extract latest CHANGELOG section ─────────────────────────────────
+      # ─── 10. Extract latest CHANGELOG section ─────────────────────────────────
       - name: Extract latest changelog entry
         id: changelog
         run: |
@@ -168,47 +164,46 @@ jobs:
             NOTES="See CHANGELOG.md for full release notes."
           fi
           {
-            echo "## 📦 Download"
+            echo "## 📦 Downloads"
             echo ""
-            echo "| APK | Architecture | Who should use this? |"
-            echo "|-----|-------------|----------------------|"
-            echo "| \`PixelPlayer-fork-arm64-${{ steps.rename.outputs.short_sha }}.apk\` | arm64-v8a | **Most phones (2017+)** — use this |"
-            echo "| \`PixelPlayer-fork-arm32-${{ steps.rename.outputs.short_sha }}.apk\` | armeabi-v7a | Older 32-bit phones |"
+            echo "| APK | Architecture | Compatibility |"
+            echo "|-----|-------------|---------------|"
+            echo "| \`${{ steps.release_meta.outputs.arm64_apk }}\` | \`arm64-v8a\` | **Recommended for most modern devices (64-bit)** |"
+            echo "| \`${{ steps.release_meta.outputs.arm32_apk }}\` | \`armeabi-v7a\` | Legacy 32-bit devices |"
             echo ""
             echo "---"
             echo ""
-            echo "## 🗒️ Latest Changes"
+            echo "## 🗒️ Release Notes"
             echo ""
             echo "$NOTES"
             echo ""
             echo "---"
-            echo ""
-            echo "_Built from commit \`${{ steps.rename.outputs.short_sha }}\` · Fork by [Captain-Vikram](https://github.com/Captain-Vikram/PixelPlayer)_"
+            echo "_PixelPlayer • Commit \`${{ steps.release_meta.outputs.short_sha }}\`_"
           } > release_notes.md
 
-      # ─── 12. Create GitHub Release & Upload APKs ──────────────────────────────
+      # ─── 11. Create GitHub Release & Upload APKs ──────────────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: "PixelPlayer Fork — ${{ steps.tag.outputs.tag }}"
+          tag_name: ${{ steps.release_meta.outputs.tag }}
+          name: "PixelPlayer ${{ steps.release_meta.outputs.tag }}"
           body_path: release_notes.md
           draft: false
           prerelease: false
           files: |
-            ${{ steps.rename.outputs.arm64_apk }}
-            ${{ steps.rename.outputs.arm32_apk }}
+            ${{ steps.release_meta.outputs.arm64_apk }}
+            ${{ steps.release_meta.outputs.arm32_apk }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ─── 13. Upload as Actions artifact (backup) ──────────────────────────────
+      # ─── 12. Upload as Actions artifact (backup) ──────────────────────────────
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: PixelPlayer-fork-apks-${{ steps.rename.outputs.short_sha }}
+          name: PixelPlayer-${{ steps.release_meta.outputs.tag }}
           path: |
-            ${{ steps.rename.outputs.arm64_apk }}
-            ${{ steps.rename.outputs.arm32_apk }}
+            ${{ steps.release_meta.outputs.arm64_apk }}
+            ${{ steps.release_meta.outputs.arm32_apk }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
