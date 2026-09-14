@@ -173,13 +173,16 @@ object AppModule {
             PixelPlayDatabase.MIGRATION_40_41,
             PixelPlayDatabase.MIGRATION_41_42,
             PixelPlayDatabase.MIGRATION_42_43,
+            PixelPlayDatabase.MIGRATION_43_44,
             PixelPlayDatabase.MIGRATION_44_45,
             PixelPlayDatabase.MIGRATION_45_46,
             PixelPlayDatabase.MIGRATION_46_47,
-            PixelPlayDatabase.MIGRATION_47_48
+            PixelPlayDatabase.MIGRATION_47_48,
+            PixelPlayDatabase.MIGRATION_48_49
         )
             .addCallback(PixelPlayDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
 
         if (BuildConfig.DEBUG) {
             builder.fallbackToDestructiveMigration(dropAllTables = true)

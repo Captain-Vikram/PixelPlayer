@@ -39,7 +39,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         dev.brahmkshatriya.echo.extension.loader.db.models.CurrentUser::class,
         PlaylistInteractionEntity::class
     ],
-    version = 48,
+    version = 49,
     exportSchema = true
 )
 @androidx.room.TypeConverters(PixelPlayDatabase.ExtensionTypeConverters::class)
@@ -1637,6 +1637,33 @@ abstract class PixelPlayDatabase : RoomDatabase() {
                 db.execSQL("DROP TABLE IF EXISTS telegram_channels")
                 db.execSQL("DROP TABLE IF EXISTS telegram_songs")
                 db.execSQL("DROP TABLE IF EXISTS telegram_topics")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `playlist_interaction_logs` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `playlist_id` TEXT NOT NULL,
+                        `track_id` TEXT NOT NULL,
+                        `action` INTEGER NOT NULL,
+                        `timestamp` INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playlist_interaction_logs_playlist_id` ON `playlist_interaction_logs` (`playlist_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playlist_interaction_logs_timestamp` ON `playlist_interaction_logs` (`timestamp`)")
+            }
+        }
+
+        val MIGRATION_48_49 = object : Migration(48, 49) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `playlist_interaction_logs` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `playlist_id` TEXT NOT NULL,
+                        `track_id` TEXT NOT NULL,
+                        `action` INTEGER NOT NULL,
+                        `timestamp` INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playlist_interaction_logs_playlist_id` ON `playlist_interaction_logs` (`playlist_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playlist_interaction_logs_timestamp` ON `playlist_interaction_logs` (`timestamp`)")
             }
         }
 
