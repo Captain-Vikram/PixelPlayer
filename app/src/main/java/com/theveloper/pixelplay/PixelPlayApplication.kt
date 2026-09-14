@@ -83,7 +83,7 @@ class PixelPlayApplication : Application(), ImageLoaderFactory, Configuration.Pr
     }
 
     override fun attachBaseContext(base: Context) {
-        super.attachBaseContext(AppLocaleManager.wrapContext(base))
+        super.attachBaseContext(base)
     }
 
     override fun onCreate() {

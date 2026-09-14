@@ -278,3 +278,21 @@
 -keep class com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity { *; }
 -keep class com.theveloper.pixelplay.presentation.jellyfin.auth.JellyfinLoginActivity { *; }
 
+# Keep Room Database, Entities, and DAOs
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep @androidx.room.Entity class * { *; }
+-keep @androidx.room.Dao class * { *; }
+-keep class com.theveloper.pixelplay.data.database.** { *; }
+
+# Keep Hilt ViewModels and StateHolders
+-keep class * extends androidx.lifecycle.ViewModel { *; }
+-keep @dagger.hilt.android.lifecycle.HiltViewModel class * { *; }
+-keep class com.theveloper.pixelplay.presentation.viewmodel.** { *; }
+
+# Keep Application & Core Infrastructure
+-keep class com.theveloper.pixelplay.PixelPlayApplication { *; }
+-keep class com.theveloper.pixelplay.MainActivity { *; }
+-keep class com.theveloper.pixelplay.ReleaseTree { *; }
+-keep class com.theveloper.pixelplay.utils.CrashHandler { *; }
+
+
