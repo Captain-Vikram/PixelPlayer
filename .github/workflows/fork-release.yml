@@ -145,11 +145,18 @@ jobs:
 
           ARM64_SRC="app/build/outputs/apk/release/app-arm64-v8a-release.apk"
           ARM32_SRC="app/build/outputs/apk/release/app-armeabi-v7a-release.apk"
+          UNIV_SRC="app/build/outputs/apk/release/app-universal-release.apk"
+
           ARM64_DST="PixelPlayer-${TAG}-arm64-v8a.apk"
           ARM32_DST="PixelPlayer-${TAG}-armeabi-v7a.apk"
+          UNIV_DST="PixelPlayer-${TAG}-universal.apk"
 
-          cp "$ARM64_SRC" "$ARM64_DST"
-          cp "$ARM32_SRC" "$ARM32_DST"
+          cp "$ARM64_SRC" "$ARM64_DST" || true
+          cp "$ARM32_SRC" "$ARM32_DST" || true
+          if [ -f "$UNIV_SRC" ]; then
+            cp "$UNIV_SRC" "$UNIV_DST"
+            echo "univ_apk=$UNIV_DST" >> "$GITHUB_OUTPUT"
+          fi
 
           echo "arm64_apk=$ARM64_DST" >> "$GITHUB_OUTPUT"
           echo "arm32_apk=$ARM32_DST" >> "$GITHUB_OUTPUT"
@@ -168,7 +175,8 @@ jobs:
             echo ""
             echo "| APK | Architecture | Compatibility |"
             echo "|-----|-------------|---------------|"
-            echo "| \`${{ steps.release_meta.outputs.arm64_apk }}\` | \`arm64-v8a\` | **Recommended for most modern devices (64-bit)** |"
+            echo "| \`${{ steps.release_meta.outputs.arm64_apk }}\` | \`arm64-v8a\` | **Recommended for most modern phones (64-bit)** |"
+            echo "| \`${{ steps.release_meta.outputs.univ_apk }}\` | \`universal\` | **All devices & emulators (works on everything)** |"
             echo "| \`${{ steps.release_meta.outputs.arm32_apk }}\` | \`armeabi-v7a\` | Legacy 32-bit devices |"
             echo ""
             echo "---"
@@ -192,6 +200,7 @@ jobs:
           prerelease: false
           files: |
             ${{ steps.release_meta.outputs.arm64_apk }}
+            ${{ steps.release_meta.outputs.univ_apk }}
             ${{ steps.release_meta.outputs.arm32_apk }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -203,6 +212,7 @@ jobs:
           name: PixelPlayer-${{ steps.release_meta.outputs.tag }}
           path: |
             ${{ steps.release_meta.outputs.arm64_apk }}
+            ${{ steps.release_meta.outputs.univ_apk }}
             ${{ steps.release_meta.outputs.arm32_apk }}
           if-no-files-found: error
           compression-level: 0
