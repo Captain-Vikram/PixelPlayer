@@ -88,7 +88,31 @@ class PixelPlayApplication : Application(), ImageLoaderFactory, Configuration.Pr
 
     override fun onCreate() {
         instance = this
-        super.onCreate()
+
+        // ─── Pre-Hilt startup crash capture ────────────────────────────────────
+        // super.onCreate() triggers Hilt dependency injection. If ANY @Singleton
+        // provider or @Inject constructor throws, the process dies immediately with
+        // no log (CrashHandler isn't installed yet). We catch that here and persist
+        // it to SharedPreferences so the *next* launch can show a crash report.
+        val startupPrefs by lazy {
+            getSharedPreferences("crash_handler_prefs", MODE_PRIVATE)
+        }
+        try {
+            super.onCreate()
+        } catch (t: Throwable) {
+            try {
+                val sw = java.io.StringWriter()
+                t.printStackTrace(java.io.PrintWriter(sw))
+                startupPrefs.edit()
+                    .putBoolean("has_crash", true)
+                    .putLong("crash_timestamp", System.currentTimeMillis())
+                    .putString("crash_exception_message", "[STARTUP] ${t.javaClass.name}: ${t.message}")
+                    .putString("crash_stack_trace", "STARTUP CRASH (pre-CrashHandler):\n$sw")
+                    .commit()
+            } catch (_: Throwable) { /* ignore secondary failures */ }
+            throw t  // re-throw so Android still shows the crash
+        }
+        // ───────────────────────────────────────────────────────────────────────
 
         // Benchmark variant intentionally restarts/kills app process during tests.
         // Avoid persisting those events as user-facing crash reports.
