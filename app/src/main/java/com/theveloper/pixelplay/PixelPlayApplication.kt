@@ -91,26 +91,60 @@ class PixelPlayApplication : Application(), ImageLoaderFactory, Configuration.Pr
 
         // ─── Pre-Hilt startup crash capture ────────────────────────────────────
         // super.onCreate() triggers Hilt dependency injection. If ANY @Singleton
-        // provider or @Inject constructor throws, the process dies immediately with
-        // no log (CrashHandler isn't installed yet). We catch that here and persist
-        // it to SharedPreferences so the *next* launch can show a crash report.
-        val startupPrefs by lazy {
-            getSharedPreferences("crash_handler_prefs", MODE_PRIVATE)
-        }
+        // provider or @Inject constructor throws, the process dies with no log.
+        // We catch it here, write a human-readable file to external storage
+        // (accessible via any file manager: Android/data/
+        //  com.theveloper.pixelplay/files/startup_crash.txt),
+        // show a Toast with the crash class, AND save to SharedPreferences.
         try {
             super.onCreate()
         } catch (t: Throwable) {
             try {
                 val sw = java.io.StringWriter()
                 t.printStackTrace(java.io.PrintWriter(sw))
-                startupPrefs.edit()
-                    .putBoolean("has_crash", true)
-                    .putLong("crash_timestamp", System.currentTimeMillis())
-                    .putString("crash_exception_message", "[STARTUP] ${t.javaClass.name}: ${t.message}")
-                    .putString("crash_stack_trace", "STARTUP CRASH (pre-CrashHandler):\n$sw")
-                    .commit()
-            } catch (_: Throwable) { /* ignore secondary failures */ }
-            throw t  // re-throw so Android still shows the crash
+                val crashText = buildString {
+                    appendLine("=== PixelPlayer Startup Crash ===")
+                    appendLine("Time: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}")
+                    appendLine("Exception: ${t.javaClass.name}")
+                    appendLine("Message: ${t.message}")
+                    appendLine()
+                    appendLine("Full Stacktrace:")
+                    appendLine(sw.toString())
+                }
+
+                // 1. Write to external file (visible in file manager, shareable)
+                try {
+                    val dir = getExternalFilesDir(null)
+                    if (dir != null) {
+                        dir.mkdirs()
+                        java.io.File(dir, "startup_crash.txt").writeText(crashText)
+                    }
+                } catch (_: Throwable) {}
+
+                // 2. Write to SharedPreferences (for CrashReportDialog if app ever recovers)
+                try {
+                    getSharedPreferences("crash_handler_prefs", MODE_PRIVATE).edit()
+                        .putBoolean("has_crash", true)
+                        .putLong("crash_timestamp", System.currentTimeMillis())
+                        .putString("crash_exception_message", "[STARTUP] ${t.javaClass.name}: ${t.message}")
+                        .putString("crash_stack_trace", crashText)
+                        .commit()
+                } catch (_: Throwable) {}
+
+                // 3. Show a Toast so the user sees something immediately
+                try {
+                    android.widget.Toast.makeText(
+                        this,
+                        "PixelPlayer crash: ${t.javaClass.simpleName}\nLog saved to: Android/data/com.theveloper.pixelplay/files/startup_crash.txt",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    Thread.sleep(3500) // give Toast time to appear before process dies
+                } catch (_: Throwable) {}
+            } catch (_: Throwable) {}
+
+            // Exit cleanly so Toast + file flush complete
+            android.os.Process.killProcess(android.os.Process.myPid())
+            return
         }
         // ───────────────────────────────────────────────────────────────────────
 
