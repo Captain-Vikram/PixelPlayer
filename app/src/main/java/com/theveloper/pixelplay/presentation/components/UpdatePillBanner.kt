@@ -22,12 +22,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.theveloper.pixelplay.data.update.AppReleaseInfo
 import com.theveloper.pixelplay.data.update.UpdateCheckState
+import kotlinx.coroutines.delay
 
 @Composable
 fun UpdatePillBanner(
@@ -36,17 +42,24 @@ fun UpdatePillBanner(
     modifier: Modifier = Modifier
 ) {
     val releaseInfo = (updateState as? UpdateCheckState.UpdateAvailable)?.releaseInfo ?: return
+    var isVisible by remember { mutableStateOf(true) }
+
+    LaunchedEffect(updateState) {
+        isVisible = true
+        delay(6000L) // Auto-hide after 6 seconds
+        isVisible = false
+    }
 
     AnimatedVisibility(
-        visible = true,
+        visible = isVisible,
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically(),
         modifier = modifier
     ) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 6.dp)
@@ -74,19 +87,22 @@ fun UpdatePillBanner(
 
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = "PixelPlayer ${releaseInfo.tagName} Available",
+                        text = "PixelPlayer ${releaseInfo.tagName}",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Tap to view changelog & update",
+                        text = "Tap to update now",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 FilledTonalButton(
-                    onClick = onViewUpdate,
+                    onClick = {
+                        isVisible = false
+                        onViewUpdate()
+                    },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,

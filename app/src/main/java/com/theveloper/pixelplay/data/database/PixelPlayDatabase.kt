@@ -1653,6 +1653,8 @@ abstract class PixelPlayDatabase : RoomDatabase() {
 
         val MIGRATION_48_49 = object : Migration(48, 49) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                // Existing v48 users didn't get this table because MIGRATION_47_48 was modified after the fact.
+                // We MUST create it here for the upgrade to v49.
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `playlist_interaction_logs` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -1664,6 +1666,11 @@ abstract class PixelPlayDatabase : RoomDatabase() {
                 """.trimIndent())
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playlist_interaction_logs_playlist_id` ON `playlist_interaction_logs` (`playlist_id`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_playlist_interaction_logs_timestamp` ON `playlist_interaction_logs` (`timestamp`)")
+
+                // Add new AI/ML tracking columns to song_engagements
+                db.execSQL("ALTER TABLE `song_engagements` ADD COLUMN `skip_count` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `song_engagements` ADD COLUMN `completion_count` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `song_engagements` ADD COLUMN `like_status` INTEGER NOT NULL DEFAULT 0")
             }
         }
 

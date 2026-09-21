@@ -85,6 +85,26 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
             putString(KEY_STACK_TRACE, stackTrace)
             commit() // Synchronous write - ensures data is saved before process dies
         }
+
+        // Write to public Downloads folder so users can access it without ADB or root
+        try {
+            val dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            if (dir != null) {
+                dir.mkdirs()
+                val crashText = buildString {
+                    appendLine("=== PixelPlayer Crash Report ===")
+                    appendLine("Time: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date(timestamp))}")
+                    appendLine("Exception: ${throwable.javaClass.name}")
+                    appendLine("Message: $exceptionMessage")
+                    appendLine()
+                    appendLine("Stack Trace:")
+                    appendLine(stackTrace)
+                }
+                java.io.File(dir, "pixelplayer_crash_$timestamp.txt").writeText(crashText)
+            }
+        } catch (e: Exception) {
+            // Ignore errors
+        }
     }
 
     private fun getStackTraceString(throwable: Throwable): String {

@@ -97,6 +97,7 @@ fun HomeGradientTopBar(
     activeExtensionIcon: Any? = null,
     isSourceSelectionEnabled: Boolean,
     isScrolled: Boolean = false,
+    isUpdateAvailable: Boolean = false,
 ) {
     val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHighest
 
@@ -199,10 +200,18 @@ fun HomeGradientTopBar(
                     ),
                     onClick = onChangelogClick
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.round_newspaper_24),
-                        contentDescription = stringResource(R.string.topbar_cd_changelog)
-                    )
+                    androidx.compose.material3.BadgedBox(
+                        badge = {
+                            if (isUpdateAvailable) {
+                                androidx.compose.material3.Badge(containerColor = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.round_newspaper_24),
+                            contentDescription = stringResource(R.string.topbar_cd_changelog)
+                        )
+                    }
                 }
 
                 // Fused Cloud/Source Button

@@ -119,6 +119,9 @@ fun HomeScreen(
     val currentMusicExtension by extensionsViewModel.currentMusicExtension.collectAsStateWithLifecycle()
     val localDailyMixSongs by playerViewModel.dailyMixSongs.collectAsStateWithLifecycle()
     val curatedYourMixSongs by playerViewModel.yourMixSongs.collectAsStateWithLifecycle()
+
+    val activity = context as? com.theveloper.pixelplay.MainActivity
+    val updateState = activity?.appUpdateManager?.updateState?.collectAsStateWithLifecycle()?.value
     val homeMixPreviewSongs by playerViewModel.homeMixPreviewSongs.collectAsStateWithLifecycle()
     val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -333,7 +336,8 @@ fun HomeScreen(
                     activeExtensionName = activeExtName,
                     activeExtensionIcon = activeExtIcon,
                     isSourceSelectionEnabled = installedExts.isNotEmpty(),
-                    isScrolled = isScrolledPastThreshold.value
+                    isScrolled = isScrolledPastThreshold.value,
+                    isUpdateAvailable = updateState is com.theveloper.pixelplay.data.update.UpdateCheckState.UpdateAvailable
                 )
             }
         ) { innerPadding ->
@@ -632,9 +636,26 @@ fun HomeScreen(
         }
     }
 
+    // Smartly handle the changelog button: if there's an update available, show the Update UI instead.
+
     if (showChangelogBottomSheet) {
-        ModalBottomSheet(onDismissRequest = { showChangelogBottomSheet = false }, sheetState = sheetState) {
-            ChangelogBottomSheet()
+        if (updateState is com.theveloper.pixelplay.data.update.UpdateCheckState.UpdateAvailable) {
+            com.theveloper.pixelplay.presentation.components.UpdateBottomSheet(
+                updateState = updateState,
+                onDismiss = { showChangelogBottomSheet = false },
+                onDownloadClick = { url ->
+                    scope.launch {
+                        activity.appUpdateManager.downloadAndInstallApk(url)
+                    }
+                },
+                onInstallClick = { file ->
+                    activity.appUpdateManager.promptInstallApk(file)
+                }
+            )
+        } else {
+            ModalBottomSheet(onDismissRequest = { showChangelogBottomSheet = false }, sheetState = sheetState) {
+                com.theveloper.pixelplay.presentation.components.ChangelogBottomSheet()
+            }
         }
     }
 
