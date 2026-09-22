@@ -1491,7 +1491,19 @@ class MusicService : MediaLibraryService() {
                     ?: currentMediaItem?.mediaId
                     ?: getString(R.string.common_unknown_track)
                 val errorMessage = error.localizedMessage ?: error.message ?: "Unknown error"
-                val toastMessage = getString(R.string.player_playback_error, "$trackTitle ($errorMessage)")
+                val fullErrorText = "$errorMessage ${error.cause?.message.orEmpty()}".lowercase()
+                val isAuthError = fullErrorText.contains("401") ||
+                        fullErrorText.contains("403") ||
+                        fullErrorText.contains("unauthorized") ||
+                        fullErrorText.contains("login") ||
+                        fullErrorText.contains("auth") ||
+                        fullErrorText.contains("session expired")
+
+                val toastMessage = if (isAuthError) {
+                    getString(R.string.player_extension_auth_required_error, trackTitle)
+                } else {
+                    getString(R.string.player_playback_error, "$trackTitle ($errorMessage)")
+                }
                 android.widget.Toast.makeText(this@MusicService, toastMessage, android.widget.Toast.LENGTH_LONG).show()
             }
         }

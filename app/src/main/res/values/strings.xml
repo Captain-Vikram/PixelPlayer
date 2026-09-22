@@ -62,6 +62,7 @@
     <string name="close_notification_player">Close player</string>
     <string name="service_processing_action">Processing playback action…</string>
     <string name="player_playback_error">Playback error: %1$s</string>
+    <string name="player_extension_auth_required_error">Logged out of extension. Please log in to play %1$s.</string>
 
     <!-- Common Text & Labels -->
     <string name="common_back">Back</string>
