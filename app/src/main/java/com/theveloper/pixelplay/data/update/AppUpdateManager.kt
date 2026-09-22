@@ -234,35 +234,19 @@ class AppUpdateManager @Inject constructor(
                 if (latestParts[i] < currentParts[i]) return false
             }
             if (latestParts.size > currentParts.size && latestParts.drop(maxIndex).any { it > 0 }) return true
-        }
+            if (latestParts.size < currentParts.size && currentParts.drop(maxIndex).any { it > 0 }) return false
 
-        // 2. Check 8-digit date timestamps in tags (e.g. 20260914 vs 20260813)
-        val dateRegex = Regex("""\b(20\d{6})\b""")
-        val latestDateMatch = dateRegex.find(latestTag)?.value?.toLongOrNull()
-        val currentDateMatch = dateRegex.find(currentVersionName)?.value?.toLongOrNull()
+            // 2. If main semver components are equal (e.g. 1.0.0 == 1.0.0), check for 8-digit date timestamps
+            val dateRegex = Regex("""\b(20\d{6})\b""")
+            val latestDateMatch = dateRegex.find(latestTag)?.value?.toLongOrNull()
+            val currentDateMatch = dateRegex.find(currentVersionName)?.value?.toLongOrNull()
 
-        if (latestDateMatch != null && currentDateMatch != null) {
-            return latestDateMatch > currentDateMatch
-        }
-
-        // 3. Compare latest release tag date against installed app update time
-        if (latestDateMatch != null) {
-            try {
-                val format = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US)
-                format.timeZone = java.util.TimeZone.getTimeZone("UTC")
-                val releaseTimeMs = format.parse(latestDateMatch.toString())?.time ?: 0L
-                val lastUpdateTime = runCatching {
-                    context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
-                }.getOrDefault(0L)
-                if (releaseTimeMs > 0L && lastUpdateTime > 0L) {
-                    val oneDayMs = 24 * 60 * 60 * 1000L
-                    if (releaseTimeMs > lastUpdateTime + oneDayMs) {
-                        return true
-                    }
-                }
-            } catch (e: Exception) {
-                // Ignore parse errors
+            if (latestDateMatch != null && currentDateMatch != null) {
+                return latestDateMatch > currentDateMatch
             }
+
+            // Equal semver and no newer date build -> app is up to date
+            return false
         }
 
         return false

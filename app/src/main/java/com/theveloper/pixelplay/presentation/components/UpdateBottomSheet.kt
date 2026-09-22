@@ -1,8 +1,6 @@
 package com.theveloper.pixelplay.presentation.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,14 +21,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -44,8 +38,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.theveloper.pixelplay.data.update.AppReleaseInfo
@@ -57,45 +56,33 @@ fun UpdateBottomSheet(
     updateState: UpdateCheckState,
     onDismiss: () -> Unit,
     onDownloadClick: (String) -> Unit,
-    onInstallClick: (java.io.File) -> Unit
+    onInstallClick: (java.io.File) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    if (updateState is UpdateCheckState.Idle || updateState is UpdateCheckState.UpToDate) return
-
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(bottom = 32.dp, top = 8.dp)
         ) {
             when (updateState) {
-                is UpdateCheckState.Checking -> {
-                    Spacer(Modifier.height(16.dp))
-                    CircularProgressIndicator(modifier = Modifier.size(48.dp))
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        text = "Checking for new releases...",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(24.dp))
-                }
-
                 is UpdateCheckState.UpdateAvailable -> {
-                    val release = updateState.releaseInfo
                     UpdateAvailableContent(
-                        release = release,
+                        release = updateState.releaseInfo,
                         onDismiss = onDismiss,
                         onDownload = {
-                            release.apkDownloadUrl?.let(onDownloadClick)
+                            updateState.releaseInfo.apkDownloadUrl?.let { url ->
+                                onDownloadClick(url)
+                            }
                         }
                     )
                 }
@@ -161,6 +148,7 @@ private fun UpdateAvailableContent(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(Modifier.height(4.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -179,14 +167,14 @@ private fun UpdateAvailableContent(
                 }
                 if (!release.apkSizeFormatted.isNullOrBlank()) {
                     Text(
-                        text = "• ${release.apkSizeFormatted}",
+                        text = "\u2022 ${release.apkSizeFormatted}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (!release.publishedAt.isNullOrBlank()) {
                     Text(
-                        text = "• ${release.publishedAt}",
+                        text = "\u2022 ${release.publishedAt}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -197,30 +185,27 @@ private fun UpdateAvailableContent(
 
     Spacer(Modifier.height(20.dp))
 
-    // Changelog card
+    // Changelog card with proper Markdown rendering
     Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
-                .padding(16.dp)
-                .heightIn(max = 240.dp)
+                .padding(20.dp)
+                .heightIn(max = 280.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = "What's New",
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = release.changelog,
-                style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Spacer(Modifier.height(12.dp))
+
+            FormattedMarkdownContent(markdownText = release.changelog)
         }
     }
 
@@ -232,7 +217,9 @@ private fun UpdateAvailableContent(
     ) {
         OutlinedButton(
             onClick = onDismiss,
-            modifier = Modifier.weight(1f).height(48.dp),
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
             shape = CircleShape
         ) {
             Text("Later")
@@ -241,12 +228,96 @@ private fun UpdateAvailableContent(
         Button(
             onClick = onDownload,
             enabled = release.apkDownloadUrl != null,
-            modifier = Modifier.weight(1.5f).height(48.dp),
+            modifier = Modifier
+                .weight(1.5f)
+                .height(48.dp),
             shape = CircleShape
         ) {
             Icon(Icons.Rounded.Download, null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text("Update Now")
+        }
+    }
+}
+
+@Composable
+private fun FormattedMarkdownContent(markdownText: String) {
+    if (markdownText.isBlank()) {
+        Text(
+            text = "No release notes provided.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+
+    val lines = markdownText.lines()
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        lines.forEach { rawLine ->
+            val line = rawLine.trim()
+            when {
+                line.startsWith("#") -> {
+                    val cleanHeader = line.trimStart('#', ' ').trim()
+                    if (cleanHeader.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = cleanHeader,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                line.startsWith("* ") || line.startsWith("- ") || line.startsWith("+ ") -> {
+                    val cleanItem = line.drop(2).trim()
+                    if (cleanItem.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 7.dp)
+                                    .size(6.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            )
+                            val linkColor = MaterialTheme.colorScheme.primary
+                            val annotatedText = buildAnnotatedString {
+                                val mentionRegex = Regex("@(\\w+)")
+                                var lastIndex = 0
+                                mentionRegex.findAll(cleanItem).forEach { match ->
+                                    append(cleanItem.substring(lastIndex, match.range.first))
+                                    val username = match.groupValues[1]
+                                    withLink(
+                                        LinkAnnotation.Url(
+                                            url = "https://github.com/$username",
+                                            styles = TextLinkStyles(style = SpanStyle(color = linkColor))
+                                        )
+                                    ) {
+                                        append(match.value)
+                                    }
+                                    lastIndex = match.range.last + 1
+                                }
+                                if (lastIndex < cleanItem.length) {
+                                    append(cleanItem.substring(lastIndex))
+                                }
+                            }
+                            Text(
+                                text = annotatedText,
+                                style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+                line.isNotBlank() -> {
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
@@ -292,7 +363,9 @@ private fun DownloadingContent(
     OutlinedButton(
         onClick = onDismiss,
         shape = CircleShape,
-        modifier = Modifier.fillMaxWidth().height(48.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
     ) {
         Text("Continue in Background")
     }
@@ -327,7 +400,9 @@ private fun ReadyToInstallContent(
     Button(
         onClick = onInstall,
         shape = CircleShape,
-        modifier = Modifier.fillMaxWidth().height(48.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
     ) {
         Icon(Icons.Rounded.SystemUpdate, null, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
@@ -365,7 +440,9 @@ private fun ErrorContent(
     Button(
         onClick = onDismiss,
         shape = CircleShape,
-        modifier = Modifier.fillMaxWidth().height(48.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
     ) {
         Text("Close")
     }
