@@ -387,26 +387,51 @@ class LyricsStateHolder @Inject constructor(
                         id = rawTrackId,
                         title = song.title,
                         artists = listOf(dev.brahmkshatriya.echo.common.models.Artist(id = "", name = song.displayArtist)),
-                        album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album)
+                        album = dev.brahmkshatriya.echo.common.models.Album(id = "", title = song.album),
+                        duration = song.duration
                     )
+                    val echoTrackNoAlbum = echoTrack.copy(album = null)
+                    val queryAttempts = listOf(echoTrack, echoTrackNoAlbum)
 
-                    // 1. Try searchTrackLyrics with the origin client id (works for streaming extension songs)
-                    var rawCandidates = runCatching { client.searchTrackLyrics(originClientId, echoTrack).loadAll() }.getOrNull().orEmpty()
-
-                    // 2. If empty, try with the extension's own id as client (dedicated lyrics extensions)
-                    if (rawCandidates.isEmpty() && originClientId != extensionId) {
-                        rawCandidates = runCatching { client.searchTrackLyrics(extensionId, echoTrack).loadAll() }.getOrNull().orEmpty()
+                    // clientIds to try: origin → extension itself → blank (same strategy as auto search)
+                    val clientIds = if (originClientId.isNotBlank() && originClientId != extensionId) {
+                        listOf(originClientId, extensionId, "")
+                    } else {
+                        listOf(extensionId, "")
                     }
 
-                    // 3. If still empty, use text search (works for local files and LyricsSearchClient extensions)
-                    if (rawCandidates.isEmpty()) {
-                        val query = "${song.title} ${song.displayArtist}".trim()
-                        if (client is dev.brahmkshatriya.echo.common.clients.LyricsSearchClient) {
-                            rawCandidates = runCatching { client.searchLyrics(query).loadAll() }.getOrNull().orEmpty()
-                        } else {
-                            // Last resort: searchTrackLyrics with empty clientId and title-only track id
-                            val titleOnlyTrack = echoTrack.copy(id = song.title)
-                            rawCandidates = runCatching { client.searchTrackLyrics("", titleOnlyTrack).loadAll() }.getOrNull().orEmpty()
+                    var rawCandidates: List<dev.brahmkshatriya.echo.common.models.Lyrics> = emptyList()
+
+                    // Strategy A: searchTrackLyrics with multiple clientId × track variants
+                    outer@ for (clientId in clientIds) {
+                        for (queryTrack in queryAttempts) {
+                            val items = runCatching {
+                                client.searchTrackLyrics(clientId, queryTrack).loadAll()
+                            }.getOrNull().orEmpty()
+                            if (items.isNotEmpty()) {
+                                rawCandidates = items
+                                break@outer
+                            }
+                        }
+                    }
+
+                    // Strategy B: LyricsSearchClient text search fallback
+                    if (rawCandidates.isEmpty() && client is dev.brahmkshatriya.echo.common.clients.LyricsSearchClient) {
+                        val cleanTitle = song.title
+                            .replace(Regex("""(?i)\(feat\..*?\)"""), "")
+                            .replace(Regex("""(?i)\s*-\s*(Remastered|Live|Radio Edit).*$"""), "")
+                            .trim()
+                        val queries = listOf(
+                            "$cleanTitle ${song.displayArtist}",
+                            "$cleanTitle - ${song.displayArtist}",
+                            cleanTitle
+                        )
+                        for (query in queries) {
+                            val items = runCatching { client.searchLyrics(query).loadAll() }.getOrNull().orEmpty()
+                            if (items.isNotEmpty()) {
+                                rawCandidates = items
+                                break
+                            }
                         }
                     }
 

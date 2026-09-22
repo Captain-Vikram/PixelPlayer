@@ -696,41 +696,72 @@ class LyricsRepositoryImpl @Inject constructor(
             val decoded = com.theveloper.pixelplay.extensions.core.ExtensionMediaId.decode(song.id)
             val originClientId = decoded?.extensionId ?: song.extensionId ?: ""
 
-            // Create query attempts: 1. Clean Title + Album, 2. Clean Title (No Album)
+            // Create query attempts from most-specific to least-specific
             val queryAttempts = listOf(
                 buildEchoTrack(song, useAlbum = true, cleanTitle = true),
-                buildEchoTrack(song, useAlbum = false, cleanTitle = true)
+                buildEchoTrack(song, useAlbum = false, cleanTitle = true),
+                buildEchoTrack(song, useAlbum = false, cleanTitle = false)
             )
+
+            // Build ordered list of clientIds to try per extension
+            // For local songs originClientId is blank — fallback to extension's own id
+            fun clientIdsForExtension(extId: String): List<String> {
+                return if (originClientId.isNotBlank() && originClientId != extId) {
+                    listOf(originClientId, extId, "") // Try origin first, then self, then empty
+                } else {
+                    listOf(extId, "") // For local files: just use the extension's own id
+                }
+            }
 
             val results = extensions.map { ext ->
                 async {
                     if (!ext.isEnabled) return@async null
 
-                    kotlinx.coroutines.withTimeoutOrNull(4000) {
+                    kotlinx.coroutines.withTimeoutOrNull(6000) {
                         var candidateLyrics: Lyrics? = null
                         val instance = runCatching { ext.instance.awaitNamedInjection("user") }.getOrNull()
                             ?: ext.instance.value().getOrNull()
                         val client = instance as? dev.brahmkshatriya.echo.common.clients.LyricsClient ?: return@withTimeoutOrNull null
 
-                        // Try fallback queries sequentially
-                        for (queryTrack in queryAttempts) {
-                            val feedResult = runCatching {
-                                client.searchTrackLyrics(originClientId, queryTrack)
-                            }
+                        // Strategy A: searchTrackLyrics with all clientId variants × query variants
+                        outer@ for (clientId in clientIdsForExtension(ext.metadata.id)) {
+                            for (queryTrack in queryAttempts) {
+                                val items = runCatching {
+                                    client.searchTrackLyrics(clientId, queryTrack).loadAll()
+                                }.getOrNull().orEmpty()
 
-                            val items = feedResult.getOrNull()?.loadAll().orEmpty()
-
-                            if (items.isNotEmpty()) {
                                 for (candidate in items) {
                                     val loaded = runCatching { client.loadLyrics(candidate) }.getOrNull() ?: continue
                                     val converted = loaded.toAppLyrics(ext.metadata.id, ext.metadata.name)
-                                    if (converted.isValid() && isRealLyrics(converted) && isPlausibleMatch(song, converted.extensionTitle)) {
+                                    // isValid + isRealLyrics is enough — let ranking handle plausibility
+                                    if (converted.isValid() && isRealLyrics(converted)) {
+                                        candidateLyrics = converted
+                                        break@outer
+                                    }
+                                }
+                            }
+                        }
+
+                        // Strategy B: LyricsSearchClient text search (for dedicated lyrics extensions)
+                        if (candidateLyrics == null && client is dev.brahmkshatriya.echo.common.clients.LyricsSearchClient) {
+                            val cleanTitle = cleanSongTitle(song.title)
+                            val queries = listOf(
+                                "$cleanTitle ${song.displayArtist}",
+                                "$cleanTitle - ${song.displayArtist}",
+                                cleanTitle
+                            )
+                            for (query in queries) {
+                                val items = runCatching { client.searchLyrics(query).loadAll() }.getOrNull().orEmpty()
+                                for (candidate in items) {
+                                    val loaded = runCatching { client.loadLyrics(candidate) }.getOrNull() ?: continue
+                                    val converted = loaded.toAppLyrics(ext.metadata.id, ext.metadata.name)
+                                    if (converted.isValid() && isRealLyrics(converted)) {
                                         candidateLyrics = converted
                                         break
                                     }
                                 }
+                                if (candidateLyrics != null) break
                             }
-                            if (candidateLyrics != null) break
                         }
 
                         candidateLyrics
@@ -739,15 +770,16 @@ class LyricsRepositoryImpl @Inject constructor(
             }.awaitAll().filterNotNull()
 
             if (results.isEmpty()) {
-                Log.w(TAG, "All ${extensions.size} extensions returned no plausible matches for '${song.title}'")
+                Log.w(TAG, "All ${extensions.size} extensions returned no results for '${song.title}'")
                 return@withContext null
             }
 
-            // Rank results: Prefer synced, then prefer title matches
+            // Rank: synced > plausible title match > plain
             val sortedResults = results.sortedByDescending { lyrics ->
                 var score = 0
-                if (!lyrics.synced.isNullOrEmpty()) score += 2
-                if (isPlausibleMatch(song, lyrics.extensionTitle)) score += 1
+                if (!lyrics.synced.isNullOrEmpty()) score += 4
+                if (isPlausibleMatch(song, lyrics.extensionTitle)) score += 2
+                if (!lyrics.plain.isNullOrEmpty()) score += 1
                 score
             }
 
