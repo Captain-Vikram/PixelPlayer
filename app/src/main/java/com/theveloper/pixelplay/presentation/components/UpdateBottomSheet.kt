@@ -109,7 +109,7 @@ fun UpdateBottomSheet(
                     )
                 }
 
-                is UpdateCheckState.Idle, is UpdateCheckState.UpToDate -> Unit
+                is UpdateCheckState.Idle, is UpdateCheckState.UpToDate, is UpdateCheckState.Checking -> Unit
             }
         }
     }

@@ -97,6 +97,9 @@ private fun WebViewContainer(
     val doneState = remember(request) { mutableStateOf(false) }
     val interceptedRequests = remember(request) { java.util.Collections.synchronizedList(mutableListOf<NetworkRequest>()) }
     val bridge = remember(request) { Bridge() }
+    // Track every host visited during this session so we can collect cookies from all of them
+    // at completion time — no extension-specific hardcoding needed.
+    val visitedHosts = remember(request) { java.util.Collections.synchronizedSet(mutableSetOf<String>()) }
     
     DisposableEffect(webView) {
         onDispose {
@@ -108,12 +111,12 @@ private fun WebViewContainer(
     LaunchedEffect(request, webView) {
         doneState.value = false
         interceptedRequests.clear()
-        
-        val isLoginRequest = request.showWebView || 
-                request.reason.contains("login", ignoreCase = true) || 
-                request.request.initialUrl.url.contains("login", ignoreCase = true) || 
-                request.request.initialUrl.url.contains("auth", ignoreCase = true) ||
-                request.request.initialUrl.url.contains("accounts.google", ignoreCase = true)
+        visitedHosts.clear()
+
+        // showWebView is the definitive signal that this is a user-visible login/auth flow.
+        // We must not auto-stop while the user is still on the initial URL — they haven't
+        // interacted yet. No keyword sniffing on URLs needed.
+        val isLoginRequest = request.showWebView
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -123,9 +126,9 @@ private fun WebViewContainer(
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
-        
+
         val isGoogleLogin = request.request.initialUrl.url.contains("accounts.google", ignoreCase = true)
-        
+
         // Google blocks standard Chrome webview user agents ("wv") from logging in ("browser might not be safe").
         // For Google, we use Echo's proven legacy User-Agent workaround.
         // For Spotify and other modern sites, using an ancient Chrome 66 user agent breaks modern JS frameworks (React),
@@ -137,7 +140,7 @@ private fun WebViewContainer(
             val originalUserAgent = webView.settings.userAgentString
             webView.settings.userAgentString = originalUserAgent.replace("; wv", "")
         }
-        
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             webView.settings.isAlgorithmicDarkeningAllowed = true
         }
@@ -152,9 +155,9 @@ private fun WebViewContainer(
         }
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
-        
+
         webView.addJavascriptInterface(bridge, "bridge")
-        
+
         // Always use the regex declared by the extension in its WebViewRequest.
         // Extensions define their own stop conditions — PixelPlayer must not override them.
         val stopRegex = request.request.stopUrlRegex
@@ -192,23 +195,36 @@ private fun WebViewContainer(
             }
         }
 
+        // Record every host seen during the session for universal cookie collection.
+        fun recordVisitedHost(url: String) {
+            try {
+                val host = android.net.Uri.parse(url).host ?: return
+                val scheme = android.net.Uri.parse(url).scheme ?: "https"
+                val apex = host.lowercase().removePrefix("www.")
+                visitedHosts.add("$scheme://$host")
+                visitedHosts.add("$scheme://$apex")
+                visitedHosts.add("$scheme://www.$apex")
+            } catch (_: Exception) {}
+        }
+
         fun checkStopCondition(url: String) {
             if (doneState.value) return
             if (stopRegex.containsMatchIn(url)) {
-                // In login flows, don't trigger stop on the initial login entry form URL before the user enters credentials
+                // When the user is in a visible login flow, the extension's stopUrlRegex often
+                // also matches the initial login page URL (e.g. accounts.spotify.com matches
+                // a broad Spotify regex). We must not stop there — the user hasn't authenticated
+                // yet. Only stop once we've navigated away from the initial URL.
                 if (isLoginRequest) {
-                    val initialUrl = request.request.initialUrl.url
-                    val initialClean = initialUrl.substringBefore("?").trimEnd('/')
-                    val currentClean = url.substringBefore("?").trimEnd('/')
-                    if (currentClean.equals(initialClean, ignoreCase = true) && 
-                        (currentClean.contains("login", ignoreCase = true) || currentClean.contains("signin", ignoreCase = true))) {
-                        Timber.d("ExtensionWebView: Match on initial login entry page $url, waiting for user auth submission...")
+                    val initialBase = request.request.initialUrl.url.substringBefore("?").trimEnd('/')
+                    val currentBase = url.substringBefore("?").trimEnd('/')
+                    if (currentBase.equals(initialBase, ignoreCase = true)) {
+                        Timber.d("ExtensionWebView: Stop regex matched initial URL $url — waiting for user to authenticate...")
                         return
                     }
                 }
                 Timber.d("ExtensionWebView: Stop condition matched on $url. Triggering completion...")
                 timeoutJob.cancel()
-                triggerStop(webView, url, request, this, bridge, interceptedRequests, doneState)
+                triggerStop(webView, url, request, this, bridge, interceptedRequests, visitedHosts, doneState)
             }
         }
 
@@ -216,13 +232,14 @@ private fun WebViewContainer(
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 Timber.d("ExtensionWebView: Page started: $url")
-                
+
                 val evaluateReq = request.request as? WebViewRequest.Evaluate
                 evaluateReq?.javascriptToEvaluateOnPageStart?.let { js ->
                     view?.evaluateJavascript(js, null)
                 }
 
                 if (url != null) {
+                    recordVisitedHost(url)
                     checkStopCondition(url)
                 }
             }
@@ -231,14 +248,16 @@ private fun WebViewContainer(
                 super.onPageFinished(view, url)
                 Timber.d("ExtensionWebView: Page finished: $url")
                 if (url != null) {
+                    recordVisitedHost(url)
                     recordHeaderIfMatching(NetworkRequest(NetworkRequest.Method.GET, url))
                     checkStopCondition(url)
                 }
             }
-            
+
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                 if (url != null) {
+                    recordVisitedHost(url)
                     recordHeaderIfMatching(NetworkRequest(NetworkRequest.Method.GET, url))
                     checkStopCondition(url)
                 }
@@ -249,6 +268,7 @@ private fun WebViewContainer(
                 if (request != null) {
                     val url = request.url.toString()
                     val headers = request.requestHeaders ?: emptyMap()
+                    recordVisitedHost(url)
                     recordHeaderIfMatching(NetworkRequest(NetworkRequest.Method.GET, url, headers))
                     if (request.isForMainFrame) {
                         checkStopCondition(url)
@@ -287,6 +307,7 @@ private fun WebViewContainer(
                 return super.shouldInterceptRequest(view, webResourceRequest)
             }
         }
+
 
         webView.webChromeClient = object : android.webkit.WebChromeClient() {
             override fun onCreateWindow(
@@ -411,6 +432,7 @@ private fun <T> triggerStop(
     scope: CoroutineScope,
     bridge: Bridge,
     interceptedRequests: List<NetworkRequest>,
+    visitedHosts: Set<String>,
     doneState: MutableState<Boolean>
 ) {
     if (doneState.value) return
@@ -432,49 +454,14 @@ private fun <T> triggerStop(
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.flush()
 
-                // Generic: collect cookies from the URL's domain hierarchy and the initial URL's
-                // domain hierarchy. This handles any extension's login flow without hardcoding
-                // extension names or domains.
-                fun extractBaseDomain(rawUrl: String): String? {
-                    return try {
-                        val uri = android.net.Uri.parse(rawUrl)
-                        val host = uri.host?.lowercase()?.removePrefix("www.") ?: return null
-                        host
-                    } catch (_: Exception) { null }
-                }
-
-                fun buildDomainVariants(rawUrl: String): List<String> {
-                    val uri = android.net.Uri.parse(rawUrl)
-                    val scheme = uri.scheme ?: "https"
-                    val host = uri.host ?: return listOf(rawUrl)
-                    val apex = host.lowercase().removePrefix("www.")
-                    val list = mutableListOf(
-                        rawUrl,
-                        "$scheme://$host",
-                        "$scheme://$apex",
-                        "$scheme://www.$apex"
-                    )
-                    if (host.contains("spotify")) {
-                        list.add("https://open.spotify.com")
-                        list.add("https://accounts.spotify.com")
-                    } else if (host.contains("youtube") || host.contains("google")) {
-                        list.add("https://music.youtube.com")
-                        list.add("https://accounts.google.com")
-                        list.add("https://www.youtube.com")
-                    } else if (host.contains("deezer")) {
-                        list.add("https://www.deezer.com")
-                    } else if (host.contains("soundcloud")) {
-                        list.add("https://soundcloud.com")
-                    }
-                    return list.distinct()
-                }
-
-                val domains = (buildDomainVariants(url) +
-                        buildDomainVariants(target.request.initialUrl.url)).distinct()
+                // Collect cookies from every host the WebView visited during this session.
+                // This is fully universal — no extension-specific domain hardcoding needed.
+                // The stop URL and the initial URL are always included as well.
+                val allHosts = (visitedHosts + buildHostVariants(url) + buildHostVariants(target.request.initialUrl.url)).toSet()
 
                 val merged = mutableMapOf<String, String>()
-                for (d in domains) {
-                    val cStr = cookieManager.getCookie(d) ?: continue
+                for (host in allHosts) {
+                    val cStr = cookieManager.getCookie(host) ?: continue
                     cStr.split(";").forEach { pair ->
                         val parts = pair.split("=", limit = 2)
                         if (parts.size == 2) {
@@ -511,5 +498,27 @@ private fun <T> triggerStop(
         } catch (e: Exception) {
             deferred.completeExceptionally(e)
         }
+    }
+}
+
+/**
+ * Returns the standard URL variants for a given URL that CookieManager may key cookies under:
+ * the full URL, the host-only origin, the apex domain (no www) origin, and the www-prefixed
+ * apex domain origin. No extension-specific logic — works for any domain.
+ */
+private fun buildHostVariants(rawUrl: String): List<String> {
+    return try {
+        val uri = android.net.Uri.parse(rawUrl)
+        val scheme = uri.scheme ?: "https"
+        val host = uri.host ?: return listOf(rawUrl)
+        val apex = host.lowercase().removePrefix("www.")
+        listOf(
+            rawUrl,
+            "$scheme://$host",
+            "$scheme://$apex",
+            "$scheme://www.$apex"
+        ).distinct()
+    } catch (_: Exception) {
+        listOf(rawUrl)
     }
 }
