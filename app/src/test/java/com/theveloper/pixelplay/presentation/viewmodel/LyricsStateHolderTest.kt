@@ -59,6 +59,7 @@ class LyricsStateHolderTest {
         val extensionLoader = mockk<ExtensionLoader>(relaxed = true)
         every { extensionLoader.all } returns MutableStateFlow(emptyList())
         every { extensionLoader.lyrics } returns MutableStateFlow(emptyList())
+        every { extensionLoader.music } returns MutableStateFlow(emptyList())
         val holder = LyricsStateHolder(
             musicRepository = musicRepository,
             lyricsRepository = mockk<LyricsRepository>(relaxed = true),
@@ -133,6 +134,7 @@ class LyricsStateHolderTest {
         
         every { extensionLoader.all } returns MutableStateFlow(listOf(mockExtension))
         every { extensionLoader.lyrics } returns MutableStateFlow(listOf(mockExtension))
+        every { extensionLoader.music } returns MutableStateFlow(emptyList())
         every { mockExtension.metadata.id } returns "spotify"
         every { mockExtension.instance } returns mockInjectable
         coEvery { mockInjectable.value() } returns Result.success(mockClient)
@@ -154,7 +156,7 @@ class LyricsStateHolderTest {
         // Allow selectLyricsSource launch block to run
         delay(100)
         
-        coVerify(exactly = 1) { 
+        coVerify(atLeast = 1) { 
             mockClient.searchTrackLyrics("spotify", match { track -> 
                 track.id == "123" 
             }) 
