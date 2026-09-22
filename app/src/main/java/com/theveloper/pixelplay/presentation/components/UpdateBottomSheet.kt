@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.theveloper.pixelplay.data.update.AppReleaseInfo
 import com.theveloper.pixelplay.data.update.UpdateCheckState
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -145,6 +146,7 @@ private fun UpdateAvailableContent(
             Text(
                 text = "New Update Available",
                 style = MaterialTheme.typography.titleLarge,
+                fontFamily = GoogleSansRounded,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -160,6 +162,7 @@ private fun UpdateAvailableContent(
                     Text(
                         text = release.tagName,
                         style = MaterialTheme.typography.labelMedium,
+                        fontFamily = GoogleSansRounded,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -200,6 +203,7 @@ private fun UpdateAvailableContent(
             Text(
                 text = "What's New",
                 style = MaterialTheme.typography.titleSmall,
+                fontFamily = GoogleSansRounded,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -263,6 +267,7 @@ private fun FormattedMarkdownContent(markdownText: String) {
                         Text(
                             text = cleanHeader,
                             style = MaterialTheme.typography.titleMedium,
+                            fontFamily = GoogleSansRounded,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
