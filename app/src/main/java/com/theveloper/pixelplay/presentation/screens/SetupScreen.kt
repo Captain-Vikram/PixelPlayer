@@ -62,6 +62,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -69,10 +71,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PhoneAndroid
@@ -83,11 +88,16 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LoadingIndicator
+import coil.compose.AsyncImage
+import com.theveloper.pixelplay.extensions.core.ExtensionStatus
+import com.theveloper.pixelplay.extensions.core.ExtensionStoreItem
 
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -179,6 +189,7 @@ fun SetupScreen(
     val isExplorerPriming by setupViewModel.isExplorerPriming.collectAsStateWithLifecycle()
     val isExplorerReady by setupViewModel.isExplorerReady.collectAsStateWithLifecycle()
     val isCurrentDirectoryResolved by setupViewModel.isCurrentDirectoryResolved.collectAsStateWithLifecycle()
+    val recommendedExtensions by setupViewModel.recommendedExtensions.collectAsStateWithLifecycle()
     var selectedBackupUri by remember { mutableStateOf<Uri?>(null) }
     
     var showCornerRadiusOverlay by remember { mutableStateOf(false) }
@@ -401,6 +412,13 @@ fun SetupScreen(
                             navigateToPage(pagerState.currentPage + 1)
                         }
                     )
+                    SetupPage.Extensions -> ExtensionsSetupPage(
+                        recommendedExtensions = recommendedExtensions,
+                        onInstall = setupViewModel::installRecommendedExtension,
+                        onSkip = {
+                            navigateToPage(pagerState.currentPage + 1)
+                        }
+                    )
                 }
             }
         }
@@ -547,6 +565,7 @@ sealed class SetupPage {
     object AlarmsPermission : SetupPage()
     object LibraryLayout : SetupPage()
     object NavBarLayout : SetupPage()
+    object Extensions : SetupPage()
     object BatteryOptimization : SetupPage()
     object Finish : SetupPage()
 }
@@ -571,6 +590,7 @@ private fun buildSetupPages(sdkInt: Int): List<SetupPage> {
         pages += SetupPage.AlarmsPermission
     }
 
+    pages += SetupPage.Extensions
     pages += SetupPage.BatteryOptimization
     pages += SetupPage.Finish
     return pages
@@ -2449,6 +2469,340 @@ fun NavBarPreview(isDefault: Boolean) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ExtensionsSetupPage(
+    recommendedExtensions: Map<String, ExtensionStoreItem>,
+    onInstall: (ExtensionStoreItem) -> Unit,
+    onSkip: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.setup_extensions_title),
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontFamily = GoogleSansRounded,
+                    fontSize = 32.sp
+                ),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = stringResource(R.string.setup_extensions_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // Category 1: Audio Streaming
+            SetupCategoryHeader(
+                icon = Icons.Rounded.MusicNote,
+                title = stringResource(R.string.setup_extensions_category_streaming)
+            )
+            val ytmItem = recommendedExtensions[SetupViewModel.RECOMMENDED_EXT_YTM]
+            val saavnItem = recommendedExtensions[SetupViewModel.RECOMMENDED_EXT_SAAVN]
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    if (ytmItem != null) {
+                        CompactExtensionRow(
+                            item = ytmItem,
+                            onInstall = { onInstall(ytmItem) }
+                        )
+                    }
+                    if (ytmItem != null && saavnItem != null) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = 14.dp)
+                        )
+                    }
+                    if (saavnItem != null) {
+                        CompactExtensionRow(
+                            item = saavnItem,
+                            onInstall = { onInstall(saavnItem) }
+                        )
+                    }
+                }
+            }
+
+            // Category 2: Lyrics
+            val lrclibItem = recommendedExtensions[SetupViewModel.RECOMMENDED_EXT_LRCLIB]
+            if (lrclibItem != null) {
+                SetupCategoryHeader(
+                    painter = painterResource(R.drawable.rounded_lyrics_24),
+                    title = stringResource(R.string.setup_extensions_category_lyrics)
+                )
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    CompactExtensionRow(
+                        item = lrclibItem,
+                        onInstall = { onInstall(lrclibItem) }
+                    )
+                }
+            }
+
+            // Category 3: Downloader
+            val echoDownItem = recommendedExtensions[SetupViewModel.RECOMMENDED_EXT_ECHODOWN]
+            if (echoDownItem != null) {
+                SetupCategoryHeader(
+                    icon = Icons.Rounded.CloudDownload,
+                    title = stringResource(R.string.setup_extensions_category_downloader)
+                )
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    CompactExtensionRow(
+                        item = echoDownItem,
+                        onInstall = { onInstall(echoDownItem) }
+                    )
+                }
+            }
+        }
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            TextButton(
+                onClick = onSkip
+            ) {
+                Text(
+                    text = stringResource(R.string.setup_skip_for_now),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.setup_extensions_footer),
+                style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SetupCategoryHeader(
+    title: String,
+    icon: ImageVector? = null,
+    painter: androidx.compose.ui.graphics.painter.Painter? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
+                )
+            } else if (painter != null) {
+                Icon(
+                    painter = painter,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+            Text(
+                text = title.uppercase(Locale.getDefault()),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = GoogleSansRounded,
+                    letterSpacing = 0.8.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
+            Text(
+                text = stringResource(R.string.setup_recommended),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactExtensionRow(
+    item: ExtensionStoreItem,
+    onInstall: () -> Unit
+) {
+    val isInstalled = item.status == ExtensionStatus.INSTALLED
+    val isDownloading = item.status == ExtensionStatus.DOWNLOADING || item.status == ExtensionStatus.INSTALLING
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Icon
+        Surface(
+            color = if (isInstalled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.secondaryContainer,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.size(38.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (item.remote.iconUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = item.remote.iconUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                        error = painterResource(R.drawable.ic_music_placeholder)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.Extension,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+
+        // Details
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+            Text(
+                text = item.remote.name,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontFamily = GoogleSansRounded
+                ),
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = item.remote.subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        // Action button
+        when {
+            isInstalled -> {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = CircleShape
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.setup_extensions_installed),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+            isDownloading -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = stringResource(R.string.setup_extensions_installing),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            else -> {
+                FilledTonalButton(
+                    onClick = onInstall,
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.setup_extensions_install),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

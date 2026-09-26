@@ -18,16 +18,23 @@ import com.theveloper.pixelplay.data.backup.model.RestoreResult
 import com.theveloper.pixelplay.data.preferences.AppThemeMode
 import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.data.repository.ExtensionRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.worker.SyncManager
+import com.theveloper.pixelplay.extensions.core.ExtensionStatus
+import com.theveloper.pixelplay.extensions.core.ExtensionStoreItem
+import com.theveloper.pixelplay.extensions.core.RemoteExtension
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -69,6 +76,7 @@ class SetupViewModel @Inject constructor(
     private val syncManager: SyncManager,
     private val backupManager: BackupManager,
     private val musicRepository: MusicRepository,
+    private val extensionRepository: ExtensionRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -131,6 +139,53 @@ class SetupViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoadingDirectories = loading) }
             }
         }
+
+        extensionRepository.fetchStoreExtensions()
+    }
+
+    val recommendedExtensions: StateFlow<Map<String, ExtensionStoreItem>> = combine(
+        extensionRepository.storeItems,
+        extensionRepository.allExtensions
+    ) { storeList, installedList ->
+        val installedIds = installedList.map { it.metadata.id }.toSet()
+        val storeMap = storeList.associateBy { it.remote.id }
+
+        DEFAULT_RECOMMENDED_REMOTES.associate { remote ->
+            val storeItem = storeMap[remote.id]
+            val isInstalled = remote.id in installedIds
+            val finalItem = when {
+                storeItem != null -> {
+                    if (isInstalled && storeItem.status != ExtensionStatus.DOWNLOADING) {
+                        storeItem.copy(status = ExtensionStatus.INSTALLED)
+                    } else {
+                        storeItem
+                    }
+                }
+                isInstalled -> ExtensionStoreItem(
+                    remote = remote,
+                    status = ExtensionStatus.INSTALLED
+                )
+                else -> ExtensionStoreItem(
+                    remote = remote,
+                    status = ExtensionStatus.AVAILABLE
+                )
+            }
+            remote.id to finalItem
+        }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        DEFAULT_RECOMMENDED_REMOTES.associate { remote ->
+            remote.id to ExtensionStoreItem(remote, ExtensionStatus.AVAILABLE)
+        }
+    )
+
+    fun installRecommendedExtension(item: ExtensionStoreItem) {
+        extensionRepository.installExtension(item)
+    }
+
+    fun fetchStoreExtensions() {
+        extensionRepository.fetchStoreExtensions()
     }
     
     private data class SetupPrefsUpdate(
@@ -390,5 +445,47 @@ class SetupViewModel @Inject constructor(
         if (syncAfter) {
             syncManager.fullSync()
         }
+    }
+
+    companion object {
+        const val RECOMMENDED_EXT_YTM = "Youtube_music"
+        const val RECOMMENDED_EXT_SAAVN = "saavn_music"
+        const val RECOMMENDED_EXT_LRCLIB = "lrclib_lyrics"
+        const val RECOMMENDED_EXT_ECHODOWN = "echodown"
+
+        val DEFAULT_RECOMMENDED_REMOTES = listOf(
+            RemoteExtension(
+                id = RECOMMENDED_EXT_YTM,
+                name = "YouTube Music",
+                type = "music",
+                subtitle = "Stream music from YouTube Music",
+                iconUrl = "https://music.youtube.com/img/favicon_144.png",
+                updateUrl = "https://api.github.com/repos/Abhishek890/Eco-Youtube_Music/releases"
+            ),
+            RemoteExtension(
+                id = RECOMMENDED_EXT_SAAVN,
+                name = "JioSaavn",
+                type = "music",
+                subtitle = "Stream Indian & international music",
+                iconUrl = "https://files.catbox.moe/7ix5d3.png",
+                updateUrl = "https://api.github.com/repos/Abhishek890/Echo-Saavn-Extension/releases"
+            ),
+            RemoteExtension(
+                id = RECOMMENDED_EXT_LRCLIB,
+                name = "LRCLIB",
+                type = "lyrics",
+                subtitle = "Synchronized and plain lyrics provider",
+                iconUrl = "https://lrclib.net/assets/lrclib-370c57eb.png",
+                updateUrl = "https://api.github.com/repos/shub39/echo-lrclib-extension/releases"
+            ),
+            RemoteExtension(
+                id = RECOMMENDED_EXT_ECHODOWN,
+                name = "EchoDown",
+                type = "misc",
+                subtitle = "Download tracks for offline listening",
+                iconUrl = "https://cdn-images.dzcdn.net/images/cover/00e78b6d932527f79d2df3f4f694510b/264x264-000000-80-0-0.jpg",
+                updateUrl = "https://api.github.com/repos/LuftVerbot/echo-echodown-extension/releases"
+            )
+        )
     }
 }
