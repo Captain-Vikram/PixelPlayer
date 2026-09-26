@@ -418,7 +418,11 @@ class ExtensionRepository @Inject constructor(
         val extensionId = extension.metadata.id
         
         repositoryScope.launch {
-            extension.instance.awaitNamedInjection("user")
+            val hasLoggedInUser = extensionEngine.extensionUserDao.observeCurrentUser()
+                .firstOrNull()?.any { it.extId == extensionId } == true
+            if (hasLoggedInUser) {
+                extension.instance.awaitNamedInjection("user")
+            }
             val client = extension.instance.value().getOrNull()
             if (client is HomeFeedClient) {
                 _isLoadingFeed.value = true
@@ -826,7 +830,11 @@ class ExtensionRepository @Inject constructor(
         }
 
         repositoryScope.launch {
-            extension.instance.awaitNamedInjection("user")
+            val hasLoggedInUser = extensionEngine.extensionUserDao.observeCurrentUser()
+                .firstOrNull()?.any { it.extId == extensionId } == true
+            if (hasLoggedInUser) {
+                extension.instance.awaitNamedInjection("user")
+            }
             val client = extension.instance.value().getOrNull()
             if (client is LibraryFeedClient) {
                 _isLoadingLibraryFeed.value = true

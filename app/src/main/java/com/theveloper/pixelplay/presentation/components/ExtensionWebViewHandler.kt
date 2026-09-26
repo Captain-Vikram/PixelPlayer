@@ -121,19 +121,26 @@ private fun WebViewContainer(
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.databaseEnabled = true
-        webView.settings.setSupportMultipleWindows(false)
-        webView.settings.javaScriptCanOpenWindowsAutomatically = false
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
+        webView.settings.cacheMode = if (request.request.dontCache) {
+            android.webkit.WebSettings.LOAD_NO_CACHE
+        } else {
+            android.webkit.WebSettings.LOAD_DEFAULT
+        }
+
+        // Use custom User-Agent declared by the extension in its request headers (e.g. Spotify WebPlayerConfig.USER_AGENT)
+        val customUserAgent = request.request.initialUrl.headers.entries.find {
+            it.key.equals("user-agent", ignoreCase = true)
+        }?.value
+
         val isGoogleLogin = request.request.initialUrl.url.contains("accounts.google", ignoreCase = true)
 
-        // Google blocks standard Chrome webview user agents ("wv") from logging in ("browser might not be safe").
-        // For Google, we use Echo's proven legacy User-Agent workaround.
-        // For Spotify and other modern sites, using an ancient Chrome 66 user agent breaks modern JS frameworks (React),
-        // so we use the modern native User-Agent but strip the "wv" token.
-        if (isGoogleLogin) {
+        if (!customUserAgent.isNullOrBlank()) {
+            webView.settings.userAgentString = customUserAgent
+        } else if (isGoogleLogin) {
             val echoUserAgent = "Mozilla/5.0 (Linux; Android 2; Jeff Bezos) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.158 Mobile Safari/537.36"
             webView.settings.userAgentString = echoUserAgent
         } else {
@@ -257,6 +264,9 @@ private fun WebViewContainer(
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                 if (url != null) {
+                    if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
+                        return true
+                    }
                     recordVisitedHost(url)
                     recordHeaderIfMatching(NetworkRequest(NetworkRequest.Method.GET, url))
                     checkStopCondition(url)
@@ -267,6 +277,9 @@ private fun WebViewContainer(
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 if (request != null) {
                     val url = request.url.toString()
+                    if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
+                        return true
+                    }
                     val headers = request.requestHeaders ?: emptyMap()
                     recordVisitedHost(url)
                     recordHeaderIfMatching(NetworkRequest(NetworkRequest.Method.GET, url, headers))
@@ -301,8 +314,9 @@ private fun WebViewContainer(
                         headers = headers,
                         body = null
                     )
-                    // Sub-resources only record headers for WebViewRequest.Headers, never trigger stop
+                    recordVisitedHost(url)
                     recordHeaderIfMatching(networkRequest)
+                    checkStopCondition(url)
                 }
                 return super.shouldInterceptRequest(view, webResourceRequest)
             }

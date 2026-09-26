@@ -5,6 +5,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 
 class Injectable<T>(
     private val getter: () -> T,
@@ -38,11 +39,13 @@ class Injectable<T>(
         stateFlowFor(id).value = true
     }
 
-    suspend fun awaitNamedInjection(id: String) {
+    suspend fun awaitNamedInjection(id: String, timeoutMs: Long = 1500L) {
         if (!data.isInitialized()) {
             value()
         }
-        stateFlowFor(id).first { it }
+        withTimeoutOrNull(timeoutMs) {
+            stateFlowFor(id).first { it }
+        }
     }
 
     suspend fun value() = runCatching {
