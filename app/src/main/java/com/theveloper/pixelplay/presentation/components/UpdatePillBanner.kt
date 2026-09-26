@@ -14,10 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,7 +48,7 @@ fun UpdatePillBanner(
 
     LaunchedEffect(updateState) {
         isVisible = true
-        delay(6000L) // Auto-hide after 6 seconds
+        delay(15000L) // Auto-hide after 15 seconds
         isVisible = false
     }
 
@@ -110,6 +112,20 @@ fun UpdatePillBanner(
                     )
                 ) {
                     Text("Update", fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(Modifier.width(4.dp))
+
+                IconButton(
+                    onClick = { isVisible = false },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = "Dismiss",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }

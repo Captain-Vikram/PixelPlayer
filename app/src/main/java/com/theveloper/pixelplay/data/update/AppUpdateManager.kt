@@ -206,7 +206,7 @@ class AppUpdateManager @Inject constructor(
         }
     }
 
-    private fun isVersionNewer(latestTag: String, currentVersionName: String): Boolean {
+    internal fun isVersionNewer(latestTag: String, currentVersionName: String): Boolean {
         val cleanLatest = latestTag.trim()
             .removePrefix("v")
             .removePrefix("V")
@@ -219,6 +219,7 @@ class AppUpdateManager @Inject constructor(
             .removePrefix("release-")
 
         if (cleanLatest.isBlank()) return false
+        if (cleanLatest.equals(cleanCurrent, ignoreCase = true)) return false
 
         // 1. Try standard semver comparison (e.g., 1.2.0 vs 1.1.0)
         val latestSemver = cleanLatest.split("-", "_").firstOrNull() ?: cleanLatest
@@ -241,8 +242,18 @@ class AppUpdateManager @Inject constructor(
             val latestDateMatch = dateRegex.find(latestTag)?.value?.toLongOrNull()
             val currentDateMatch = dateRegex.find(currentVersionName)?.value?.toLongOrNull()
 
-            if (latestDateMatch != null && currentDateMatch != null) {
-                return latestDateMatch > currentDateMatch
+            if (latestDateMatch != null) {
+                // If installed app is base semver (e.g. "1.0.0" without date) and remote is a dated build, remote is newer
+                if (currentDateMatch == null) return true
+                if (latestDateMatch > currentDateMatch) return true
+                if (latestDateMatch < currentDateMatch) return false
+            }
+
+            // 3. If same date (or no dates) but different commit hashes / suffixes, treat differing non-empty commit hash as newer
+            val latestSha = cleanLatest.substringAfterLast("-", "").takeIf { it.isNotBlank() }
+            val currentSha = cleanCurrent.substringAfterLast("-", "").takeIf { it.isNotBlank() }
+            if (latestSha != null && currentSha != null && latestSha != currentSha) {
+                return true
             }
 
             // Equal semver and no newer date build -> app is up to date

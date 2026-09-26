@@ -22,6 +22,7 @@ import com.theveloper.pixelplay.utils.AlbumArtCacheManager
 import com.theveloper.pixelplay.utils.AlbumArtUtils
 import com.theveloper.pixelplay.utils.CrashHandler
 import com.theveloper.pixelplay.utils.AppLocaleManager
+import com.theveloper.pixelplay.extensions.webview.WebViewCookiePersistence
 import com.theveloper.pixelplay.utils.MediaMetadataRetrieverPool
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -118,6 +119,7 @@ class PixelPlayApplication : Application(), ImageLoaderFactory, Configuration.Pr
 
         startupScope.launch {
             AlbumArtUtils.migrateLegacyCacheLocation(this@PixelPlayApplication)
+            WebViewCookiePersistence.restoreCookies(this@PixelPlayApplication)
             val savedLimit = runCatching {
                 userPreferencesRepository.get().albumArtCacheLimitMbFlow.first()
             }.getOrNull()

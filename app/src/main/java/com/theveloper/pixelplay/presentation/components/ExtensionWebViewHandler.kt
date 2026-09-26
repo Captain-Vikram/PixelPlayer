@@ -26,6 +26,7 @@ import com.theveloper.pixelplay.extensions.webview.ExtensionWebViewManager
 import com.theveloper.pixelplay.extensions.webview.ExtensionWebViewRequest
 import dev.brahmkshatriya.echo.common.helpers.WebViewRequest
 import dev.brahmkshatriya.echo.common.models.NetworkRequest
+import com.theveloper.pixelplay.extensions.webview.WebViewCookiePersistence
 import timber.log.Timber
 import kotlinx.coroutines.*
 import kotlin.coroutines.resume
@@ -113,6 +114,9 @@ private fun WebViewContainer(
         interceptedRequests.clear()
         visitedHosts.clear()
 
+        // Restore any persistent cookies from User Data before loading
+        WebViewCookiePersistence.restoreCookies(context)
+
         // showWebView is the definitive signal that this is a user-visible login/auth flow.
         // We must not auto-stop while the user is still on the initial URL — they haven't
         // interacted yet. No keyword sniffing on URLs needed.
@@ -154,11 +158,8 @@ private fun WebViewContainer(
 
         val cookieManager = CookieManager.getInstance()
         if (request.request.dontCache) {
-            android.webkit.WebStorage.getInstance().deleteAllData()
-            cookieManager.removeAllCookies(null)
-            cookieManager.flush()
-            webView.clearCache(true)
-            webView.clearHistory()
+            // Only clear RAM cache for this instance; never purge global cookies or persistent web storage
+            webView.clearCache(false)
         }
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
@@ -258,6 +259,9 @@ private fun WebViewContainer(
                     recordVisitedHost(url)
                     recordHeaderIfMatching(NetworkRequest(NetworkRequest.Method.GET, url))
                     checkStopCondition(url)
+                    view?.context?.let { ctx ->
+                        WebViewCookiePersistence.saveCookies(ctx, visitedHosts + buildHostVariants(url))
+                    }
                 }
             }
 
@@ -505,6 +509,11 @@ private fun <T> triggerStop(
                     NetworkRequest(NetworkRequest.Method.GET, url),
                     jsResult
                 )
+            }
+
+            val allHosts = (visitedHosts + buildHostVariants(url) + buildHostVariants(target.request.initialUrl.url)).toSet()
+            view?.context?.let { ctx ->
+                WebViewCookiePersistence.saveCookies(ctx, allHosts)
             }
 
             val finalResult = evalRes ?: cookieRes ?: headerRes
